@@ -90,10 +90,10 @@ class Environment:
 # The CEK machine
 # ---------------------------------------------------------------------------
 
-def lEval( expr, env=None ):
+def lEval( expr, env ):
     C = expr                                       # Control:      expression being evaluated
     V = None                                       # Value:        result flowing back in APPLY
-    E = Environment() if env is None else env      # Environment:  lexical scope
+    E = env                                        # Environment:  lexical scope
     K = []                                         # Kontinuation: a stack of frames
 
     while True:

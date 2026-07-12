@@ -93,7 +93,7 @@ class Environment:
 def lEval( expr, env ):
     C = expr                                       # Control:      expression being evaluated
     V = None                                       # Value:        result flowing back in APPLY
-    E = env                                        # Environment:  lexical scope
+    E = env                                        # Environment:  lexical scope (caller supplies it)
     K = []                                         # Kontinuation: a stack of frames
 
     while True:
@@ -162,7 +162,7 @@ def lisp_str( val ):
 
 
 def run( expr ):
-    result = lEval( expr )
+    result = lEval( expr, Environment() )
     print( f'>>> {lisp_str( expr )}' )
     print( f'==> {lisp_str( result )}' )
     print()

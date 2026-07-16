@@ -1,5 +1,5 @@
 """
-IttyBittyOO - Object-oriented programs running on the Part 2 evaluator.
+IttyBittyLisp2b_objects - Object-oriented programs running on the Part 2 evaluator.
 
 This is NOT a new evaluator.  It imports lEval and the global environment from
 IttyBittyLisp2.py *unchanged* and feeds them ordinary object-oriented programs.
@@ -15,7 +15,7 @@ An object here is a closure:
   - polymorphism        = two closures answering the same messages
   - inheritance         = one object closing over another and delegating
 
-Run with: python IttyBittyOO.py
+Run with: python IttyBittyLisp2b_objects.py
 """
 
 from IttyBittyLisp2 import lEval, global_env, lisp_str

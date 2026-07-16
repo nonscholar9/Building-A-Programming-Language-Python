@@ -1,5 +1,5 @@
 """
-IttyBittyLisp5-callcc - The CEK Machine, Complete, plus call/cc.
+IttyBittyLisp5b_callcc - The CEK Machine, Complete, plus call/cc.
 
 This is IttyBittyLisp5 with one feature added: call/cc (call-with-current-
 continuation), Scheme's most powerful control operator.  The point of putting
@@ -27,7 +27,7 @@ all untouched.  That call/cc costs ~15 lines here, and would cost a rewrite in
 the recursive evaluators of Chapters 1-3, is the clearest possible measure of
 what reifying the continuation bought us.
 
-Run with: python IttyBittyLisp5-callcc.py
+Run with: python IttyBittyLisp5b_callcc.py
 """
 
 # ---------------------------------------------------------------------------

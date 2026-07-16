@@ -1,5 +1,5 @@
 """
-IttyBittyParser -- An S-expression scanner and reader for the IttyBitty Lisp.
+IttyBittyLisp8_parser -- An S-expression scanner and reader for the IttyBitty Lisp.
 
 Turns a source string into the nested Python list AST that lEval (from
 IttyBittyLisp1.py) evaluates directly.  Two stages, the same split real
@@ -22,7 +22,7 @@ allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
 separated by spaces (see the challenges in Chapter 7).
 
-Run with: python IttyBittyParser.py
+Run with: python IttyBittyLisp8_parser.py
 """
 
 # ---------------------------------------------------------------------------

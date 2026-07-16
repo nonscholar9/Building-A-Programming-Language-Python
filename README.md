@@ -20,17 +20,17 @@ Run any command from the repository root. Each interpreter runs on its own and
 prints a short demo session:
 
 ```
-python IttyBittyLisp1.py
+python book1/IttyBittyLisp1.py
 ```
 
 To type Lisp at an interactive prompt, run the REPL:
 
 ```
-python IttyBittyRepl.py
+python book1/IttyBittyRepl.py
 ```
 
 By default the REPL loads Chapter 1's evaluator. To point it at a later machine,
-edit the one import line near the top of `IttyBittyRepl.py` (swap
+edit the one import line near the top of `book1/IttyBittyRepl.py` (swap
 `IttyBittyLisp1` for `IttyBittyLisp2`, `IttyBittyLisp3`, and so on).
 
 ```
@@ -40,18 +40,27 @@ lisp> (+ 1 2)
 
 ## The files
 
+### Book One
+
 | File | Chapter |
 |------|---------|
-| `IttyBittyLisp1.py` | Chapter 1, the naive tree-walker |
-| `IttyBittyLisp2.py` | Chapter 2, closures |
-| `IttyBittyOO.py` | Interlude, closures as objects |
-| `IttyBittyLisp3.py` | Chapter 3, the looping evaluator |
-| `IttyBittyLisp4.py` | Chapter 4, the CEK machine |
-| `IttyBittyLisp5.py` | Chapter 5, the CEK machine, complete |
-| `IttyBittyLisp5-callcc.py` | Interlude, continuations as values |
-| `IttyBittyLisp6.py` | Chapter 6, the bytecode VM |
-| `IttyBittyParser.py` | Chapter 7, the parser |
-| `IttyBittyRepl.py` | the shared REPL introduced in Chapter 1 |
+| `book1/IttyBittyLisp1.py` | Chapter 1, the naive tree-walker |
+| `book1/IttyBittyLisp2.py` | Chapter 2, closures |
+| `book1/IttyBittyLisp2b_objects.py` | Interlude, closures as objects |
+| `book1/IttyBittyLisp3.py` | Chapter 3, the looping evaluator |
+| `book1/IttyBittyLisp4.py` | Chapter 4, the CEK machine |
+| `book1/IttyBittyLisp5.py` | Chapter 5, the CEK machine, complete |
+| `book1/IttyBittyLisp5b_callcc.py` | Interlude, continuations as values |
+| `book1/IttyBittyLisp6.py` | Chapter 6, the bytecode VM |
+| `book1/IttyBittyLisp7.py` | Chapter 7, memory and garbage collection |
+| `book1/IttyBittyLisp8_parser.py` | Chapter 8, the parser |
+| `book1/IttyBittyRepl.py` | the shared REPL introduced in Chapter 1 |
+
+### Book Two
+
+| File | Chapter |
+|------|---------|
+| `book2/IttyBittyBase.py` | the base machine: Book One's, with the challenges done |
 
 ## License
 

@@ -14,7 +14,7 @@ This file is the starting point for a series that progressively adds features:
   IttyBittyLisp4.py   -- the CEK machine (explicit K), on pure lambda calculus
   IttyBittyLisp5.py   -- the CEK machine with the full language restored
   IttyBittyLisp6.py   -- compiles the machine to a flat bytecode VM
-  IttyBittyParser.py  -- adds a source-string parser to complete the pipeline
+  IttyBittyLisp8_parser.py  -- adds a source-string parser to complete the pipeline
 
 Throughout the series, evaluation is driven by three quantities:
 

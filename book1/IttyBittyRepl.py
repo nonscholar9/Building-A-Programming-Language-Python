@@ -1,7 +1,7 @@
 """
 IttyBittyRepl -- a read-eval-print loop for the IttyBitty Lisp evaluators.
 
-Wires the parser (IttyBittyParser.parse) to an evaluator so you can type Lisp
+Wires the parser (IttyBittyLisp8_parser.parse) to an evaluator so you can type Lisp
 at a prompt instead of hand-writing nested Python lists:
 
     $ python IttyBittyRepl.py
@@ -23,7 +23,7 @@ Windows).
 Run with: python IttyBittyRepl.py
 """
 
-from IttyBittyParser import parse
+from IttyBittyLisp8_parser import parse
 from IttyBittyLisp1  import lEval, global_env, lisp_str   # <- swap for IttyBittyLisp2 / 3 / 5
 
 

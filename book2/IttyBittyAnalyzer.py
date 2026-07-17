@@ -18,11 +18,16 @@ is already gone.
 Run with: python IttyBittyAnalyzer.py
 """
 
+from IttyBittyCore import lisp_str
 from IttyBittyExpander import expand
 
 
 class LispError( Exception ):
-    """A complaint phrased in our language, not a Python traceback."""
+    """A complaint phrased in our language, not a Python traceback.
+
+    Messages render forms with lisp_str, so a parameter list comes out as
+    (a a), the way the reader wrote it, not as Python's ['a', 'a'].
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -55,17 +60,19 @@ def check_shapes( form ):
             raise LispError( 'set!: expected a name and a value, '
                              f'found {len(form) - 1} parts' )
         if not isinstance( form[1], str ):
-            raise LispError( f'set!: target is not a name: {form[1]}' )
+            raise LispError( f'set!: target is not a name: {lisp_str(form[1])}' )
 
     elif head == 'lambda':
         if len(form) < 3:
             raise LispError( 'lambda: expected a parameter list and a body' )
         params = form[1]
         if not isinstance( params, list ):
-            raise LispError( f'lambda: parameter list is not a list: {params}' )
+            raise LispError( 'lambda: parameter list is not a list: '
+                             f'{lisp_str(params)}' )
         names = [ p for p in params if p != '.' ]
         if len(names) != len(set(names)):
-            raise LispError( f'lambda: a parameter is named twice in {params}' )
+            raise LispError( 'lambda: a parameter is named twice in '
+                             f'{lisp_str(params)}' )
 
     for sub in form[1:]:
         check_shapes( sub )

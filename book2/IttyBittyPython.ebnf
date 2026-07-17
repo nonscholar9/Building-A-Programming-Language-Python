@@ -1,0 +1,142 @@
+# ===========================================================================
+# IttyBittyPython -- grammar
+#
+# The target language of Book Two's capstone: a small Python, large enough to
+# write simple programs in and no larger than the technique needs.  ("Itty-
+# BittyPython" and never bare "Python", because the host we implement it in is
+# Python too, and the two must not be confused.)
+#
+# NOTATION: the modified BNF used by the Python Language Reference.
+#     ::=        defines a rule
+#     |          separates alternatives (loosest binding)
+#     *  +       zero-or-more / one-or-more of the preceding (tightest binding)
+#     [ ]        optional (zero or one)
+#     ( )        grouping
+#     "..."      a literal terminal
+#     "a"..."z"  (lexical only) any one character in the range
+#     <...>      (lexical only) an informal description
+#
+# We borrow Python's notation, not Python's grammar.  The reference grammar is
+# left-recursive in its expressions (a_expr ::= a_expr "+" m_expr | ...), which
+# a recursive-descent LL(1) parser cannot follow: it would recurse forever
+# before consuming a token.  So every expression rule below is written in the
+# iterative form  head (op tail)*  instead, which encodes the same precedence
+# and associativity while consuming a token before it ever recurses.
+#
+# Reserved keywords (never a NAME):
+#     and  def  elif  else  if  not  or  pass  return  while
+# `print` is NOT reserved; it is an ordinary built-in function, called like any
+# other.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Syntactic grammar  (tokens -> tree)
+# ---------------------------------------------------------------------------
+
+file_input      ::= statement* ENDMARKER
+
+statement       ::= simple_stmt | compound_stmt
+
+simple_stmt     ::= (assign_or_expr | return_stmt | pass_stmt) NEWLINE
+assign_or_expr  ::= expression ["=" expression]
+                    # With "=" present this is an assignment, and the left
+                    # expression must be a bare NAME.  Without it, the line is
+                    # an expression evaluated for its effect, e.g. print(x).
+                    # The parser decides which by reading the left expression
+                    # first and then looking for "=".
+return_stmt     ::= "return" [expression]
+pass_stmt       ::= "pass"
+
+compound_stmt   ::= if_stmt | while_stmt | funcdef
+
+if_stmt         ::= "if" expression ":" suite
+                    ("elif" expression ":" suite)*
+                    ["else" ":" suite]
+while_stmt      ::= "while" expression ":" suite
+funcdef         ::= "def" NAME "(" [parameter_list] ")" ":" suite
+parameter_list  ::= NAME ("," NAME)*
+
+suite           ::= NEWLINE INDENT statement+ DEDENT
+
+
+# ---------------------------------------------------------------------------
+# Expressions  (precedence low -> high; left recursion removed)
+#
+# Each rule calls the next-tighter one, so a rule lower in this list binds
+# more loosely.  `or` is loosest; a function call and a parenthesised group are
+# tightest.
+# ---------------------------------------------------------------------------
+
+expression      ::= or_test
+or_test         ::= and_test ("or" and_test)*
+and_test        ::= not_test ("and" not_test)*
+not_test        ::= "not" not_test | comparison
+comparison      ::= sum [comp_op sum]                 # no chained a < b < c
+comp_op         ::= "==" | "!=" | "<" | ">" | "<=" | ">="
+sum             ::= term (("+" | "-") term)*
+term            ::= factor (("*" | "/" | "%") factor)*
+factor          ::= ("+" | "-") factor | call         # unary sign
+call            ::= atom ("(" [argument_list] ")")*
+argument_list   ::= expression ("," expression)*
+atom            ::= NAME | INTEGER | "(" expression ")"
+
+
+# ---------------------------------------------------------------------------
+# Lexical grammar  (characters -> tokens)
+# ---------------------------------------------------------------------------
+
+NAME            ::= (letter | "_") (letter | digit | "_")*
+INTEGER         ::= digit+
+letter          ::= "a"..."z" | "A"..."Z"
+digit           ::= "0"..."9"
+
+# Discarded during scanning, producing no token:
+comment         ::= "#" <any character except a newline>*
+# Spaces and tabs between tokens on a line separate tokens and are otherwise
+# ignored.  A line that is blank or holds only a comment produces no NEWLINE,
+# INDENT, or DEDENT.
+
+# Synthetic layout tokens: emitted by the scanner from the leading whitespace
+# of each line, and never literally present in the source.
+NEWLINE         ::= <the end of a logical line>
+INDENT          ::= <an increase in a line's leading indentation>
+DEDENT          ::= <a decrease in a line's leading indentation>
+ENDMARKER       ::= <the end of the input>
+
+
+# ---------------------------------------------------------------------------
+# Simplifications from real Python (deliberate, and worth stating)
+# ---------------------------------------------------------------------------
+#   * A suite is always an indented block: "if x:" must be followed by a
+#     newline and an indented body, never "if x: return" on one line.
+#   * Comparisons do not chain: "a < b < c" is not allowed; write it out.
+#   * An assignment target is a single NAME.  No tuple unpacking, no attribute
+#     or subscript targets (there are no objects or collections to target).
+#   * Integers are the only literal.  No strings, floats, lists, dicts, tuples,
+#     or booleans; conditions get their truth from comparisons.
+#   * Parameters are plain positional names.  No defaults, *args, or keywords.
+#
+# Everything above is the locked core.  class, try/except/raise, and
+# break/continue are challenges, not part of this grammar.
+
+
+# ---------------------------------------------------------------------------
+# Programs this grammar accepts (sanity check)
+# ---------------------------------------------------------------------------
+#   def factorial(n):
+#       if n == 0:
+#           return 1
+#       return n * factorial(n - 1)
+#
+#   print(factorial(5))
+#
+#   def gcd(a, b):
+#       while b != 0:
+#           t = b
+#           b = a % b
+#           a = t
+#       return a
+#
+#   print(gcd(48, 36))
+# ===========================================================================

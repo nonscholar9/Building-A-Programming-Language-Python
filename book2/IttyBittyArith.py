@@ -93,10 +93,6 @@ class Parser( ParserBase ):
             raise ParseError( self._scanner, 'end of input expected' )
         return tree
 
-    def parseFile( self, filename: str ):
-        self._scanner.resetFromFile( filename )
-        return self._parseExpr( )
-
     def _parseExpr( self ):
         node = self._parseTerm( )
         while self._scanner.peekToken( ) in ( Lexer.PLUS_TOK, Lexer.MINUS_TOK ):
@@ -156,10 +152,6 @@ class PrattParser( ParserBase ):
         if self._scanner.peekToken( ) != Lexer.EOF_TOK:
             raise ParseError( self._scanner, 'end of input expected' )
         return tree
-
-    def parseFile( self, filename: str ):
-        self._scanner.resetFromFile( filename )
-        return self._parseExpr( 0 )
 
     def _parseExpr( self, min_bp ):
         lhs = self._parsePrefix( )

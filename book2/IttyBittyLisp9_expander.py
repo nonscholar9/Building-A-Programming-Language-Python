@@ -1,18 +1,22 @@
 """
 IttyBittyLisp9 - the expander: the sugar moves out of the machine.
 
-This is IttyBittyBase with four branches deleted.
+Look at the import below, because it is the first thing this chapter earns.
+The machine is in another file now.  It is finished, we are not going to open
+it again, and everything in this file runs *in front of* it.
 
-`let`, `cond`, `and`, and `or` are gone from lEval, and so are two frame kinds.
-Nothing was lost.  Those four now live in a table of rewrite rules that runs
-over the program before the machine ever sees it.  The machine got smaller and
-the language stayed exactly the same size.
+What the machine lost, this file gained.  `let`, `cond`, `and`, and `or` are no
+longer branches in lEval, and two frame kinds went with them.  Nothing was lost
+from the language: those four now live in a table of rewrite rules that runs
+over the program once, before the machine ever sees it.  The machine got
+smaller and the language stayed exactly the same size.
 
-Two of the four were already rewrites and had been all along.  Look at the
-`let` branch in IttyBittyBase, and the `cond` branch under it: each one builds a
-new expression and re-dispatches.  That is a desugaring, performed at the last
-possible moment, one node at a time, inside the evaluator's hot loop.  The other
-two, `and` and `or`, were frames, so pulling them out deletes machinery too.
+Two of the four were already rewrites and had been since Chapter 2.  The `let`
+branch in IttyBittyBase built a lambda and pointed C at it; the `cond` branch
+built an `if` and pointed C at that.  Neither touched V, E, or K.  They were
+translators parked in the evaluator's dispatch, running at the last possible
+moment, one node at a time, on every pass of the loop.  The other two, `and`
+and `or`, were real frames, so pulling them out deletes machinery.
 
 The table is a plain dict.  A dict is data, and data can be added to while the
 program runs, which is `define-macro`:
@@ -26,234 +30,17 @@ evaluator, and the compiler now contains the interpreter.
 Run with: python IttyBittyLisp9_expander.py
 """
 
-# ---------------------------------------------------------------------------
-# Tags
-# ---------------------------------------------------------------------------
-VAL_CLOSURE = 1
-
-# Continuation frame kinds.  FRAME_AND and FRAME_OR are gone: `and` and `or`
-# are rewrite rules now, and a rule needs no room in the machine.
-FRAME_IF  = 0   # waiting on a test value
-FRAME_SET = 1   # waiting on a value to assign
-FRAME_SEQ = 2   # a begin / body with forms still to run
-FRAME_ARG = 3   # an application accumulating operator + operands
-
-
-# ---------------------------------------------------------------------------
-# call/cc support (Book One's second interlude, unchanged)
-# ---------------------------------------------------------------------------
-
-class Continuation:
-    """A reified continuation: a snapshot of the K stack."""
-    def __init__( self, stack ):
-        self.stack = stack
-
-class _CallCC:
-    """A sentinel, not a plain callable: capturing the continuation needs the
-    machine's K register, which an ordinary primitive never sees."""
-
-CALLCC = _CallCC()
-
-
-# ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes
-# ---------------------------------------------------------------------------
-
-class Environment:
-    def __init__( self, parent=None, bindings=None ):
-        self._bindings = dict(bindings or {})
-        self._parent   = parent
-        self._global   = parent._global if parent else self
-
-    def lookup( self, name ):
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                return scope._bindings[name]
-            scope = scope._parent
-        raise NameError( f'Unbound variable: {name}' )
-
-    def set( self, name, value ):
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                scope._bindings[name] = value
-                return value
-            scope = scope._parent
-        self._global._bindings[name] = value
-        return value
-
-
-# ---------------------------------------------------------------------------
-# Binding a call's arguments  (Book One, Chapter 2 challenge: rest parameters)
-# ---------------------------------------------------------------------------
-
-def bind_params( params, args ):
-    if '.' in params:
-        dot   = params.index( '.' )
-        named = params[:dot]
-        rest  = params[dot + 1]
-        bindings = dict( zip( named, args ) )
-        bindings[rest] = list( args[len(named):] )
-        return bindings
-    return dict( zip( params, args ) )
-
-
-# ---------------------------------------------------------------------------
-# The CEK machine, four branches lighter
-# ---------------------------------------------------------------------------
-#
-# Registers:  C (expression), V (value), E (environment), K (frame stack).
-#
-# The core forms are all that is left: quote, lambda, if, set!, begin, and
-# application.  Everything else the language offers arrives as a rewrite.
-
-def lEval( expr, env ):
-    C = expr
-    V = None
-    E = env
-    K = []
-
-    while True:
-
-        # ----- state EVAL: descend into C (pushing frames) until a leaf -> V -----
-        while True:
-            if C in ('#t', '#f'):              # boolean literal -> itself
-                V = C
-                break
-            elif isinstance( C, (int, float) ):  # number -> itself
-                V = C
-                break
-            elif isinstance( C, str ):         # variable -> look it up
-                V = E.lookup( C )
-                break
-            elif C[0] == 'quote':              # ['quote', datum] -> the datum
-                V = C[1]
-                break
-            elif C[0] == 'lambda':             # ['lambda', params, *body] -> a closure
-                V = ( VAL_CLOSURE, C[1], list(C[2:]), E )
-                break
-            elif C[0] == 'if':                 # ['if', test, then, else]
-                K.append( (FRAME_IF, C[2], C[3], E) )
-                C = C[1]
-            elif C[0] == 'set!':               # ['set!', name, valueExpr]
-                K.append( (FRAME_SET, C[1], E) )
-                C = C[2]
-            elif C[0] == 'begin':              # ['begin', *forms]
-                forms = list( C[1:] )
-                if len(forms) > 1:
-                    K.append( (FRAME_SEQ, forms[1:], E) )
-                C = forms[0]
-            else:                              # [fn, *args] -- an application
-                K.append( (FRAME_ARG, [], list(C[1:]), E) )
-                C = C[0]
-
-        # ----- state APPLY: feed V to the top frame -----
-        while True:
-            if not K:
-                return V
-
-            frame = K.pop()
-            ftag  = frame[0]
-
-            if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V != '#f' else frame[2]
-                E = frame[3]
-                break
-
-            elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
-                frame[2].set( frame[1], V )
-                continue
-
-            elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)
-                forms = frame[1]
-                E = frame[2]
-                if len(forms) > 1:
-                    K.append( (FRAME_SEQ, forms[1:], E) )
-                C = forms[0]
-                break
-
-            elif ftag == FRAME_ARG:            # (FRAME_ARG, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:
-                    K.append( (FRAME_ARG, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
-                    break
-                fn, args = done[0], done[1:]
-
-                if fn is CALLCC:               # (call/cc f): reify K, then call f with it
-                    cont = Continuation( list(K) )
-                    fn, args = args[0], [cont]
-
-                if isinstance( fn, Continuation ):   # invoking a captured continuation
-                    K = list( fn.stack )
-                    V = args[0]
-                    continue
-
-                if callable( fn ):             # primitive
-                    V = fn( args )
-                    continue
-                _, params, body, clo_env = fn  # closure
-                E = Environment( parent=clo_env, bindings=bind_params( params, args ) )
-                if len(body) > 1:
-                    K.append( (FRAME_SEQ, body[1:], E) )
-                C = body[0]
-                break
-
-
-# ---------------------------------------------------------------------------
-# Primitives and global environment
-# ---------------------------------------------------------------------------
-
-def lisp_print( args ):
-    print( args[0] )
-    return args[0]
-
-def lisp_mul( args ):
-    result = 1
-    for x in args:
-        result *= x
-    return result
-
-def lisp_bool( b ):
-    return '#t' if b else '#f'
-
-globalBindings = {
-    '+':     lambda args: sum( args ),
-    '-':     lambda args: args[0] - args[1],
-    '*':     lisp_mul,
-    '/':     lambda args: args[0] / args[1],
-    '%':     lambda args: args[0] % args[1],
-    '=':     lambda args: lisp_bool( args[0] == args[1] ),
-    '<':     lambda args: lisp_bool( args[0] <  args[1] ),
-    '>':     lambda args: lisp_bool( args[0] >  args[1] ),
-    '<=':    lambda args: lisp_bool( args[0] <= args[1] ),
-    '>=':    lambda args: lisp_bool( args[0] >= args[1] ),
-    'print': lisp_print,
-
-    'car':   lambda args: args[0][0],
-    'cdr':   lambda args: args[0][1:],
-    'cons':  lambda args: [args[0]] + args[1],
-    'list':  lambda args: list( args ),
-    'null?': lambda args: lisp_bool( args[0] == [] ),
-
-    'not':   lambda args: lisp_bool( args[0] == '#f' ),
-
-    'call/cc':                        CALLCC,
-    'call-with-current-continuation': CALLCC,
-}
-global_env = Environment( bindings=globalBindings )
+from IttyBittyCore import (
+    VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
 
 
 # ---------------------------------------------------------------------------
 # The expander
 # ---------------------------------------------------------------------------
 #
-# A rewrite rule takes a form and returns another form.  The four below are the
-# ones that used to be branches in lEval, written out as ordinary functions.
-# Each rewrites its form into forms the machine still knows.
+# A rewrite rule takes a form and returns a form.  The four below are the ones
+# that used to be branches in lEval, written out as ordinary functions.  Each
+# rewrites its form into forms the machine still knows.
 
 _gensym_counter = 0
 
@@ -373,8 +160,8 @@ def is_rule_use( form ):
 def expand( form ):
     """Rewrite a program until nothing but core forms is left.
 
-    The core forms are the ones lEval still knows: quote, lambda, if, set!,
-    begin, and application.  Everything else is a rule in RULES.
+    The core forms are the ones lEval knows: quote, lambda, if, set!, begin,
+    and application.  Everything else is a rule in RULES.
     """
     if not isinstance( form, list ) or not form:
         return form                          # an atom rewrites to itself
@@ -404,28 +191,14 @@ def expand( form ):
 # gensym is a rule writer's tool above, and a macro writer's tool here.  Same
 # counter, same names, two different people reaching for it.
 #
-# It goes in through `set!` rather than into globalBindings, because the global
-# environment copied that dict when it was built and has not looked at it since.
+# It goes in through `set!` rather than into the core's globalBindings, because
+# the global environment copied that dict when it was built.
 global_env.set( 'gensym', lambda args: gensym() )
 
 
 # ---------------------------------------------------------------------------
-# Helpers and demo
+# The pipeline, and the demo
 # ---------------------------------------------------------------------------
-
-def lisp_str( val ):
-    if isinstance( val, list ):
-        return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-    if isinstance( val, tuple ):
-        return '#<procedure (' + ' '.join( val[1] ) + ')>'
-    if isinstance( val, Continuation ):
-        return '#<continuation>'
-    if val is CALLCC:
-        return '#<primitive call/cc>'
-    if callable( val ):
-        return '#<primitive>'
-    return str( val )
-
 
 def run( expr ):
     """The pipeline, and it is two lines long.

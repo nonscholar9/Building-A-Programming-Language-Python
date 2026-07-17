@@ -89,6 +89,18 @@ class Environment:
         self._global._bindings[name] = value
         return value
 
+    def set2( self, name, value ):
+        # Like set, but a miss creates the binding in the INNERMOST scope
+        # rather than the global one: an assignment that makes a new local.
+        scope = self
+        while scope:
+            if name in scope._bindings:
+                scope._bindings[name] = value
+                return value
+            scope = scope._parent
+        self._bindings[name] = value
+        return value
+
 
 # ---------------------------------------------------------------------------
 # Binding a call's arguments  (Book One, Chapter 2 challenge: rest parameters)
@@ -148,7 +160,10 @@ def lEval( expr, env ):
                 K.append( (FRAME_IF, C[2], C[3], E) )
                 C = C[1]
             elif C[0] == 'set!':               # ['set!', name, valueExpr]
-                K.append( (FRAME_SET, C[1], E) )
+                K.append( (FRAME_SET, C[1], E, False) )   # miss -> global
+                C = C[2]
+            elif C[0] == 'set2!':              # ['set2!', name, valueExpr]
+                K.append( (FRAME_SET, C[1], E, True) )    # miss -> innermost scope
                 C = C[2]
             elif C[0] == 'begin':              # ['begin', *forms]
                 forms = list( C[1:] )
@@ -172,8 +187,11 @@ def lEval( expr, env ):
                 E = frame[3]
                 break
 
-            elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
-                frame[2].set( frame[1], V )
+            elif ftag == FRAME_SET:            # (FRAME_SET, name, env, local?)
+                if frame[3]:
+                    frame[2].set2( frame[1], V )
+                else:
+                    frame[2].set( frame[1], V )
                 continue
 
             elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)

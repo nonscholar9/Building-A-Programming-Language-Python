@@ -185,6 +185,11 @@ _COMP_NAME  = { Lexer.EQEQ_TOK: '==', Lexer.NOTEQ_TOK: '!=', Lexer.LT_TOK: '<',
 _FIRST_EXPR = ( Lexer.NAME_TOK, Lexer.INTEGER_TOK, Lexer.LPAREN_TOK,
                 Lexer.PLUS_TOK, Lexer.MINUS_TOK, Lexer.NOT_TOK )
 
+# FIRST(statement) = FIRST(simple_stmt) | FIRST(compound_stmt).  Every "*" and
+# "+" over statements tests this, exactly as the mapping table prescribes.
+_FIRST_STMT = _FIRST_EXPR + ( Lexer.RETURN_TOK, Lexer.PASS_TOK,
+                              Lexer.IF_TOK, Lexer.WHILE_TOK, Lexer.DEF_TOK )
+
 
 # ---------------------------------------------------------------------------
 # The parser: one method per production, translated by the mechanical rule
@@ -212,8 +217,10 @@ class Parser( ParserBase ):
     def parse( self, source, filename='' ):
         self._scanner.reset( source, filename )
         body = []
-        while self._peek() != Lexer.EOF_TOK:
+        while self._peek() in _FIRST_STMT:               # statement*
             body.append( self._parse_statement() )
+        if self._peek() != Lexer.EOF_TOK:                # ENDMARKER
+            raise ParseError( self._scanner, 'a statement or end of input expected' )
         return ( 'module', body )
 
     # statement ::= simple_stmt | compound_stmt
@@ -307,8 +314,8 @@ class Parser( ParserBase ):
     def _parse_suite( self ):
         self._expect( Lexer.NEWLINE_TOK )
         self._expect( Lexer.INDENT_TOK )
-        body = [ self._parse_statement() ]
-        while self._peek() != Lexer.DEDENT_TOK:
+        body = [ self._parse_statement() ]               # "+": once...
+        while self._peek() in _FIRST_STMT:               # ...then the while
             body.append( self._parse_statement() )
         self._expect( Lexer.DEDENT_TOK )
         return body

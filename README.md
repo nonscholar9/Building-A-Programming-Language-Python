@@ -1,13 +1,12 @@
-# Parens to Bytecode (Python Edition)
+# Building a Programming Language from Scratch (Python Edition)
 
 Companion source code for the book
-**_From Parentheses to Bytecode: Building a Programming Language from Scratch
-(Python Edition)_**.
+**_Building a Programming Language from Scratch (Python Edition)_**, in two books:
 
-Each file is one small, complete interpreter for a tiny Lisp. The book builds
-them in order, one idea at a time, from a naive tree-walker up to a bytecode
-virtual machine. Every file is short enough to read start to finish and runs on
-its own.
+- **Book One, _From Parentheses to Bytecode_** — the machine, built six times over.
+- **Book Two, _The Interpreter Front End_** — a second language, compiled onto it.
+
+Everything here is plain Python, short enough to read start to finish.
 
 ## Requirements
 
@@ -16,8 +15,10 @@ build step. The files depend only on each other.
 
 ## Running the examples
 
-Run any command from the repository root. Each interpreter runs on its own and
-prints a short demo session:
+Run any command from the repository root.
+
+Each of Book One's files is a **complete interpreter on its own**, and prints a
+short demo session when you run it:
 
 ```
 python book1/IttyBittyLisp1.py
@@ -38,9 +39,20 @@ lisp> (+ 1 2)
 3
 ```
 
+Book Two's files are **not** a ladder like Book One's. They are parts of one
+pipeline, and they import each other rather than replacing each other: the
+machine is finished after Chapter 9 and never changes again, and each later
+chapter adds a pass in front of it. The last file runs the whole thing:
+
+```
+python book2/IttyBittyPython.py
+```
+
 ## The files
 
-### Book One
+### Book One — the machine, one rung at a time
+
+Each file is a snapshot: where you stand after that chapter.
 
 | File | Chapter |
 |------|---------|
@@ -56,11 +68,25 @@ lisp> (+ 1 2)
 | `book1/IttyBittyLisp8_parser.py` | Chapter 8, the parser |
 | `book1/IttyBittyRepl.py` | the shared REPL introduced in Chapter 1 |
 
-### Book Two
+### Book Two — the pipeline, one pass at a time
+
+Each file is a part, not a snapshot. They are named rather than numbered for
+exactly that reason.
 
 | File | Chapter |
 |------|---------|
-| `book2/IttyBittyBase.py` | the base machine: Book One's, with the challenges done |
+| `book2/IttyBittyBase.py` | the introduction: Book One's machine, with the challenges done |
+| `book2/IttyBittyCore.py` | Chapter 9, the machine finished, and sealed |
+| `book2/IttyBittyExpander.py` | Chapter 9, the expander |
+| `book2/IttyBittyAnalyzer.py` | Chapter 10, the checker, and its ceiling |
+| `book2/ParserBase.py` | Chapter 11, the reusable base for scanning and parsing |
+| `book2/IttyBittyArith.py` | Chapter 12, infix arithmetic, the worked example |
+| `book2/IttyBittyPython.ebnf` | Chapter 12, the IttyBittyPython grammar |
+| `book2/IttyBittyPythonParser.py` | Chapters 11–12, the IttyBittyPython front end |
+| `book2/IttyBittyPythonLower.py` | Chapter 13, lowering onto the machine |
+| `book2/IttyBittyPythonReturn.py` | Chapter 14, early return via `call/cc` |
+| `book2/IttyBittyPythonGen.py` | Chapter 15, generators |
+| `book2/IttyBittyPython.py` | Chapter 15, the finished interpreter |
 
 ## License
 

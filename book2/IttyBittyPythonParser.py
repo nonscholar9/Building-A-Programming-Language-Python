@@ -43,12 +43,13 @@ class Lexer( LexerBase ):
       AND_TOK, OR_TOK, NOT_TOK,
       PLUS_TOK, MINUS_TOK, STAR_TOK, SLASH_TOK, PERCENT_TOK,
       EQEQ_TOK, NOTEQ_TOK, LT_TOK, GT_TOK, LE_TOK, GE_TOK,
-      ASSIGN_TOK, LPAREN_TOK, RPAREN_TOK, COLON_TOK, COMMA_TOK ) = range( 32 )
+      ASSIGN_TOK, LPAREN_TOK, RPAREN_TOK, COLON_TOK, COMMA_TOK,
+      YIELD_TOK ) = range( 33 )
 
     KEYWORDS = {
         'def': DEF_TOK, 'if': IF_TOK, 'elif': ELIF_TOK, 'else': ELSE_TOK,
         'while': WHILE_TOK, 'return': RETURN_TOK, 'pass': PASS_TOK,
-        'and': AND_TOK, 'or': OR_TOK, 'not': NOT_TOK,
+        'and': AND_TOK, 'or': OR_TOK, 'not': NOT_TOK, 'yield': YIELD_TOK,
     }
     _SINGLE = {
         '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK, '/': SLASH_TOK,
@@ -187,7 +188,7 @@ _FIRST_EXPR = ( Lexer.NAME_TOK, Lexer.INTEGER_TOK, Lexer.LPAREN_TOK,
 
 # FIRST(statement) = FIRST(simple_stmt) | FIRST(compound_stmt).  Every "*" and
 # "+" over statements tests this, exactly as the mapping table prescribes.
-_FIRST_STMT = _FIRST_EXPR + ( Lexer.RETURN_TOK, Lexer.PASS_TOK,
+_FIRST_STMT = _FIRST_EXPR + ( Lexer.RETURN_TOK, Lexer.PASS_TOK, Lexer.YIELD_TOK,
                               Lexer.IF_TOK, Lexer.WHILE_TOK, Lexer.DEF_TOK )
 
 
@@ -229,11 +230,13 @@ class Parser( ParserBase ):
             return self._parse_compound()
         return self._parse_simple()
 
-    # simple_stmt ::= (assign_or_expr | return_stmt | pass_stmt) NEWLINE
+    # simple_stmt ::= (assign_or_expr | return_stmt | pass_stmt | yield_stmt) NEWLINE
     def _parse_simple( self ):
         tok = self._peek()
         if tok == Lexer.RETURN_TOK:
             node = self._parse_return()
+        elif tok == Lexer.YIELD_TOK:
+            node = self._parse_yield()
         elif tok == Lexer.PASS_TOK:
             self._next()
             node = ( 'pass', )
@@ -247,6 +250,11 @@ class Parser( ParserBase ):
         self._expect( Lexer.RETURN_TOK )
         value = self._parse_expression() if self._peek() in _FIRST_EXPR else None
         return ( 'return', value )
+
+    # yield_stmt ::= "yield" expression
+    def _parse_yield( self ):
+        self._expect( Lexer.YIELD_TOK )
+        return ( 'yield', self._parse_expression() )
 
     # assign_or_expr ::= expression ["=" expression]
     def _parse_assign_or_expr( self ):

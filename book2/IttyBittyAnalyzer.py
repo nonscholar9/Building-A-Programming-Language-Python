@@ -73,6 +73,9 @@ def check_shapes( form ):
         if len(names) != len(set(names)):
             raise LispError( 'lambda: a parameter is named twice in '
                              f'{lisp_str(params)}' )
+        for sub in form[2:]:                     # the body; the params are not code
+            check_shapes( sub )
+        return
 
     for sub in form[1:]:
         check_shapes( sub )

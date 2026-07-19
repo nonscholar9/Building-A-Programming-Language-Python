@@ -8,12 +8,16 @@ front end runs first, to catch the break and report it as an error in *our*
 language instead.  It is a tree walk in three layers of rising ambition, and
 the third layer walks straight into a wall that is worth seeing from the inside.
 
-Unlike the expander, this is not a phase every later program runs through.  The
-machine still runs unchecked; a linter is a tool you point at a program, not a
-link in the chain that evaluates it.  So this file stands on its own.  It runs
-AFTER the expander, though, so the only forms it ever meets are the core forms
-the machine knows: quote, lambda, if, set!, begin, and application.  The sugar
-is already gone.
+Like the expander, this is a link in the chain every program runs through, and
+it is the LAST one before the machine.  Nothing reaches the evaluator without
+coming through here first, which is the point: the machine is allowed to trust
+the shape of what it is handed because this pass has already refused anything
+malformed.  `analyze` returns the form so it can be threaded, not called aside
+for its effect.
+
+It runs after everything else the front end does, so the only forms it ever
+meets are the core forms the machine knows: quote, lambda, if, set!, begin, and
+application.  The sugar is already gone.
 
 Run with: python IttyBittyAnalyzer.py
 """

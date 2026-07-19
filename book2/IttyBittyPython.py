@@ -5,7 +5,7 @@ The whole front end, assembled onto the whole Lisp interpreter.  A program in
 IttyBittyPython passes through every stage both books built and comes out a
 value:
 
-    text --parse--> tree --lower--> Lisp --expand--> core --analyze--> --lEval--> value
+    text --parse--> tree --lower--> Lisp --expand--> core --analyze--> core --lEval--> value
 
 Each arrow is a piece the book built:
 
@@ -40,7 +40,7 @@ def run( source ):
     """Run a whole IttyBittyPython program through every stage of the tower."""
     tree = Parser().parse( source )       # text  -> tree
     core = expand( lower_module( tree ) ) # tree  -> Lisp -> core
-    analyze( core )                       # refuse a malformed program; else quiet
+    core = analyze( core )                # core  -> core, or a refusal
     return lEval( core, global_env )      # core  -> behaviour
 
 

@@ -51,7 +51,11 @@ def mk_ptr( a ):   return (a << 1) | 1
 def addr_of( v ):  return v >> 1
 def is_ptr( v ):   return (v & 1) == 1
 
-NIL = mk_ptr( -1 )              # == -1: a pointer whose address is nowhere
+NIL = mk_ptr( -1 )              # a pointer whose address is nowhere
+# #t and #f are two more of the same: immediates that point nowhere, so they need
+# no heap cell and the collector treats them exactly as it treats NIL.
+TRUE  = mk_ptr( -2 )
+FALSE = mk_ptr( -3 )
 
 
 # ---------------------------------------------------------------------------
@@ -328,7 +332,7 @@ def mark():
     worklist = [V, E, K]                        # the roots, and there are only three
     while worklist:
         v = worklist.pop()
-        if not is_ptr( v ) or v == NIL:
+        if not is_ptr( v ) or addr_of( v ) < 0:   # NIL, #t and #f point nowhere
             continue
         a = addr_of( v )
         if a in marked:
@@ -405,8 +409,8 @@ def heap_dump( label='' ):
 def _add( a ): return mk_num( num_of( a[0] ) + num_of( a[1] ) )
 def _sub( a ): return mk_num( num_of( a[0] ) - num_of( a[1] ) )
 def _mul( a ): return mk_num( num_of( a[0] ) * num_of( a[1] ) )
-def _eq(  a ): return mk_num( 1 if num_of( a[0] ) == num_of( a[1] ) else 0 )
-def _lt(  a ): return mk_num( 1 if num_of( a[0] ) <  num_of( a[1] ) else 0 )
+def _eq(  a ): return TRUE if num_of( a[0] ) == num_of( a[1] ) else FALSE
+def _lt(  a ): return TRUE if num_of( a[0] ) <  num_of( a[1] ) else FALSE
 
 PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt)]
 
@@ -427,9 +431,10 @@ OP_IF_START  = 8
 OP_APPLY_IF  = 9
 OP_RET       = 10
 OP_SET       = 11               # NEW: the one that makes cycles possible
+OP_BOOL      = 12               # push a boolean immediate
 
 _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
-             'CALL', 'TCALL', 'IF_START', 'APPLY_IF', 'RET', 'SET']
+             'CALL', 'TCALL', 'IF_START', 'APPLY_IF', 'RET', 'SET', 'BOOL']
 
 
 # ---------------------------------------------------------------------------
@@ -443,12 +448,16 @@ def compile_body( forms, out, tail ):
 
 
 def compile_expr( expr, out, tail ):
-    if isinstance( expr, int ):
-        out.append( (OP_INT, expr) )
+    if expr in ( '#t', '#f' ):
+        out.append( (OP_BOOL, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif isinstance( expr, str ):
         out.append( (OP_VAR, intern( expr )) )
+        if tail: out.append( (OP_RET,) )
+
+    elif isinstance( expr, int ):
+        out.append( (OP_INT, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'lambda':                   # ['lambda', [params], *body]
@@ -560,6 +569,9 @@ def _run( prog ):
         if op == OP_INT:
             V = mk_num( prog[pc][1] ); pc += 1
 
+        elif op == OP_BOOL:
+            V = TRUE if prog[pc][1] == '#t' else FALSE; pc += 1
+
         elif op == OP_VAR:
             V = env_lookup( E, prog[pc][1] ); pc += 1
 
@@ -611,10 +623,10 @@ def _run( prog ):
         elif op == OP_IF_START:
             K = mk_if( K, prog[pc][1], prog[pc][2], E ); pc += 1
 
-        elif op == OP_APPLY_IF:                  # 0 is false, every other number true
+        elif op == OP_APPLY_IF:                  # #f is the only false value
             a  = addr_of( K )
             E  = heap[a + 5]
-            pc = heap[a + 4] if V == mk_num( 0 ) else heap[a + 3]
+            pc = heap[a + 4] if V == FALSE else heap[a + 3]
             K  = heap[a + 2]
 
         elif op == OP_RET:
@@ -679,6 +691,8 @@ def source_str( val ):
 
 
 def show( val ):
+    if val == TRUE:  return '#t'
+    if val == FALSE: return '#f'
     if is_ptr( val ) and val != NIL:
         a = addr_of( val )
         if heap[a] == TAG_CLOSURE: return '#<procedure>'
@@ -743,7 +757,7 @@ def main():
     run( 42 )
     run( [['lambda', ['x'], 'x'], 7] )
     run( ['+', ['*', 6, 6], 6] )
-    run( ['if', 0, 100, 200] )
+    run( ['if', '#f', 100, 200] )
     run( [['lambda', ['n', 'm'], ['+', 'n', 'm']], 3, 4] )
     run( ['let', [['a', 3], ['b', 4]], ['*', 'a', 'b']] )
 

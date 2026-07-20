@@ -45,7 +45,7 @@ FRAME_CALL = 2
 FRAME_RET  = 3                  # NEW: a saved return address (pc)
 
 # Opcodes -- one per CEK transition, plus OP_JUMP for layout.
-OP_INT       = 0   # V = n
+OP_INT       = 0   # V = n (or a boolean literal; both are constants)
 OP_VAR       = 1   # V = E.lookup(name)
 OP_LAM       = 2   # V = (VAL_CLOSURE, param, body_pc, E)
 OP_JUMP      = 3   # pc = target
@@ -90,12 +90,16 @@ class Environment:
 # closure, with an OP_JUMP in front so the closure-building path skips over it.
 
 def compile_expr( expr, out, tail ):
-    if isinstance( expr, int ):             # a number literal
+    if expr in ( '#t', '#f' ):              # a boolean literal -> a constant, like a number
         out.append( (OP_INT, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif isinstance( expr, str ):           # a variable
         out.append( (OP_VAR, expr) )
+        if tail: out.append( (OP_RET,) )
+
+    elif isinstance( expr, int ):           # a number literal
+        out.append( (OP_INT, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'lambda':               # ['lambda', param, body]
@@ -191,10 +195,10 @@ def run_vm( prog ):
             K.append( (FRAME_IF, instr[1], instr[2], E) )
             pc += 1
 
-        elif op == OP_APPLY_IF:             # V is the test; 0 is false, else true
+        elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
             frame = K.pop()
             E  = frame[3]
-            pc = frame[2] if V == 0 else frame[1]
+            pc = frame[1] if V != '#f' else frame[2]
 
         elif op == OP_RET:                  # end of a body
             if not K:
@@ -240,8 +244,8 @@ def main():
     run( 42 )                                              # 42
     run( [['lambda', 'x', 'x'], 7] )                       # 7
     run( [[['lambda', 'x', ['lambda', 'y', 'x']], 3], 9] ) # 3
-    run( ['if', 1, 100, 200] )                             # 100
-    run( ['if', 0, 100, 200] )                             # 200
+    run( ['if', '#t', 100, 200] )                          # 100
+    run( ['if', '#f', 100, 200] )                          # 200
     run( [['lambda', 'f', ['f', 3]], ['lambda', 'x', 'x']] )  # 3
 
 

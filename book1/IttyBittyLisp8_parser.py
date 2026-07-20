@@ -142,7 +142,9 @@ def parse( source ):
 # ---------------------------------------------------------------------------
 
 def lEval( expr, env ):
-    if isinstance( expr, str ):
+    if expr in ( '#t', '#f' ):         # boolean -> return unchanged
+        return expr
+    elif isinstance( expr, str ):      # symbol -> look it up
         return env[expr]
     elif not isinstance( expr, list ):
         return expr
@@ -153,7 +155,7 @@ def lEval( expr, env ):
 
     if head == 'if':
         cond = lEval( expr[1], env )
-        return lEval( expr[2] if cond else expr[3], env )
+        return lEval( expr[3] if cond == '#f' else expr[2], env )
 
     elif head == 'begin':
         for sub in expr[1:-1]:
@@ -177,8 +179,8 @@ global_env = {
     '+':  lambda args: args[0] + args[1],
     '-':  lambda args: args[0] - args[1],
     '*':  lambda args: args[0] * args[1],
-    '=':  lambda args: 1 if args[0] == args[1] else 0,
-    '<':  lambda args: 1 if args[0] <  args[1] else 0,
+    '=':  lambda args: '#t' if args[0] == args[1] else '#f',
+    '<':  lambda args: '#t' if args[0] <  args[1] else '#f',
 }
 
 

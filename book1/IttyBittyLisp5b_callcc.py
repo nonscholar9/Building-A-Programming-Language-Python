@@ -124,11 +124,11 @@ def lEval( expr, env ):
             if C in ('#t', '#f'):              # boolean literal -> itself
                 V = C
                 break
-            elif isinstance( C, (int, float) ):  # number -> itself
-                V = C
-                break
             elif isinstance( C, str ):         # variable -> look it up
                 V = E.lookup( C )
+                break
+            elif isinstance( C, (int, float) ):  # number -> itself
+                V = C
                 break
             elif C[0] == 'quote':              # ['quote', datum] -> the datum, unevaluated
                 V = C[1]

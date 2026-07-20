@@ -28,7 +28,7 @@ A continuation frame is just a tagged tuple -- (FRAME_IF, ...), (FRAME_ARG, ...)
 classes and no `step` methods: a frame is plain data and all the behavior lives
 here in the machine, the way the real interpreters (pyScheme / cppScheme2) do it.
 
-This toy is a pure lambda calculus + if (a number is true unless it is 0) -- the
+This toy is a pure lambda calculus + if (#f is the only false value) -- the
 smallest setting that still has closures and control flow, so the machine itself
 stands out with nothing else competing for attention.  The fuller language of
 toys 1-3 (let, set!, begin, primitives, ...) would only add more frame kinds, not
@@ -100,7 +100,10 @@ def lEval( expr, env ):
 
         # ----- state EVAL: descend into C, pushing frames, until a leaf -> V -----
         while True:
-            if isinstance( C, str ):          # a variable -> look it up
+            if C in ( '#t', '#f' ):           # boolean literal -> itself
+                V = C
+                break
+            elif isinstance( C, str ):        # a variable -> look it up
                 V = E.lookup( C )
                 break
             elif isinstance( C, int ):        # a number literal -> itself
@@ -125,8 +128,8 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
-                # V is the test value; 0 is false, everything else (incl. a closure) true.
-                C = frame[2] if V == 0 else frame[1]
+                # V is the test value; #f is the only false value, as everywhere else.
+                C = frame[1] if V != '#f' else frame[2]
                 E = frame[3]
                 break
 
@@ -178,11 +181,11 @@ def main():
     # (((lambda (x) (lambda (y) x)) 3) 9) -- a curried constant function.
     run( [[['lambda', 'x', ['lambda', 'y', 'x']], 3], 9] )
 
-    # (if 1 100 200) -- a nonzero test takes the then branch.
-    run( ['if', 1, 100, 200] )
+    # (if #t 100 200) -- a true test takes the then branch.
+    run( ['if', '#t', 100, 200] )
 
-    # (if 0 100 200) -- a zero test takes the else branch.
-    run( ['if', 0, 100, 200] )
+    # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
+    run( ['if', '#f', 100, 200] )
 
     # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
     run( [['lambda', 'f', ['f', 3]], ['lambda', 'x', 'x']] )

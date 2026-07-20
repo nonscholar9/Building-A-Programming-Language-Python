@@ -14,8 +14,10 @@ at a prompt instead of hand-writing nested Python lists:
     lisp> quit
 
 By default it drives IttyBittyLisp1 (Chapter 1).  To use a later chapter's
-evaluator, change the import below to IttyBittyLisp2, 3, or 5 -- they share the
-same lEval(expr, env) / global_env / lisp_str interface, so nothing else changes.
+evaluator, change the import below to IttyBittyLisp2, 3, 5, or 7 -- every machine
+in the book exports the same lEval(expr, env) / global_env / lisp_str interface,
+so nothing else changes.  The parser is written once, in Chapter 8, and every
+machine is fed by it.
 
 Leave with 'quit', 'exit', or end-of-input (Ctrl-D on Unix, Ctrl-Z Enter on
 Windows).
@@ -24,7 +26,7 @@ Run with: python IttyBittyRepl.py
 """
 
 from IttyBittyLisp8_parser import parse
-from IttyBittyLisp1  import lEval, global_env, lisp_str   # <- swap for IttyBittyLisp2 / 3 / 5
+from IttyBittyLisp1  import lEval, global_env, lisp_str   # <- swap for IttyBittyLisp2 / 3 / 5 / 7
 
 
 def repl():

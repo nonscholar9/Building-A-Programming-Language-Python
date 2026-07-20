@@ -102,6 +102,10 @@ TAG_IF      = 4
 TAG_ARG     = 5
 TAG_FREE    = 6
 
+# A slot in an environment that no name has claimed yet.  Interned names are
+# indexes into _NAMES, so they are never negative, and -1 can never match one.
+EMPTY       = -1
+
 _TAG_NAMES = ['env', 'closure', 'prim', 'ret', 'if', 'arg', 'FREE']
 
 HEAP_SIZE = 600
@@ -259,14 +263,36 @@ def env_lookup( env, nid ):
 
 
 def env_set( env, nid, value ):
-    while env != NIL:
-        a = addr_of( env )
+    """Assign to a name.  If nothing in the chain has it, it becomes a global,
+    which is what toys 1-5 do and what a prompt needs to be usable."""
+    e = env
+    while e != NIL:
+        a = addr_of( e )
         for i in range( heap[a + 3] ):
             if heap[a + 4 + 2 * i] == nid:
                 heap[a + 5 + 2 * i] = value      # <-- the write that makes cycles
                 return
-        env = heap[a + 2]
-    raise NameError( f'Unbound variable: {name_of( nid )}' )
+        e = heap[a + 2]
+    define_global( nid, value )
+
+
+def define_global( nid, value ):
+    """Bind a name in the global environment, claiming a spare slot if it is new.
+
+    The global environment is one heap object with a fixed number of slots, so a
+    session can only introduce as many names as `boot` set aside for it.
+    """
+    a = addr_of( global_env )
+    for i in range( heap[a + 3] ):
+        if heap[a + 4 + 2 * i] == nid:
+            heap[a + 5 + 2 * i] = value
+            return
+    for i in range( heap[a + 3] ):
+        if heap[a + 4 + 2 * i] == EMPTY:
+            heap[a + 4 + 2 * i] = nid
+            heap[a + 5 + 2 * i] = value
+            return
+    raise MemoryError( f'no room for another global: {name_of( nid )}' )
 
 
 # ---------------------------------------------------------------------------
@@ -489,24 +515,44 @@ E = NIL                         # the environment
 K = NIL                         # the continuation: a chain of frames, on the heap
 pc = 0
 
+PROG = []                       # the program, appended to as expressions arrive
+global_env = None               # the environment every top-level name lives in
 
-def make_global_env():
+# How many names a session may define beyond the primitives.  The demo boots
+# with none; a prompt boots with these.
+GLOBAL_SPARE = 64
+
+
+def make_global_env( spare=0 ):
     """The primitives.  Note the order: the env is rooted in E *before* any prim
     is allocated, so an allocation part way through cannot collect the ones
-    already made."""
-    global E
-    ids = [intern( name ) for name, _ in PRIMS]
+    already made.
+
+    `spare` empty slots are set aside for names a session defines later.  The
+    demo asks for none, so the heap it prints holds nothing it did not use.
+    """
+    global E, global_env
+    ids = [intern( name ) for name, _ in PRIMS] + [EMPTY] * spare
     E = mk_env( NIL, ids, [mk_num( 0 )] * len( ids ) )
+    global_env = E
     for i, (name, _) in enumerate( PRIMS ):
         env_set( E, intern( name ), mk_prim( i ) )
     return E
 
 
-def run_vm( prog, heap_size=None ):
-    global V, E, K, pc
+def boot( heap_size=None, spare=0 ):
+    """Start a machine: an empty heap, an empty program, and the primitives."""
+    global PROG, V, E, K, pc
     heap_reset( heap_size )
+    PROG = []
     V, K, pc = mk_num( 0 ), NIL, 0
-    make_global_env()
+    make_global_env( spare )
+    return global_env
+
+
+def _run( prog ):
+    """Run from the current pc until a return with nothing left to return to."""
+    global V, E, K, pc
 
     while True:
         op = prog[pc][0]
@@ -585,7 +631,40 @@ def _do_return( prog ):
     pc, E, K = heap[a + 3], heap[a + 4], heap[a + 2]
 
 
-def lEval( expr, heap_size=None ):
+def lEval( expr, env=None ):
+    """Evaluate one expression on the running machine.
+
+    The compiled code is appended to PROG rather than replacing it, because a
+    closure remembers the address of its own OP_LAM.  Throw the program away
+    between expressions and every closure made by an earlier one points into
+    code that is no longer there.
+    """
+    global E, K, pc
+    if global_env is None:
+        boot( spare=GLOBAL_SPARE )
+    start = len( PROG )
+    compile_expr( expr, PROG, tail=True )
+    E  = global_env if env is None else env
+    K  = NIL
+    pc = start
+    return _run( PROG )
+
+
+def run_vm( prog, heap_size=None ):
+    """Run a whole program in a machine of its own."""
+    global V, E, K, pc
+    heap_reset( heap_size )
+    V, K, pc = mk_num( 0 ), NIL, 0
+    make_global_env()
+    return _run( prog )
+
+
+def run_fresh( expr, heap_size=None ):
+    """Evaluate in a machine of its own, which is what a measurement wants.
+
+    The expression is compiled before the machine is booted, so the names in it
+    are interned before the primitives are.
+    """
     return run_vm( compile_program( expr ), heap_size )
 
 
@@ -593,9 +672,9 @@ def lEval( expr, heap_size=None ):
 # Helpers and demo
 # ---------------------------------------------------------------------------
 
-def lisp_str( val ):
+def source_str( val ):
     if isinstance( val, list ):
-        return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
+        return '(' + ' '.join( source_str( x ) for x in val ) + ')'
     return str( val )
 
 
@@ -607,6 +686,12 @@ def show( val ):
     return str( num_of( val ) )
 
 
+# The REPL prints the result of an expression, and on this machine a result is a
+# tagged int rather than a list, so `show` is the renderer it wants.  Every toy in
+# the book exports `lisp_str` for that job; here it is the same function.
+lisp_str = show
+
+
 def disassemble( prog ):
     for i, instr in enumerate( prog ):
         args = ' '.join( str( a ) for a in instr[1:] )
@@ -614,8 +699,8 @@ def disassemble( prog ):
 
 
 def run( expr, stats=False ):
-    print( '>>> ' + lisp_str( expr ) )
-    result = lEval( expr )
+    print( '>>> ' + source_str( expr ) )
+    result = run_fresh( expr )
     print( '==> ' + show( result ) )
     if stats:
         print( f'    {gc_runs} collections, {peak_live} cells reachable at the busiest' )
@@ -642,7 +727,7 @@ def smallest_heap( expr, lo=32, hi=20000 ):
     while lo < hi:
         mid = (lo + hi) // 2
         try:
-            lEval( expr, heap_size=mid )
+            run_fresh( expr, heap_size=mid )
             hi = mid
         except MemoryError:
             lo = mid + 1
@@ -706,19 +791,19 @@ def main():
     print( f'    {"n":>4}  {"reachable":>9}  {"heap needed":>11}  {"tax":>5}' )
     for n in (10, 20, 40, 80):
         need = smallest_heap( countdown( NON_TAIL, n ) )
-        lEval( countdown( NON_TAIL, n ), heap_size=need )
+        run_fresh( countdown( NON_TAIL, n ), heap_size=need )
         print( f'    {n:4}  {peak_live:9}  {need:11}  {need - peak_live:5}' )
     print( '    the tax is fragmentation: free cells too scattered to hand out.' )
     print()
 
     print( 'the shape of it, in a heap of 600:' )
     try:
-        lEval( countdown( NON_TAIL, 80 ), heap_size=600 )
+        run_fresh( countdown( NON_TAIL, 80 ), heap_size=600 )
     except MemoryError as e:
         print( f'    {e}' )
     print()
 
-    lEval( [['lambda', ['x'], ['+', 'x', 1]], 41], heap_size=120 )
+    run_fresh( [['lambda', ['x'], ['+', 'x', 1]], 41], heap_size=120 )
     gc()
     heap_dump( 'a small heap after one collection:' )
 

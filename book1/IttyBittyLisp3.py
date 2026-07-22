@@ -61,6 +61,25 @@ class Environment:
         return value
 
 # ---------------------------------------------------------------------------
+# Binding a call's arguments
+# ---------------------------------------------------------------------------
+#
+# A dotted parameter list `(first . rest)` is written here as the plain list
+# ['first', '.', 'rest'], so the dot is just an element to look for.  Bind the
+# named parameters one to one, and gather whatever is left over into a list
+# bound to the name after the dot.
+
+def bind_params( params, args ):
+    if '.' in params:
+        dot   = params.index( '.' )
+        named = params[:dot]
+        rest  = params[dot + 1]
+        bindings = dict( zip( named, args ) )
+        bindings[rest] = list( args[len(named):] )
+        return bindings
+    return dict( zip( params, args ) )
+
+# ---------------------------------------------------------------------------
 # Function: a closure capturing its lexical environment
 # ---------------------------------------------------------------------------
 
@@ -100,6 +119,40 @@ def lEval( expr, env ):
             C = elseExpr if condVal == '#f' else thenExpr
             continue                            # tail branch: loop
 
+        elif C[0] == 'cond':
+            # Really a chain of ifs, so say so: peel one clause and loop.  The
+            # chosen result stays in tail position, so cond keeps TCO.
+            clauses = C[1:]
+            if not clauses:
+                return '#f'
+            test, result = clauses[0]
+            if test == 'else':
+                C = result
+            else:
+                C = [ 'if', test, result, ['cond'] + list(clauses[1:]) ]
+            continue
+
+        elif C[0] == 'and':                     # short-circuits at the first #f
+            forms = C[1:]
+            if not forms:
+                return '#t'                     # (and) with no forms is true
+            for subExpr in forms[:-1]:          # non-tail forms: recurse
+                if lEval(subExpr, E) == '#f':
+                    return '#f'
+            C = forms[-1]
+            continue                            # tail: the last form's value wins
+
+        elif C[0] == 'or':                      # short-circuits at the first true
+            forms = C[1:]
+            if not forms:
+                return '#f'                     # (or) with no forms is false
+            for subExpr in forms[:-1]:          # non-tail forms: recurse
+                val = lEval(subExpr, E)
+                if val != '#f':
+                    return val                  # the true value itself, not '#t'
+            C = forms[-1]
+            continue                            # tail: the last form's value wins
+
         elif C[0] == 'begin':
             for subExpr in C[1:-1]:             # non-tail forms: recurse
                 lEval(subExpr, E)
@@ -127,23 +180,37 @@ def lEval( expr, env ):
             C = body[-1]
             continue                            # tail: last body form
 
+        elif C[0] == 'apply':
+            # (apply f a b ... args): the LAST operand is a list whose elements
+            # become the remaining arguments.  apply is a special form because it
+            # cannot be a primitive: a Python function has no way to open a scope
+            # and loop back into EVAL, and that is what calling a user-defined
+            # function means.  So apply builds an argument list and then falls
+            # into the same APPLY state an ordinary call reaches -- which is also
+            # what keeps a tail apply a tail call.
+            fn, *rest = [ lEval(elt, E) for elt in C[1:] ]
+            args = rest[:-1] + list(rest[-1])
+
         else:
             fn, *args = [ lEval(elt, E) for elt in C ]   # eval operator + operands
-    
-            # ---- State = APPLY (invoke a procedure on evaluated args) ----
-            if callable(fn):                        # primitive implemented in Python
-                return fn(args)
-            else:
-                # user-defined function: TCO -- reassign the registers and loop.  The new
-                # scope is opened on the *captured* (lexical) env, not the caller's.
-                initialBindings = dict(zip(fn.params, args))
-                E = Environment( parent=fn.env, bindings=initialBindings )
-                
-                # Execute the body in the new E
-                for subExpr in fn.body[:-1]:            # non-tail body forms: recurse
-                    lEval(subExpr, E)
-                C = fn.body[-1]
-                continue                                # tail call: loop, no stack growth
+
+        # ---- State = APPLY (invoke a procedure on evaluated args) ----
+        # Reached two ways: by an ordinary call, and by apply.  Every other
+        # branch above returns or loops, so falling out of the dispatch means we
+        # have a function and its arguments in hand.
+        if callable(fn):                        # primitive implemented in Python
+            return fn(args)
+        else:
+            # user-defined function: TCO -- reassign the registers and loop.  The new
+            # scope is opened on the *captured* (lexical) env, not the caller's.
+            initialBindings = bind_params(fn.params, args)
+            E = Environment( parent=fn.env, bindings=initialBindings )
+
+            # Execute the body in the new E
+            for subExpr in fn.body[:-1]:            # non-tail body forms: recurse
+                lEval(subExpr, E)
+            C = fn.body[-1]
+            continue                                # tail call: loop, no stack growth
 
 # ---------------------------------------------------------------------------
 # Primitives and global environment
@@ -163,9 +230,22 @@ globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
+    '%':     lambda args: args[0] % args[1],
     '=':     lambda args: '#t' if args[0] == args[1] else '#f',
     '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
     'print': lisp_print,
+
+    # `not` computes from an already-evaluated argument, so it is an ordinary
+    # primitive.  `and` and `or` cannot be: they must skip evaluating an
+    # operand, which only a special form can do.
+    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+
+    # The list primitives.  A Lisp list is a Python list, so each is one line.
+    'car':   lambda args: args[0][0],
+    'cdr':   lambda args: args[0][1:],
+    'cons':  lambda args: [args[0]] + args[1],
+    'list':  lambda args: list( args ),
+    'null?': lambda args: '#t' if args[0] == [] else '#f',
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -226,6 +306,18 @@ def main():
             ['countdown', ['-', 'n', 1]]]]] )
 
     run( ['countdown', 100000] )
+
+    # Rest parameters and apply, and the tail call survives both: a tail apply
+    # loops rather than recursing, so this runs in constant stack.
+    run( ['set!', 'countdown2',
+          ['lambda', ['n', '.', 'ignored'],
+           ['cond', [['=', 'n', 0], 0],
+                    ['else', ['apply', 'countdown2',
+                              ['list', ['-', 'n', 1]]]]]]] )
+    run( ['countdown2', 100000] )
+
+    # and/or keep their last form in tail position too.
+    run( ['and', ['<', 1, 2], ['or', '#f', ['quote', 'reached']]] )
 
 
 if __name__ == '__main__':

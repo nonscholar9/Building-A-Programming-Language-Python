@@ -41,6 +41,7 @@ FRAME_IF  = 0   # waiting on a test value
 FRAME_SET = 1   # waiting on a value to assign
 FRAME_SEQ = 2   # a begin / body with forms still to run
 FRAME_ARG = 3   # an application accumulating operator + operands
+FRAME_APP = 4   # an `apply` accumulating operator + operands, last one a list
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +156,12 @@ def lEval( expr, env ):
                 if len(forms) > 1:
                     K.append( (FRAME_SEQ, forms[1:], E) )
                 C = forms[0]
+            elif C[0] == 'apply':              # ['apply', f, a, ..., args]
+                # apply cannot be a primitive -- only the evaluator can open a
+                # scope and run a body -- so it is a special form.  It splices
+                # its final list argument out in FRAME_APP, below.
+                K.append( (FRAME_APP, [], list(C[2:]), E) )
+                C = C[1]                       # evaluate the function first
             else:                              # [fn, *args] -- an application
                 K.append( (FRAME_ARG, [], list(C[1:]), E) )
                 C = C[0]
@@ -211,6 +218,22 @@ def lEval( expr, env ):
                 if len(body) > 1:
                     K.append( (FRAME_SEQ, body[1:], E) )
                 C = body[0]
+                break
+
+            elif ftag == FRAME_APP:            # (FRAME_APP, done, todo, env)
+                done = frame[1] + [V]
+                todo = frame[2]
+                if todo:                       # more operands still to evaluate
+                    K.append( (FRAME_APP, done, todo[1:], frame[3]) )
+                    C = todo[0]
+                    E = frame[3]
+                    break
+                # Splice the final list into the argument positions and rebuild
+                # as an ordinary call, each value quoted so re-evaluating yields
+                # itself -- apply is only a different way to build the arg list.
+                spliced = done[:-1] + list( done[-1] )
+                C = [ ['quote', v] for v in spliced ]
+                E = frame[3]
                 break
 
 

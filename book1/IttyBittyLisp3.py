@@ -182,35 +182,35 @@ def lEval( expr, env ):
 
         elif C[0] == 'apply':
             # (apply f a b ... args): the LAST operand is a list whose elements
-            # become the remaining arguments.  apply is a special form because it
-            # cannot be a primitive: a Python function has no way to open a scope
-            # and loop back into EVAL, and that is what calling a user-defined
-            # function means.  So apply builds an argument list and then falls
-            # into the same APPLY state an ordinary call reaches -- which is also
-            # what keeps a tail apply a tail call.
+            # become the remaining arguments.  apply cannot be a primitive -- a
+            # Python function has no way to open a scope and loop back into EVAL,
+            # which is what calling a user-defined function means -- so it is a
+            # special form.  Evaluate the operands, splice the final list, then
+            # rebuild the whole thing as an ordinary call and loop, the same way
+            # cond above rewrites itself into an if.  Each value is wrapped in a
+            # quote so that re-evaluating it yields the value itself.
             fn, *rest = [ lEval(elt, E) for elt in C[1:] ]
             args = rest[:-1] + list(rest[-1])
+            C = [ ['quote', fn] ] + [ ['quote', a] for a in args ]
+            continue                                # a tail apply stays a tail call
 
         else:
             fn, *args = [ lEval(elt, E) for elt in C ]   # eval operator + operands
 
-        # ---- State = APPLY (invoke a procedure on evaluated args) ----
-        # Reached two ways: by an ordinary call, and by apply.  Every other
-        # branch above returns or loops, so falling out of the dispatch means we
-        # have a function and its arguments in hand.
-        if callable(fn):                        # primitive implemented in Python
-            return fn(args)
-        else:
-            # user-defined function: TCO -- reassign the registers and loop.  The new
-            # scope is opened on the *captured* (lexical) env, not the caller's.
-            initialBindings = bind_params(fn.params, args)
-            E = Environment( parent=fn.env, bindings=initialBindings )
+            # ---- State = APPLY (invoke a procedure on evaluated args) ----
+            if callable(fn):                        # primitive implemented in Python
+                return fn(args)
+            else:
+                # user-defined function: TCO -- reassign the registers and loop.  The new
+                # scope is opened on the *captured* (lexical) env, not the caller's.
+                initialBindings = bind_params(fn.params, args)
+                E = Environment( parent=fn.env, bindings=initialBindings )
 
-            # Execute the body in the new E
-            for subExpr in fn.body[:-1]:            # non-tail body forms: recurse
-                lEval(subExpr, E)
-            C = fn.body[-1]
-            continue                                # tail call: loop, no stack growth
+                # Execute the body in the new E
+                for subExpr in fn.body[:-1]:            # non-tail body forms: recurse
+                    lEval(subExpr, E)
+                C = fn.body[-1]
+                continue                                # tail call: loop, no stack growth
 
 # ---------------------------------------------------------------------------
 # Primitives and global environment

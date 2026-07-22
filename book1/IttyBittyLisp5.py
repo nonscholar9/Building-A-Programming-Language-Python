@@ -39,6 +39,9 @@ FRAME_IF  = 0   # waiting on a test value
 FRAME_SET = 1   # waiting on a value to assign
 FRAME_SEQ = 2   # a begin / body with forms still to run
 FRAME_ARG = 3   # an application accumulating operator + operands
+FRAME_APP = 4   # an apply accumulating operator + operands, last one a list
+FRAME_AND = 5   # an and with operands still to run
+FRAME_OR  = 6   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
@@ -70,6 +73,25 @@ class Environment:
         # handle goes straight there, with no second walk down the chain.
         self._global._bindings[name] = value
         return value
+
+# ---------------------------------------------------------------------------
+# Binding a call's arguments
+# ---------------------------------------------------------------------------
+#
+# A dotted parameter list `(first . rest)` is written here as the plain list
+# ['first', '.', 'rest'], so the dot is just an element to look for.  Bind the
+# named parameters one to one, and gather whatever is left over into a list
+# bound to the name after the dot.
+
+def bind_params( params, args ):
+    if '.' in params:
+        dot   = params.index( '.' )
+        named = params[:dot]
+        rest  = params[dot + 1]
+        bindings = dict( zip( named, args ) )
+        bindings[rest] = list( args[len(named):] )
+        return bindings
+    return dict( zip( params, args ) )
 
 # ---------------------------------------------------------------------------
 # The CEK machine
@@ -125,6 +147,38 @@ def lEval( expr, env ):
                 names = [ pair[0] for pair in C[1] ]
                 inits = [ pair[1] for pair in C[1] ]
                 C = [ ['lambda', names] + list(C[2:]) ] + inits
+            elif C[0] == 'cond':               # ['cond', (test result)...]
+                # Really a chain of ifs, so say so: peel one clause and re-dispatch.
+                clauses = list( C[1:] )
+                if not clauses:
+                    V = '#f'
+                    break
+                test, result = clauses[0]
+                if test == 'else':
+                    C = result
+                else:
+                    C = [ 'if', test, result, ['cond'] + clauses[1:] ]
+            elif C[0] == 'and':                # ['and', *forms] -- short-circuits
+                forms = list( C[1:] )
+                if not forms:
+                    V = '#t'                   # (and) with no forms is true
+                    break
+                K.append( (FRAME_AND, forms[1:], E) )
+                C = forms[0]
+            elif C[0] == 'or':                 # ['or', *forms] -- short-circuits
+                forms = list( C[1:] )
+                if not forms:
+                    V = '#f'                   # (or) with no forms is false
+                    break
+                K.append( (FRAME_OR, forms[1:], E) )
+                C = forms[0]
+            elif C[0] == 'apply':              # ['apply', f, a, ..., args]
+                # apply is a special form because it cannot be a primitive: a
+                # Python function has no way to open a scope and run a body.
+                # Its operands are collected exactly like a call's; only the
+                # last one is treated differently, and that happens below.
+                K.append( (FRAME_APP, [], list(C[2:]), E) )
+                C = C[1]                       # evaluate the function first
             else:                              # [fn, *args] -- an application
                 K.append( (FRAME_ARG, [], list(C[1:]), E) )
                 C = C[0]                       # evaluate the operator first
@@ -168,11 +222,53 @@ def lEval( expr, env ):
                     V = fn( args )
                     continue                   # stay in APPLY
                 _, params, body, clo_env = fn  # closure: bind params, run the body
-                initialBindings = dict( zip(params, args) )
+                initialBindings = bind_params( params, args )
                 E = Environment( parent=clo_env, bindings=initialBindings )
                 if len(body) > 1:
                     K.append( (FRAME_SEQ, body[1:], E) )
                 C = body[0]
+                break
+
+            elif ftag == FRAME_APP:            # (FRAME_APP, done, todo, env)
+                done = frame[1] + [V]
+                todo = frame[2]
+                if todo:                       # more operands to evaluate
+                    K.append( (FRAME_APP, done, todo[1:], frame[3]) )
+                    C = todo[0]
+                    E = frame[3]
+                    break
+                # Every operand is evaluated.  Splice the final list into the
+                # argument positions and rebuild the whole thing as an ordinary
+                # call, the same way let above rewrites itself into a lambda
+                # application.  Each value is wrapped in a quote so that
+                # re-evaluating it yields the value itself.  That is the whole of
+                # apply: not a new way to call, just a different way to build the
+                # argument list.
+                spliced = done[:-1] + list( done[-1] )
+                C = [ ['quote', v] for v in spliced ]
+                E = frame[3]
+                break                          # back to EVAL, as a plain call
+
+            elif ftag == FRAME_AND:            # (FRAME_AND, remaining_forms, env)
+                if V == '#f':                  # short-circuit: the #f flows on
+                    continue
+                forms = frame[1]
+                if not forms:                  # V is the last operand's value
+                    continue
+                E = frame[2]
+                K.append( (FRAME_AND, forms[1:], E) )
+                C = forms[0]
+                break
+
+            elif ftag == FRAME_OR:             # (FRAME_OR, remaining_forms, env)
+                if V != '#f':                  # short-circuit: the true value flows on
+                    continue
+                forms = frame[1]
+                if not forms:                  # V is '#f'
+                    continue
+                E = frame[2]
+                K.append( (FRAME_OR, forms[1:], E) )
+                C = forms[0]
                 break
 
         # fall through to the outer loop -- re-enter EVAL with the new C/E
@@ -196,9 +292,22 @@ globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
+    '%':     lambda args: args[0] % args[1],
     '=':     lambda args: '#t' if args[0] == args[1] else '#f',
     '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
     'print': lisp_print,
+
+    # `not` computes from an already-evaluated argument, so it is an ordinary
+    # primitive.  `and` and `or` cannot be: they must skip evaluating an
+    # operand, which only a special form can do.
+    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+
+    # The list primitives.  A Lisp list is a Python list, so each is one line.
+    'car':   lambda args: args[0][0],
+    'cdr':   lambda args: args[0][1:],
+    'cons':  lambda args: [args[0]] + args[1],
+    'list':  lambda args: list( args ),
+    'null?': lambda args: '#t' if args[0] == [] else '#f',
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -253,6 +362,29 @@ def main():
           ['lambda', ['n'],
            ['if', ['=', 'n', 0], 0, ['countdown', ['-', 'n', 1]]]]] )
     run( ['countdown', 100000] )                        # 0
+
+    # Chapter 1's forms, now on the machine.
+    run( ['car', ['quote', ['a', 'b', 'c']]] )          # a
+    run( ['cons', 1, ['quote', [2, 3]]] )               # (1 2 3)
+    run( ['cond', [['<', 2, 1], ['quote', 'no']],
+                  ['else', ['quote', 'yes']]] )         # yes
+    run( ['and', '#f', ['print', 'unreached']] )        # #f, and nothing prints
+    run( ['or', '#f', ['quote', 'fallback']] )          # fallback
+
+    # Chapter 2's: a rest parameter, and apply spreading a list back out.
+    run( ['set!', 'tally',
+          ['lambda', ['label', '.', 'nums'],
+           ['list', 'label', ['apply', '+', 'nums']]]] )
+    run( ['tally', ['quote', 'total']] )                # (total 0)
+    run( ['tally', ['quote', 'total'], 1, 2, 3] )       # (total 6)
+    run( ['apply', '+', 10, 20, ['quote', [1, 2, 3]]] ) # 36
+
+    # A tail apply is still a tail call: K stays bounded here too.
+    run( ['set!', 'countdown2',
+          ['lambda', ['n', '.', 'rest'],
+           ['cond', [['=', 'n', 0], 0],
+                    ['else', ['apply', 'countdown2', ['list', ['-', 'n', 1]]]]]]] )
+    run( ['countdown2', 100000] )                       # 0
 
 
 if __name__ == '__main__':

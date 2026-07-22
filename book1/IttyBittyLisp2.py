@@ -153,32 +153,32 @@ def lEval( expr, env ):
 
     elif expr[0] == 'apply':
         # (apply f a b ... args): the LAST operand is a list whose elements
-        # become the remaining arguments.  apply is a special form because it
-        # cannot be a primitive: a Python function has no way to open a scope
-        # and run a body, and that is what calling a user-defined function
-        # means.  So apply builds an argument list and then falls into the same
-        # APPLY state an ordinary call reaches.
+        # become the remaining arguments.  apply cannot be a primitive -- a
+        # Python function has no way to open a scope and run a body, which is
+        # what calling a user-defined function means -- so it is a special form.
+        # Evaluate the operands, splice the final list, then rebuild the whole
+        # thing as an ordinary call, the same way cond above rewrites itself
+        # into an if.  Each value is wrapped in a quote so that re-evaluating it
+        # yields the value itself.
         fn, *rest = [ lEval(elt, env) for elt in expr[1:] ]
         args = rest[:-1] + list(rest[-1])
+        return lEval( [ ['quote', fn] ] + [ ['quote', a] for a in args ], env )
 
     else:
         fn, *args = [ lEval(elt, env) for elt in expr ]   # eval operator + operands
 
-    # ---- State = APPLY (invoke a procedure on evaluated args) ----
-    # Reached two ways: by an ordinary call, and by apply.  Every other branch
-    # above returns, so falling out of the dispatch means we have a function
-    # and its arguments in hand.
-    if callable(fn):                   # primitive implemented in Python
-        return fn(args)
-    else:
-        # user-defined function: evaluate its body in a fresh local scope chained
-        # off the *captured* (lexical) environment, not the caller's.
-        initialBindings = bind_params(fn.params, args)
-        new_env = Environment(parent=fn.env, bindings=initialBindings)
+        # ---- State = APPLY (invoke a procedure on evaluated args) ----
+        if callable(fn):                   # primitive implemented in Python
+            return fn(args)
+        else:
+            # user-defined function: evaluate its body in a fresh local scope chained
+            # off the *captured* (lexical) environment, not the caller's.
+            initialBindings = bind_params(fn.params, args)
+            new_env = Environment(parent=fn.env, bindings=initialBindings)
 
-        for subExpr in fn.body[:-1]:       # non-tail body forms
-            lEval(subExpr, new_env)
-        return lEval(fn.body[-1], new_env)   # tail body form
+            for subExpr in fn.body[:-1]:       # non-tail body forms
+                lEval(subExpr, new_env)
+            return lEval(fn.body[-1], new_env)   # tail body form
 
 # ---------------------------------------------------------------------------
 # Primitives and global environment

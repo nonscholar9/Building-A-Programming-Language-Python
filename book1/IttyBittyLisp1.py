@@ -127,6 +127,9 @@ global_env = {
     '%':     lambda args: args[0] % args[1],
     '=':     lambda args: '#t' if args[0] == args[1] else '#f',
     '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
+    '>':     lambda args: '#t' if args[0] >  args[1] else '#f',
+    '<=':    lambda args: '#t' if args[0] <= args[1] else '#f',
+    '>=':    lambda args: '#t' if args[0] >= args[1] else '#f',
     'print': lisp_print,
 
     # `not` computes from an already-evaluated argument, so it is an ordinary

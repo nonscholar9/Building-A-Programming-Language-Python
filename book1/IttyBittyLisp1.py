@@ -63,6 +63,32 @@ def lEval( expr, env ):
         condVal = lEval(condExpr, env)
         return lEval(elseExpr if condVal == '#f' else thenExpr, env)
 
+    elif expr[0] == 'cond':
+        # Really a chain of ifs, so say so: peel one clause and re-evaluate the
+        # rest.  `else` is the clause whose test always holds.
+        clauses = expr[1:]
+        if not clauses:
+            return '#f'
+        test, result = clauses[0]
+        if test == 'else':
+            return lEval(result, env)
+        return lEval( ['if', test, result, ['cond'] + list(clauses[1:])], env )
+
+    elif expr[0] == 'and':             # short-circuits: stops at the first #f
+        val = '#t'                     # (and) with no forms is true
+        for subExpr in expr[1:]:
+            val = lEval(subExpr, env)
+            if val == '#f':
+                return '#f'
+        return val                     # the last operand's value, not '#t'
+
+    elif expr[0] == 'or':              # short-circuits: stops at the first true
+        for subExpr in expr[1:]:
+            val = lEval(subExpr, env)
+            if val != '#f':
+                return val             # the true value itself, not '#t'
+        return '#f'                    # (or) with no forms is false
+
     elif expr[0] == 'begin':
         for subExpr in expr[1:-1]:     # non-tail forms: evaluated for effect
             lEval(subExpr, env)
@@ -98,9 +124,22 @@ global_env = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
+    '%':     lambda args: args[0] % args[1],
     '=':     lambda args: '#t' if args[0] == args[1] else '#f',
     '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
     'print': lisp_print,
+
+    # `not` computes from an already-evaluated argument, so it is an ordinary
+    # primitive.  `and` and `or` cannot be: they must skip evaluating an
+    # operand, which only a special form can do.
+    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+
+    # The list primitives.  A Lisp list is a Python list, so each is one line.
+    'car':   lambda args: args[0][0],
+    'cdr':   lambda args: args[0][1:],
+    'cons':  lambda args: [args[0]] + args[1],
+    'list':  lambda args: list( args ),
+    'null?': lambda args: '#t' if args[0] == [] else '#f',
 }
 
 # ---------------------------------------------------------------------------
@@ -156,6 +195,28 @@ def main() -> None:
 
     # quote: return a datum unevaluated -- suppresses evaluation entirely.
     run( ['quote', ['a', 'b', 'c']] )
+
+    # The list primitives are what make quote pay off: with them a quoted list
+    # can be taken apart and rebuilt, all without touching lEval.
+    run( ['car', ['quote', ['a', 'b', 'c']]] )
+    run( ['cdr', ['quote', ['a', 'b', 'c']]] )
+    run( ['cons', 1, ['quote', [2, 3]]] )
+    run( ['list', 1, ['+', 1, 1], 3] )
+    run( ['null?', ['quote', []]] )
+
+    # cond: a chain of ifs written flat, with else as the last clause.
+    run( ['cond', [['<', 'a', 0], ['quote', 'negative']],
+                  [['=', 'a', 0], ['quote', 'zero']],
+                  ['else',        ['quote', 'positive']]] )
+
+    # not is a primitive; and/or are special forms, because they must be able
+    # to leave an operand unevaluated.  Both return a value, not just #t/#f.
+    run( ['not', ['=', 'a', 2]] )
+    run( ['and', ['<', 1, 2], ['quote', 'both']] )
+    run( ['or', ['<', 2, 1], ['quote', 'fallback']] )
+
+    # The short circuit is observable: print never runs on the skipped operand.
+    run( ['and', '#f', ['print', 'unreached']] )
 
 if __name__ == '__main__':
     main()

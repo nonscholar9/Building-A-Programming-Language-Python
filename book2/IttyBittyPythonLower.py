@@ -64,7 +64,7 @@ def _assigned_stmt( s, found ):
 # Lowering
 # ---------------------------------------------------------------------------
 
-_ARITH = { '+', '-', '*', '/', '%', '<', '>', '<=', '>=' }
+_ARITH = { '+', '-', '*', '%', '<', '>', '<=', '>=' }
 
 def lower_module( node ):
     return [ 'begin' ] + [ lower_stmt( s ) for s in node[1] ]

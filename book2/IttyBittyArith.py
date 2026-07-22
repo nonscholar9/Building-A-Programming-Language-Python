@@ -40,12 +40,12 @@ class Lexer( LexerBase ):
     PLUS_TOK   = 2
     MINUS_TOK  = 3
     STAR_TOK   = 4
-    SLASH_TOK  = 5
+    PERCENT_TOK= 5
     LPAREN_TOK = 6
     RPAREN_TOK = 7
 
     _SINGLE = {
-        '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK, '/': SLASH_TOK,
+        '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK, '%': PERCENT_TOK,
         '(': LPAREN_TOK, ')': RPAREN_TOK,
     }
     _DIGITS = '0123456789'
@@ -71,7 +71,7 @@ class Lexer( LexerBase ):
 # Parser 1: stratified recursive descent.  Precedence is the grammar's shape.
 #
 #   expr   ->  term   (('+' | '-') term)*
-#   term   ->  factor (('*' | '/') factor)*
+#   term   ->  factor (('*' | '%') factor)*
 #   factor ->  INT  |  '(' expr ')'  |  '-' factor
 #
 # Each rule is one method; a lower-precedence rule calls the next higher one,
@@ -80,7 +80,7 @@ class Lexer( LexerBase ):
 # ---------------------------------------------------------------------------
 
 _OP = { Lexer.PLUS_TOK: '+', Lexer.MINUS_TOK: '-',
-        Lexer.STAR_TOK: '*', Lexer.SLASH_TOK: '/' }
+        Lexer.STAR_TOK: '*', Lexer.PERCENT_TOK: '%' }
 
 class Parser( ParserBase ):
     def __init__( self ):
@@ -103,7 +103,7 @@ class Parser( ParserBase ):
 
     def _parseTerm( self ):
         node = self._parseFactor( )
-        while self._scanner.peekToken( ) in ( Lexer.STAR_TOK, Lexer.SLASH_TOK ):
+        while self._scanner.peekToken( ) in ( Lexer.STAR_TOK, Lexer.PERCENT_TOK ):
             op = _OP[ self._scanner.peekToken( ) ]
             self._scanner.consume( )
             node = [ op, node, self._parseFactor( ) ]
@@ -140,7 +140,7 @@ class Parser( ParserBase ):
 
 class PrattParser( ParserBase ):
     _LBP = { Lexer.PLUS_TOK: 1, Lexer.MINUS_TOK: 1,
-             Lexer.STAR_TOK: 3, Lexer.SLASH_TOK: 3 }
+             Lexer.STAR_TOK: 3, Lexer.PERCENT_TOK: 3 }
     _PREFIX_BP = 5                                 # unary minus binds tighter than *
 
     def __init__( self ):
@@ -196,7 +196,7 @@ def main():
         '10 - 2 - 3',
         '2 * 3 + 4 * 5',
         '-2 * 3',
-        '100 / 5 / 2',
+        '100 % 7 % 3',
         '2 * (3 + 4) - 1',
     ]
     strat = Parser( )

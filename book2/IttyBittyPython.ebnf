@@ -75,7 +75,7 @@ not_test        ::= "not" not_test | comparison
 comparison      ::= sum [comp_op sum]                 # no chained a < b < c
 comp_op         ::= "==" | "!=" | "<" | ">" | "<=" | ">="
 sum             ::= term (("+" | "-") term)*
-term            ::= factor (("*" | "/" | "%") factor)*
+term            ::= factor (("*" | "%") factor)*
 factor          ::= ("+" | "-") factor | call         # unary sign
 call            ::= atom ("(" [argument_list] ")")*
 argument_list   ::= expression ("," expression)*

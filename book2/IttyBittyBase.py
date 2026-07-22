@@ -282,7 +282,6 @@ globalBindings = {
     '+':     lambda args: sum( args ),
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,
-    '/':     lambda args: args[0] / args[1],
     '%':     lambda args: args[0] % args[1],
     '=':     lambda args: lisp_bool( args[0] == args[1] ),
     '<':     lambda args: lisp_bool( args[0] <  args[1] ),

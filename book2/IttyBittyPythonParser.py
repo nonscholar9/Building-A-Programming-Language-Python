@@ -41,10 +41,10 @@ class Lexer( LexerBase ):
       NAME_TOK, INTEGER_TOK,
       DEF_TOK, IF_TOK, ELIF_TOK, ELSE_TOK, WHILE_TOK, RETURN_TOK, PASS_TOK,
       AND_TOK, OR_TOK, NOT_TOK,
-      PLUS_TOK, MINUS_TOK, STAR_TOK, SLASH_TOK, PERCENT_TOK,
+      PLUS_TOK, MINUS_TOK, STAR_TOK, PERCENT_TOK,
       EQEQ_TOK, NOTEQ_TOK, LT_TOK, GT_TOK, LE_TOK, GE_TOK,
       ASSIGN_TOK, LPAREN_TOK, RPAREN_TOK, COLON_TOK, COMMA_TOK,
-      YIELD_TOK ) = range( 33 )
+      YIELD_TOK ) = range( 32 )
 
     KEYWORDS = {
         'def': DEF_TOK, 'if': IF_TOK, 'elif': ELIF_TOK, 'else': ELSE_TOK,
@@ -52,7 +52,7 @@ class Lexer( LexerBase ):
         'and': AND_TOK, 'or': OR_TOK, 'not': NOT_TOK, 'yield': YIELD_TOK,
     }
     _SINGLE = {
-        '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK, '/': SLASH_TOK,
+        '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK,
         '%': PERCENT_TOK, '(': LPAREN_TOK, ')': RPAREN_TOK,
         ':': COLON_TOK, ',': COMMA_TOK,
     }
@@ -179,7 +179,7 @@ _TOKEN_NAME = {
 }
 
 _BINOP_NAME = { Lexer.PLUS_TOK: '+', Lexer.MINUS_TOK: '-', Lexer.STAR_TOK: '*',
-                Lexer.SLASH_TOK: '/', Lexer.PERCENT_TOK: '%' }
+                Lexer.PERCENT_TOK: '%' }
 _COMP_NAME  = { Lexer.EQEQ_TOK: '==', Lexer.NOTEQ_TOK: '!=', Lexer.LT_TOK: '<',
                 Lexer.GT_TOK: '>', Lexer.LE_TOK: '<=', Lexer.GE_TOK: '>=' }
 
@@ -369,9 +369,9 @@ class Parser( ParserBase ):
             node = ( 'binop', op, node, self._parse_term() )
         return node
 
-    def _parse_term( self ):      # term ::= factor (("*" | "/" | "%") factor)*
+    def _parse_term( self ):      # term ::= factor (("*" | "%") factor)*
         node = self._parse_factor()
-        while self._peek() in ( Lexer.STAR_TOK, Lexer.SLASH_TOK, Lexer.PERCENT_TOK ):
+        while self._peek() in ( Lexer.STAR_TOK, Lexer.PERCENT_TOK ):
             op = _BINOP_NAME[ self._peek() ]
             self._next()
             node = ( 'binop', op, node, self._parse_factor() )

@@ -75,7 +75,7 @@ def _has_yield( s ):
 #   ('gen', resume, consumer)  a yield suspends; a return stops the generator
 # ---------------------------------------------------------------------------
 
-_ARITH = { '+', '-', '*', '/', '%', '<', '>', '<=', '>=' }
+_ARITH = { '+', '-', '*', '%', '<', '>', '<=', '>=' }
 
 def lower_module( node ):
     return [ 'begin' ] + [ lower_stmt( s, None ) for s in node[1] ]

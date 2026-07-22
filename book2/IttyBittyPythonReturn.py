@@ -63,7 +63,7 @@ def _assigned_stmt( s, found ):
 # so a return anywhere in the body knows what to jump to.
 # ---------------------------------------------------------------------------
 
-_ARITH = { '+', '-', '*', '/', '%', '<', '>', '<=', '>=' }
+_ARITH = { '+', '-', '*', '%', '<', '>', '<=', '>=' }
 
 def lower_module( node ):
     return [ 'begin' ] + [ lower_stmt( s, None ) for s in node[1] ]

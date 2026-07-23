@@ -42,9 +42,8 @@ FRAME_IF  = 0   # waiting on a test value
 FRAME_SET = 1   # waiting on a value to assign
 FRAME_SEQ = 2   # a begin / body with forms still to run
 FRAME_ARG = 3   # an application accumulating operator + operands
-FRAME_APP = 4   # an apply accumulating operator + operands, last one a list
-FRAME_AND = 5   # an and with operands still to run
-FRAME_OR  = 6   # an or with operands still to run
+FRAME_AND = 4   # an and with operands still to run
+FRAME_OR  = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
 # call/cc support
@@ -68,6 +67,13 @@ class _CallCC:
     does the capture itself."""
 
 CALLCC = _CallCC()
+
+class _Apply:
+    """apply is also a value, not a special form: it must open a scope and run a
+    body, which no primitive can do, so the evaluator recognizes it at the call
+    site (see the splice in FRAME_ARG), the same way it recognizes call/cc."""
+
+APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
@@ -199,13 +205,6 @@ def lEval( expr, env ):
                     break
                 K.append( (FRAME_OR, forms[1:], E) )
                 C = forms[0]
-            elif C[0] == 'apply':              # ['apply', f, a, ..., args]
-                # apply is a special form because it cannot be a primitive: a
-                # Python function has no way to open a scope and run a body.
-                # Its operands are collected exactly like a call's; only the
-                # last one is treated differently, and that happens below.
-                K.append( (FRAME_APP, [], list(C[2:]), E) )
-                C = C[1]                       # evaluate the function first
             else:                              # [fn, *args] -- an application
                 K.append( (FRAME_ARG, [], list(C[1:]), E) )
                 C = C[0]                       # evaluate the operator first
@@ -246,6 +245,11 @@ def lEval( expr, env ):
                 # operator + all operands evaluated -> apply done[0] to done[1:]
                 fn, args = done[0], done[1:]
 
+                while fn is APPLY:             # apply is a value: splice its final
+                    # list into the argument positions and call the real function,
+                    # here at the call site, just as call/cc reaches in below.
+                    fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+
                 if fn is CALLCC:               # (call/cc f): reify K, then call f with it
                     # This application's own frame was already popped above, so K
                     # right now *is* the continuation of the whole (call/cc f)
@@ -268,26 +272,6 @@ def lEval( expr, env ):
                     K.append( (FRAME_SEQ, body[1:], E) )
                 C = body[0]
                 break
-
-            elif ftag == FRAME_APP:            # (FRAME_APP, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:                       # more operands to evaluate
-                    K.append( (FRAME_APP, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
-                    break
-                # Every operand is evaluated.  Splice the final list into the
-                # argument positions and rebuild the whole thing as an ordinary
-                # call, the same way let above rewrites itself into a lambda
-                # application.  Each value is wrapped in a quote so that
-                # re-evaluating it yields the value itself.  That is the whole of
-                # apply: not a new way to call, just a different way to build the
-                # argument list.
-                spliced = done[:-1] + list( done[-1] )
-                C = [ ['quote', v] for v in spliced ]
-                E = frame[3]
-                break                          # back to EVAL, as a plain call
 
             elif ftag == FRAME_AND:            # (FRAME_AND, remaining_forms, env)
                 if V == '#f':                  # short-circuit: the #f flows on
@@ -353,6 +337,7 @@ globalBindings = {
     'null?': lambda args: '#t' if args[0] == [] else '#f',
     'call/cc':                       CALLCC,                    # the star of this file
     'call-with-current-continuation': CALLCC,                  # its full Scheme name
+    'apply':                         APPLY,                     # a value, spliced at the call site
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -367,6 +352,8 @@ def lisp_str( val ):
         return '#<continuation>'
     if val is CALLCC:
         return '#<primitive call/cc>'
+    if val is APPLY:
+        return '#<primitive apply>'
     if isinstance( val, tuple ):             # a closure: (VAL_CLOSURE, params, body, env)
         return '#<procedure (' + ' '.join( val[1] ) + ')>'
     if callable( val ):

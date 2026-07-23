@@ -151,21 +151,15 @@ def lEval( expr, env ):
             lEval(subExpr, new_env)
         return lEval(body[-1], new_env)       # tail body form
 
-    elif expr[0] == 'apply':
-        # (apply f a b ... args): the LAST operand is a list whose elements
-        # become the remaining arguments.  apply cannot be a primitive -- a
-        # Python function has no way to open a scope and run a body, which is
-        # what calling a user-defined function means -- so it is a special form.
-        # Evaluate the operands, splice the final list, then rebuild the whole
-        # thing as an ordinary call, the same way cond above rewrites itself
-        # into an if.  Each value is wrapped in a quote so that re-evaluating it
-        # yields the value itself.
-        fn, *rest = [ lEval(elt, env) for elt in expr[1:] ]
-        args = rest[:-1] + list(rest[-1])
-        return lEval( [ ['quote', fn] ] + [ ['quote', a] for a in args ], env )
-
     else:
         fn, *args = [ lEval(elt, env) for elt in expr ]   # eval operator + operands
+
+        # apply is a value, not a special form: (apply g x ... lst) is a call of
+        # g on x ... plus the elements of lst.  Splice it here, at the call site;
+        # a primitive could not, because it has to open a scope and run g's body.
+        # The loop lets (apply apply ...) resolve.
+        while fn is APPLY:
+            fn, args = args[0], args[1:-1] + list( args[-1] )
 
         # ---- State = APPLY (invoke a procedure on evaluated args) ----
         if callable(fn):                   # primitive implemented in Python
@@ -194,6 +188,14 @@ def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identi
         result *= x
     return result
 
+# apply is a value the evaluator recognizes at the call site, not a special form
+# and not an ordinary primitive: it must open a scope and run a body, which a
+# Python primitive cannot do.
+class _Apply:
+    pass
+
+APPLY = _Apply()
+
 globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
@@ -217,6 +219,9 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
     'null?': lambda args: '#t' if args[0] == [] else '#f',
+
+    # apply, above, is bound to the sentinel the evaluator watches for.
+    'apply': APPLY,
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -232,6 +237,8 @@ def lisp_str( val ):
         return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
     if isinstance( val, Function ):
         return '#<procedure (' + ' '.join( val.params ) + ')>'
+    if val is APPLY:
+        return '#<primitive apply>'
     if callable( val ):
         return '#<primitive>'
     return str( val )

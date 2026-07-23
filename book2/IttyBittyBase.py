@@ -27,6 +27,8 @@ Run with: python IttyBittyBase.py
 # ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
+# A number or boolean value is itself; only a closure needs a tag, to carry its
+# (params, body, captured-environment).
 VAL_CLOSURE = 1
 
 # Continuation frame kinds.
@@ -34,36 +36,48 @@ FRAME_IF  = 0   # waiting on a test value
 FRAME_SET = 1   # waiting on a value to assign
 FRAME_SEQ = 2   # a begin / body with forms still to run
 FRAME_ARG = 3   # an application accumulating operator + operands
-FRAME_AND = 4   # NEW: an `and` with operands still to run
-FRAME_OR  = 5   # NEW: an `or` with operands still to run
-FRAME_APP = 6   # an `apply` accumulating operator + operands, last one a list
-
+FRAME_AND = 4   # an and with operands still to run
+FRAME_OR  = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
-# call/cc support (Book One's second interlude, unchanged)
+# call/cc support
 # ---------------------------------------------------------------------------
+# A captured continuation is nothing but a saved copy of the K stack.  Because
+# K is an ordinary list, "reify the continuation" = "copy the list", and
+# "resume the continuation" = "make that list be K again".
 
 class Continuation:
-    """A reified continuation: a snapshot of the K stack."""
+    """A reified continuation: a snapshot of the K stack, taken at the moment
+    call/cc ran.  Invoking it like a one-argument function discards whatever K
+    is current and reinstates this saved one, so control jumps back to wherever
+    the continuation was captured, carrying the supplied value."""
     def __init__( self, stack ):
         self.stack = stack
 
 class _CallCC:
-    """A sentinel, not a plain callable: capturing the continuation needs the
-    machine's K register, which an ordinary primitive never sees."""
+    """The call/cc primitive is a sentinel, not an ordinary Python callable,
+    because capturing the continuation needs the machine's K register -- which
+    a plain primitive never sees.  The APPLY loop recognizes this object and
+    does the capture itself."""
 
 CALLCC = _CallCC()
 
+class _Apply:
+    """apply is also a value, not a special form: it must open a scope and run a
+    body, which no primitive can do, so the evaluator recognizes it at the call
+    site (see the splice in FRAME_ARG), the same way it recognizes call/cc."""
+
+APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes
+# Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
     def __init__( self, parent=None, bindings=None ):
         self._bindings = dict(bindings or {})
         self._parent   = parent
-        self._global   = parent._global if parent else self
+        self._global   = parent._global if parent else self   # direct handle to the root
 
     def lookup( self, name ):
         scope = self
@@ -74,24 +88,26 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
+        # Walk to the innermost scope that already owns the name.
         scope = self
         while scope:
             if name in scope._bindings:
                 scope._bindings[name] = value
                 return value
             scope = scope._parent
+        # Name not found anywhere -- create it in the global scope.  The _global
+        # handle goes straight there, with no second walk down the chain.
         self._global._bindings[name] = value
         return value
 
-
 # ---------------------------------------------------------------------------
-# Binding a call's arguments  (Book One, Chapter 2 challenge: rest parameters)
+# Binding a call's arguments
 # ---------------------------------------------------------------------------
 #
-# A dotted parameter list `(first . rest)` reaches us from the reader as the
-# plain list ['first', '.', 'rest'], so the dot is just an element to look for.
-# Bind the named parameters one to one, and gather whatever is left over into a
-# list bound to the name after the dot.
+# A dotted parameter list `(first . rest)` is written here as the plain list
+# ['first', '.', 'rest'], so the dot is just an element to look for.  Bind the
+# named parameters one to one, and gather whatever is left over into a list
+# bound to the name after the dot.
 
 def bind_params( params, args ):
     if '.' in params:
@@ -103,16 +119,19 @@ def bind_params( params, args ):
         return bindings
     return dict( zip( params, args ) )
 
-
 # ---------------------------------------------------------------------------
 # The CEK machine
 # ---------------------------------------------------------------------------
 #
-# Registers:  C (expression), V (value), E (environment), K (frame stack).
+# Registers:
+#   C : current expression  (EVAL loop)
+#   V : current value        (APPLY loop)
+#   E : current environment
+#   K : continuation stack (a Python list)
 #
-# Value forms: a number; '#t' / '#f'; a list; a primitive (a Python callable);
+# Value forms: a number; '#t' / '#f'; a primitive (a Python callable);
 #              a closure (VAL_CLOSURE, params, body, captured_env);
-#              a Continuation; the CALLCC sentinel.
+#              a Continuation (a saved K stack); the CALLCC sentinel.
 
 def lEval( expr, env ):
     C = expr
@@ -127,13 +146,13 @@ def lEval( expr, env ):
             if C in ('#t', '#f'):              # boolean literal -> itself
                 V = C
                 break
-            elif isinstance( C, (int, float) ):  # number -> itself
-                V = C
-                break
             elif isinstance( C, str ):         # variable -> look it up
                 V = E.lookup( C )
                 break
-            elif C[0] == 'quote':              # ['quote', datum] -> the datum
+            elif isinstance( C, (int, float) ):  # number -> itself
+                V = C
+                break
+            elif C[0] == 'quote':              # ['quote', datum] -> the datum, unevaluated
                 V = C[1]
                 break
             elif C[0] == 'lambda':             # ['lambda', params, *body] -> a closure
@@ -141,10 +160,10 @@ def lEval( expr, env ):
                 break
             elif C[0] == 'if':                 # ['if', test, then, else]
                 K.append( (FRAME_IF, C[2], C[3], E) )
-                C = C[1]
+                C = C[1]                       # evaluate the test first
             elif C[0] == 'set!':               # ['set!', name, valueExpr]
                 K.append( (FRAME_SET, C[1], E) )
-                C = C[2]
+                C = C[2]                       # evaluate the value first
             elif C[0] == 'begin':              # ['begin', *forms]
                 forms = list( C[1:] )
                 if len(forms) > 1:
@@ -156,13 +175,12 @@ def lEval( expr, env ):
                 inits = [ pair[1] for pair in C[1] ]
                 C = [ ['lambda', names] + list(C[2:]) ] + inits
             elif C[0] == 'cond':               # ['cond', (test result)...]
-                # Really is a chain of ifs, so say so: peel one clause and
-                # re-dispatch.  `else` is the clause whose test always holds.
+                # Really a chain of ifs, so say so: peel one clause and re-dispatch.
                 clauses = list( C[1:] )
                 if not clauses:
                     V = '#f'
                     break
-                test, result = clauses[0][0], clauses[0][1]
+                test, result = clauses[0]
                 if test == 'else':
                     C = result
                 else:
@@ -170,27 +188,20 @@ def lEval( expr, env ):
             elif C[0] == 'and':                # ['and', *forms] -- short-circuits
                 forms = list( C[1:] )
                 if not forms:
-                    V = '#t'
+                    V = '#t'                   # (and) with no forms is true
                     break
                 K.append( (FRAME_AND, forms[1:], E) )
                 C = forms[0]
             elif C[0] == 'or':                 # ['or', *forms] -- short-circuits
                 forms = list( C[1:] )
                 if not forms:
-                    V = '#f'
+                    V = '#f'                   # (or) with no forms is false
                     break
                 K.append( (FRAME_OR, forms[1:], E) )
                 C = forms[0]
-            elif C[0] == 'apply':              # ['apply', f, a, ..., args]
-                # apply is a special form because it cannot be a primitive: a
-                # Python function has no way to open a scope and run a body.
-                # Its operands are collected exactly like a call's; only the last
-                # one, a list, is spliced out, and that happens in FRAME_APP.
-                K.append( (FRAME_APP, [], list(C[2:]), E) )
-                C = C[1]                       # evaluate the function first
             else:                              # [fn, *args] -- an application
                 K.append( (FRAME_ARG, [], list(C[1:]), E) )
-                C = C[0]
+                C = C[0]                       # evaluate the operator first
 
         # ----- state APPLY: feed V to the top frame -----
         while True:
@@ -201,20 +212,59 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V != '#f' else frame[2]
+                C = frame[1] if V != '#f' else frame[2]   # #f is the only false
                 E = frame[3]
                 break
 
             elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
-                frame[2].set( frame[1], V )
-                continue
+                frame[2].set( frame[1], V )    # V is set!'s result; it flows on
+                continue                       # stay in APPLY
 
             elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)
-                forms = frame[1]
+                forms = frame[1]               # the previous form's value V is discarded
                 E = frame[2]
                 if len(forms) > 1:
                     K.append( (FRAME_SEQ, forms[1:], E) )
                 C = forms[0]
+                break
+
+            elif ftag == FRAME_ARG:            # (FRAME_ARG, done, todo, env)
+                done = frame[1] + [V]
+                todo = frame[2]
+                if todo:                       # more operands to evaluate
+                    K.append( (FRAME_ARG, done, todo[1:], frame[3]) )
+                    C = todo[0]
+                    E = frame[3]
+                    break
+                # operator + all operands evaluated -> apply done[0] to done[1:]
+                fn, args = done[0], done[1:]
+
+                while fn is APPLY:             # apply is a value: splice its final
+                    # list into the argument positions and call the real function,
+                    # here at the call site, just as call/cc reaches in below.
+                    fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+
+                if fn is CALLCC:               # (call/cc f): reify K, then call f with it
+                    # This application's own frame was already popped above, so K
+                    # right now *is* the continuation of the whole (call/cc f)
+                    # expression.  Snapshot it, and redirect to "call f on it".
+                    cont = Continuation( list(K) )
+                    fn, args = args[0], [cont]
+
+                if isinstance( fn, Continuation ):   # invoking a captured continuation
+                    K = list( fn.stack )       # discard current K, reinstate the saved one
+                    V = args[0]                # the value handed to the continuation...
+                    continue                   # ...flows straight into the restored K
+
+                if callable( fn ):             # primitive: compute the value, flow it on
+                    V = fn( args )
+                    continue                   # stay in APPLY
+                _, params, body, clo_env = fn  # closure: bind params, run the body
+                initialBindings = bind_params( params, args )
+                E = Environment( parent=clo_env, bindings=initialBindings )
+                if len(body) > 1:
+                    K.append( (FRAME_SEQ, body[1:], E) )
+                C = body[0]
                 break
 
             elif ftag == FRAME_AND:            # (FRAME_AND, remaining_forms, env)
@@ -239,53 +289,7 @@ def lEval( expr, env ):
                 C = forms[0]
                 break
 
-            elif ftag == FRAME_ARG:            # (FRAME_ARG, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:
-                    K.append( (FRAME_ARG, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
-                    break
-                fn, args = done[0], done[1:]
-
-                if fn is CALLCC:               # (call/cc f): reify K, then call f with it
-                    cont = Continuation( list(K) )
-                    fn, args = args[0], [cont]
-
-                if isinstance( fn, Continuation ):   # invoking a captured continuation
-                    K = list( fn.stack )
-                    V = args[0]
-                    continue
-
-                if callable( fn ):             # primitive
-                    V = fn( args )
-                    continue
-                _, params, body, clo_env = fn  # closure
-                E = Environment( parent=clo_env, bindings=bind_params( params, args ) )
-                if len(body) > 1:
-                    K.append( (FRAME_SEQ, body[1:], E) )
-                C = body[0]
-                break
-
-            elif ftag == FRAME_APP:            # (FRAME_APP, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:                       # more operands still to evaluate
-                    K.append( (FRAME_APP, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
-                    break
-                # Every operand is evaluated.  Splice the final list into the
-                # argument positions and rebuild the whole thing as an ordinary
-                # call, the same way let rewrites itself into a lambda
-                # application.  Each value is wrapped in a quote so that
-                # re-evaluating it yields the value itself.  apply is not a new
-                # way to call, only a different way to build the argument list.
-                spliced = done[:-1] + list( done[-1] )
-                C = [ ['quote', v] for v in spliced ]
-                E = frame[3]
-                break                          # back to EVAL, as a plain call
+        # fall through to the outer loop -- re-enter EVAL with the new C/E
 
 
 # ---------------------------------------------------------------------------
@@ -294,45 +298,42 @@ def lEval( expr, env ):
 
 def lisp_print( args ):
     print( args[0] )
-    return args[0]
+    return args[0]       # returned, so print composes inside a larger expression
 
-def lisp_mul( args ):
+def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identity
     result = 1
     for x in args:
         result *= x
     return result
 
-def lisp_bool( b ):
-    return '#t' if b else '#f'
-
 globalBindings = {
-    '+':     lambda args: sum( args ),
+    '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
-    '*':     lisp_mul,
+    '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
-    '=':     lambda args: lisp_bool( args[0] == args[1] ),
-    '<':     lambda args: lisp_bool( args[0] <  args[1] ),
-    '>':     lambda args: lisp_bool( args[0] >  args[1] ),
-    '<=':    lambda args: lisp_bool( args[0] <= args[1] ),
-    '>=':    lambda args: lisp_bool( args[0] >= args[1] ),
+    '=':     lambda args: '#t' if args[0] == args[1] else '#f',
+    '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
+    '>':     lambda args: '#t' if args[0] >  args[1] else '#f',
+    '<=':    lambda args: '#t' if args[0] <= args[1] else '#f',
+    '>=':    lambda args: '#t' if args[0] >= args[1] else '#f',
     'print': lisp_print,
 
-    # Chapter 1's list primitives.  A Lisp list is a Python list, so each is short.
+    # `not` computes from an already-evaluated argument, so it is an ordinary
+    # primitive.  `and` and `or` cannot be: they must skip evaluating an
+    # operand, which only a special form can do.
+    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+
+    # The list primitives.  A Lisp list is a Python list, so each is one line.
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
-    'null?': lambda args: lisp_bool( args[0] == [] ),
-
-    # `not` is an ordinary primitive; `and` and `or` cannot be, which is the
-    # whole point of Chapter 1's challenge.  They are special forms above.
-    'not':   lambda args: lisp_bool( args[0] == '#f' ),
-
-    'call/cc':                        CALLCC,
-    'call-with-current-continuation': CALLCC,
+    'null?': lambda args: '#t' if args[0] == [] else '#f',
+    'call/cc':                       CALLCC,                    # the star of this file
+    'call-with-current-continuation': CALLCC,                  # its full Scheme name
+    'apply':                         APPLY,                     # a value, spliced at the call site
 }
 global_env = Environment( bindings=globalBindings )
-
 
 # ---------------------------------------------------------------------------
 # Helpers and demo
@@ -341,12 +342,14 @@ global_env = Environment( bindings=globalBindings )
 def lisp_str( val ):
     if isinstance( val, list ):
         return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-    if isinstance( val, tuple ):
-        return '#<procedure (' + ' '.join( val[1] ) + ')>'
-    if isinstance( val, Continuation ):
+    if isinstance( val, Continuation ):      # a reified continuation
         return '#<continuation>'
     if val is CALLCC:
         return '#<primitive call/cc>'
+    if val is APPLY:
+        return '#<primitive apply>'
+    if isinstance( val, tuple ):             # a closure: (VAL_CLOSURE, params, body, env)
+        return '#<procedure (' + ' '.join( val[1] ) + ')>'
     if callable( val ):
         return '#<primitive>'
     return str( val )

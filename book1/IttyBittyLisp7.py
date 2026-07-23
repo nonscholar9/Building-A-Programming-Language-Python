@@ -90,6 +90,8 @@ def name_of( nid ):
 #   RET      tag size next ret_pc env                       size = 5
 #   IF       tag size next then_pc else_pc env              size = 6
 #   ARG      tag size next env nslots count slot0 ...       size = 6 + nslots
+#   PAIR     tag size car cdr                               size = 4
+#   SYMBOL   tag size name_id                               size = 3
 #   FREE     tag size next_free                             size >= 3
 #
 # Note which cells are addresses and which are just numbers.  ret_pc and lam_pc
@@ -105,12 +107,14 @@ TAG_RET     = 3
 TAG_IF      = 4
 TAG_ARG     = 5
 TAG_FREE    = 6
+TAG_PAIR    = 7                 # a cons cell: car and cdr, both values
+TAG_SYMBOL  = 8                 # a quoted symbol: an interned name id, not a pointer
 
 # A slot in an environment that no name has claimed yet.  Interned names are
 # indexes into _NAMES, so they are never negative, and -1 can never match one.
 EMPTY       = -1
 
-_TAG_NAMES = ['env', 'closure', 'prim', 'ret', 'if', 'arg', 'FREE']
+_TAG_NAMES = ['env', 'closure', 'prim', 'ret', 'if', 'arg', 'FREE', 'pair', 'symbol']
 
 HEAP_SIZE = 600
 MIN_BLOCK = 3                   # the smallest thing a free block can hold
@@ -212,6 +216,30 @@ def alloc( tag, size ):
 # --- constructors ----------------------------------------------------------
 
 def mk_env( parent, param_ids, args ):
+    # A dotted parameter list `(first . rest)` gathers the leftover arguments.
+    # The dot reaches us as the ordinary interned name '.', so look for it; if it
+    # is there, the name after it binds to a list of whatever arguments remain.
+    dot = next( (i for i in range( len( param_ids ) )
+                 if name_of( param_ids[i] ) == '.'), None )
+    if dot is not None:
+        # Build the rest list (a chain of pairs) and keep it in V, a root, so a
+        # collection during the env's own allocation cannot free it.  The args
+        # stay reachable through the ARG frame on K throughout.
+        global V
+        saved, V = V, NIL
+        for x in reversed( args[dot:] ):
+            V = mk_pair( x, V )
+        n = dot + 1
+        a = alloc( TAG_ENV, 4 + 2 * n )          # may collect; V roots the rest list
+        heap[a + 2], heap[a + 3] = parent, n
+        for i in range( dot ):
+            heap[a + 4 + 2 * i] = param_ids[i]
+            heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
+        heap[a + 4 + 2 * dot] = param_ids[dot + 1]
+        heap[a + 5 + 2 * dot] = V                 # the rest list, still rooted in V
+        V = saved
+        return mk_ptr( a )
+
     n = len( param_ids )
     a = alloc( TAG_ENV, 4 + 2 * n )
     heap[a + 2], heap[a + 3] = parent, n
@@ -251,6 +279,20 @@ def mk_arg( nxt, env, nslots ):
     heap[a + 2], heap[a + 3], heap[a + 4], heap[a + 5] = nxt, env, nslots, 0
     for i in range( nslots ):
         heap[a + 6 + i] = NIL           # so the collector never reads garbage
+    return mk_ptr( a )
+
+
+def mk_pair( car, cdr ):
+    # alloc runs first and may collect; car and cdr must already be reachable
+    # from a register before the call (for cons, they sit in the ARG frame on K).
+    a = alloc( TAG_PAIR, 4 )
+    heap[a + 2], heap[a + 3] = car, cdr
+    return mk_ptr( a )
+
+
+def mk_symbol( nid ):
+    a = alloc( TAG_SYMBOL, 3 )
+    heap[a + 2] = nid                   # a name id, a number: no pointer to trace
     return mk_ptr( a )
 
 
@@ -318,6 +360,8 @@ def pointers_in( a ):
         out = [heap[a + 2], heap[a + 3]]
         out += [heap[a + 6 + i] for i in range( heap[a + 4] )]
         return out
+    if tag == TAG_PAIR:    return [heap[a + 2], heap[a + 3]]
+    if tag == TAG_SYMBOL:  return []
     return []
 
 
@@ -406,13 +450,56 @@ def heap_dump( label='' ):
 # Primitives
 # ---------------------------------------------------------------------------
 
-def _add( a ): return mk_num( num_of( a[0] ) + num_of( a[1] ) )
-def _sub( a ): return mk_num( num_of( a[0] ) - num_of( a[1] ) )
-def _mul( a ): return mk_num( num_of( a[0] ) * num_of( a[1] ) )
-def _eq(  a ): return TRUE if num_of( a[0] ) == num_of( a[1] ) else FALSE
-def _lt(  a ): return TRUE if num_of( a[0] ) <  num_of( a[1] ) else FALSE
+def _is_sym( v ):
+    return is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_SYMBOL
 
-PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt)]
+def _add( a ):                                  # variadic, like Chapter 5; (+) is 0
+    total = 0
+    for x in a: total += num_of( x )
+    return mk_num( total )
+def _sub( a ): return mk_num( num_of( a[0] ) - num_of( a[1] ) )
+def _mul( a ):                                  # variadic; (*) is 1
+    total = 1
+    for x in a: total *= num_of( x )
+    return mk_num( total )
+def _mod( a ): return mk_num( num_of( a[0] ) %  num_of( a[1] ) )
+def _eq(  a ):
+    # numbers compare as numbers; two symbols compare by their interned name.
+    if _is_sym( a[0] ) and _is_sym( a[1] ):
+        return TRUE if heap[addr_of( a[0] ) + 2] == heap[addr_of( a[1] ) + 2] else FALSE
+    return TRUE if num_of( a[0] ) == num_of( a[1] ) else FALSE
+def _lt(  a ): return TRUE if num_of( a[0] ) <  num_of( a[1] ) else FALSE
+def _gt(  a ): return TRUE if num_of( a[0] ) >  num_of( a[1] ) else FALSE
+def _le(  a ): return TRUE if num_of( a[0] ) <= num_of( a[1] ) else FALSE
+def _ge(  a ): return TRUE if num_of( a[0] ) >= num_of( a[1] ) else FALSE
+def _not( a ): return TRUE if a[0] == FALSE else FALSE
+
+# The list primitives.  cons allocates, but its two arguments are still in the
+# ARG frame on K while it runs, so a collection part way through keeps them alive.
+def _cons( a ): return mk_pair( a[0], a[1] )
+def _car(  a ): return heap[ addr_of( a[0] ) + 2 ]
+def _cdr(  a ): return heap[ addr_of( a[0] ) + 3 ]
+def _null( a ): return TRUE if a[0] == NIL else FALSE
+
+def _print( a ): print( show( a[0] ) ); return a[0]
+
+# apply is a value, but not a leaf primitive: a Python function has no way to
+# open a scope and run a body.  Its entry here only reserves a name and an id;
+# the VM recognizes that id at the call site and splices (see OP_CALL), the same
+# shape call/cc uses.  This body is never actually called.
+def _apply( a ): raise RuntimeError( 'apply is spliced in the VM, never called' )
+
+PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt),
+         ('%', _mod), ('>', _gt), ('<=', _le), ('>=', _ge), ('not', _not),
+         ('cons', _cons), ('car', _car), ('cdr', _cdr), ('null?', _null),
+         ('print', _print), ('apply', _apply)]
+
+# The names the measurement demos boot with: only the arithmetic the countdown
+# and the heap dumps actually use, so those transcripts stay exactly as this
+# chapter set them.  A session, and the language demos, boot with `full=True`
+# and get every name above.
+LEAN_PRIMS = ['+', '-', '*', '=', '<']
+PRIM_INDEX = { name: i for i, (name, _) in enumerate( PRIMS ) }
 
 
 # ---------------------------------------------------------------------------
@@ -432,14 +519,39 @@ OP_APPLY_IF  = 9
 OP_RET       = 10
 OP_SET       = 11               # NEW: the one that makes cycles possible
 OP_BOOL      = 12               # push a boolean immediate
+OP_SYM       = 13               # push a quoted symbol
+OP_NIL       = 14               # push the empty list
 
 _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
-             'CALL', 'TCALL', 'IF_START', 'APPLY_IF', 'RET', 'SET', 'BOOL']
+             'CALL', 'TCALL', 'IF_START', 'APPLY_IF', 'RET', 'SET', 'BOOL',
+             'SYM', 'NIL']
 
 
 # ---------------------------------------------------------------------------
 # The compiler
 # ---------------------------------------------------------------------------
+
+# A reserved parameter name `or` binds its first value to, so a true result is
+# returned without evaluating it twice.  It is not a legal source name; making a
+# trick like this hygienic in general is Chapter 9's expander.
+_OR_TMP = '%or-tmp%'
+
+
+def _compile_quoted( datum, out ):
+    """Emit code that BUILDS `datum` as a value: a boolean, a symbol, a number,
+    or a list -- a list becomes a chain of conses ending in the empty list."""
+    if datum == '#t' or datum == '#f':
+        out.append( (OP_BOOL, datum) )
+    elif isinstance( datum, str ):
+        out.append( (OP_SYM, intern( datum )) )
+    elif isinstance( datum, int ):
+        out.append( (OP_INT, datum) )
+    elif isinstance( datum, list ) and not datum:
+        out.append( (OP_NIL,) )
+    else:                                       # (a . rest) -> (cons 'a 'rest)
+        compile_expr( ['cons', ['quote', datum[0]], ['quote', datum[1:]]],
+                      out, tail=False )
+
 
 def compile_body( forms, out, tail ):
     for f in forms[:-1]:
@@ -496,6 +608,47 @@ def compile_expr( expr, out, tail ):
         inits = [b[1] for b in expr[1]]
         compile_expr( [['lambda', names] + list( expr[2:] )] + inits, out, tail )
 
+    elif expr[0] == 'quote':                    # ['quote', datum]
+        _compile_quoted( expr[1], out )
+        if tail: out.append( (OP_RET,) )
+
+    elif expr[0] == 'cond':                     # ['cond', (test result)...]
+        clauses = expr[1:]
+        if not clauses:
+            compile_expr( '#f', out, tail )
+        elif clauses[0][0] == 'else':
+            compile_expr( clauses[0][1], out, tail )
+        else:                                   # a chain of ifs, peeled one clause
+            compile_expr( ['if', clauses[0][0], clauses[0][1],
+                           ['cond'] + list( clauses[1:] )], out, tail )
+
+    elif expr[0] == 'and':                      # ['and', *forms] -- short-circuits
+        forms = expr[1:]
+        if not forms:
+            compile_expr( '#t', out, tail )     # (and) is true
+        elif len( forms ) == 1:
+            compile_expr( forms[0], out, tail )
+        else:                                   # (if a (and rest...) #f)
+            compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), '#f'],
+                          out, tail )
+
+    elif expr[0] == 'or':                       # ['or', *forms] -- short-circuits
+        forms = expr[1:]
+        if not forms:
+            compile_expr( '#f', out, tail )     # (or) is false
+        elif len( forms ) == 1:
+            compile_expr( forms[0], out, tail )
+        else:                                   # bind a once, return it if true
+            compile_expr( [['lambda', [_OR_TMP],
+                            ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
+                           forms[0]], out, tail )
+
+    elif expr[0] == 'list':                     # ['list', *elts] -- a cons chain
+        if len( expr ) == 1:
+            compile_expr( ['quote', []], out, tail )
+        else:
+            compile_expr( ['cons', expr[1], ['list'] + list( expr[2:] )], out, tail )
+
     else:                                       # [fn, *args] -- an application
         out.append( (OP_APP_START, len( expr )) )
         for sub in expr:
@@ -532,20 +685,24 @@ global_env = None               # the environment every top-level name lives in
 GLOBAL_SPARE = 64
 
 
-def make_global_env( spare=0 ):
+def make_global_env( spare=0, full=False ):
     """The primitives.  Note the order: the env is rooted in E *before* any prim
     is allocated, so an allocation part way through cannot collect the ones
     already made.
 
-    `spare` empty slots are set aside for names a session defines later.  The
-    demo asks for none, so the heap it prints holds nothing it did not use.
+    `full` installs every primitive; the default installs only the arithmetic
+    the measurement demos use, so their heap transcripts stay exactly as this
+    chapter set them.  `spare` empty slots are set aside for names a session
+    defines later.  The demo asks for none, so the heap it prints holds nothing
+    it did not use.
     """
     global E, global_env
-    ids = [intern( name ) for name, _ in PRIMS] + [EMPTY] * spare
+    names = [name for name, _ in PRIMS] if full else LEAN_PRIMS
+    ids = [intern( name ) for name in names] + [EMPTY] * spare
     E = mk_env( NIL, ids, [mk_num( 0 )] * len( ids ) )
     global_env = E
-    for i, (name, _) in enumerate( PRIMS ):
-        env_set( E, intern( name ), mk_prim( i ) )
+    for name in names:
+        env_set( E, intern( name ), mk_prim( PRIM_INDEX[name] ) )
     return E
 
 
@@ -555,8 +712,18 @@ def boot( heap_size=None, spare=0 ):
     heap_reset( heap_size )
     PROG = []
     V, K, pc = mk_num( 0 ), NIL, 0
-    make_global_env( spare )
+    make_global_env( spare, full=True )         # a session gets the whole language
     return global_env
+
+
+def _list_to_args( v ):
+    """The elements of a heap list, as a Python list of values, for apply."""
+    out = []
+    while v != NIL:
+        a = addr_of( v )
+        out.append( heap[a + 2] )
+        v = heap[a + 3]
+    return out
 
 
 def _run( prog ):
@@ -571,6 +738,12 @@ def _run( prog ):
 
         elif op == OP_BOOL:
             V = TRUE if prog[pc][1] == '#t' else FALSE; pc += 1
+
+        elif op == OP_SYM:
+            V = mk_symbol( prog[pc][1] ); pc += 1
+
+        elif op == OP_NIL:
+            V = NIL; pc += 1
 
         elif op == OP_VAR:
             V = env_lookup( E, prog[pc][1] ); pc += 1
@@ -600,6 +773,16 @@ def _run( prog ):
             nargs = heap[a + 5] - 1
             args  = [heap[a + 7 + i] for i in range( nargs )]
             f     = addr_of( fn )
+
+            # apply is a value: (apply g x ... lst) is a call of g on x ... plus
+            # the elements of lst.  Splice here, at the call site, the same way
+            # call/cc reaches into the machine; loop so (apply apply ...) resolves.
+            # The ARG frame is still on K, so g, the leading args and lst all stay
+            # reachable while the closure's env is allocated below.
+            while heap[f] == TAG_PRIM and PRIMS[heap[f + 2]][0] == 'apply':
+                fn   = args[0]
+                args = list( args[1:-1] ) + _list_to_args( args[-1] )
+                f    = addr_of( fn )
 
             if heap[f] == TAG_PRIM:
                 V = PRIMS[heap[f + 2]][1]( args )
@@ -662,22 +845,22 @@ def lEval( expr, env=None ):
     return _run( PROG )
 
 
-def run_vm( prog, heap_size=None ):
+def run_vm( prog, heap_size=None, full=False ):
     """Run a whole program in a machine of its own."""
     global V, E, K, pc
     heap_reset( heap_size )
     V, K, pc = mk_num( 0 ), NIL, 0
-    make_global_env()
+    make_global_env( full=full )
     return _run( prog )
 
 
-def run_fresh( expr, heap_size=None ):
+def run_fresh( expr, heap_size=None, full=False ):
     """Evaluate in a machine of its own, which is what a measurement wants.
 
     The expression is compiled before the machine is booted, so the names in it
     are interned before the primitives are.
     """
-    return run_vm( compile_program( expr ), heap_size )
+    return run_vm( compile_program( expr ), heap_size, full=full )
 
 
 # ---------------------------------------------------------------------------
@@ -693,11 +876,25 @@ def source_str( val ):
 def show( val ):
     if val == TRUE:  return '#t'
     if val == FALSE: return '#f'
-    if is_ptr( val ) and val != NIL:
+    if val == NIL:   return '()'
+    if is_ptr( val ) and addr_of( val ) >= 0:
         a = addr_of( val )
         if heap[a] == TAG_CLOSURE: return '#<procedure>'
         if heap[a] == TAG_PRIM:    return f'#<{PRIMS[heap[a + 2]][0]}>'
+        if heap[a] == TAG_SYMBOL:  return name_of( heap[a + 2] )
+        if heap[a] == TAG_PAIR:    return _show_list( val )
     return str( num_of( val ) )
+
+
+def _show_list( val ):
+    parts = []
+    v = val
+    while is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_PAIR:
+        parts.append( show( heap[addr_of( v ) + 2] ) )
+        v = heap[addr_of( v ) + 3]
+    if v == NIL:
+        return '(' + ' '.join( parts ) + ')'
+    return '(' + ' '.join( parts ) + ' . ' + show( v ) + ')'   # an improper list
 
 
 # The REPL prints the result of an expression, and on this machine a result is a
@@ -712,9 +909,9 @@ def disassemble( prog ):
         print( f'  {i:3}  {_OP_NAMES[instr[0]]:10} {args}' )
 
 
-def run( expr, stats=False ):
+def run( expr, stats=False, full=False ):
     print( '>>> ' + source_str( expr ) )
-    result = run_fresh( expr )
+    result = run_fresh( expr, full=full )
     print( '==> ' + show( result ) )
     if stats:
         print( f'    {gc_runs} collections, {peak_live} cells reachable at the busiest' )
@@ -820,6 +1017,29 @@ def main():
     run_fresh( [['lambda', ['x'], ['+', 'x', 1]], 41], heap_size=120 )
     gc()
     heap_dump( 'a small heap after one collection:' )
+    print()
+
+    # The full language, at parity with Chapter 5's machine.  These boot with
+    # every primitive (full=True); the measurements above kept the lean set so
+    # their heaps stayed exactly as this chapter reported them.  A roomy heap:
+    # these illustrate the language, they do not measure it.
+    heap_reset( 2000 )
+    print( 'the full language, at parity with Chapter 5:' )
+    run( ['cond', [['<', 2, 1], 10], [['=', 2, 2], 20], ['else', 30]], full=True )  # 20
+    run( ['and', 1, 2, 3], full=True )                                    # 3
+    run( ['or', '#f', 7], full=True )                                     # 7
+    run( ['not', ['=', 1, 2]], full=True )                               # #t
+    run( ['%', 17, 5], full=True )                                       # 2
+    run( ['car', ['list', 1, 2, 3]], full=True )                         # 1
+    run( ['cdr', ['list', 1, 2, 3]], full=True )                         # (2 3)
+    run( ['quote', [1, [2, 3], 4]], full=True )                          # (1 (2 3) 4)
+    run( ['quote', 'hello'], full=True )                                 # hello (a symbol)
+    run( ['=', ['quote', 'a'], ['quote', 'a']], full=True )              # #t
+    run( ['null?', ['quote', []]], full=True )                           # #t
+    run( ['apply', '+', 1, 2, ['list', 3, 4]], full=True )               # 10
+    run( ['apply', ['lambda', ['x', 'y'], ['*', 'x', 'y']], ['list', 6, 7]],
+         full=True )                                                     # 42
+    run( ['apply', 'apply', ['list', '+', ['list', 3, 4]]], full=True )  # 7 (apply of apply)
 
 
 if __name__ == '__main__':

@@ -18,11 +18,13 @@ closed little universe that Python cannot see into -- which means the garbage in
 it is yours to find.
 
 #6 compiled the shrunk language (pure lambda calculus + if).  That is not enough
-to have anything interesting to collect, so this file restores what #5 had:
-primitives, multi-argument lambdas, multi-form bodies, let, and -- crucially --
-set!.  #6 promised the full language was only more opcodes and no new ideas, and
-that promise is kept here.  set! is held back until it is needed, because set! is
-the whole reason a tracing collector has to exist:
+to have anything interesting to collect, so this file restores #5's whole
+language: the primitives and list operations (cons puts a pair on the heap),
+cond/and/or, quote, apply, rest parameters, multi-argument lambdas, multi-form
+bodies, let, and -- crucially -- set!.  #6 promised the full language was only
+more opcodes and no new ideas, and that promise is kept here.  set! is held back
+until it is needed, because set! is the whole reason a tracing collector has to
+exist:
 
     A language without mutation cannot build a cycle.  Every environment points
     at an environment that existed before it, and every closure captures the

@@ -1,5 +1,5 @@
 """
-IttyBittyPythonGen - the lowering, with generators.
+miniPythonGen - the lowering, with generators.
 
 The capstone feature.  Chapter 14 made a function's `return` a jump to the
 function's continuation.  A generator goes one step past that: it does not just
@@ -17,15 +17,15 @@ hard thing in the book, and it is the strongest single trick call/cc can do for
 a Python-shaped language: a function that produces an endless sequence, one value
 at a time, which a return-based function cannot express.
 
-Run with: python IttyBittyPythonGen.py
+Run with: python miniPythonGen.py
 """
 
 import sys
 sys.path.insert( 0, '.' )
-from IttyBittyPythonParser import Parser
-from IttyBittyExpander        import expand, gensym
-from IttyBittyCore            import lEval, global_env, lisp_str
-from IttyBittyAST            import lFalse
+from miniPythonParser import Parser
+from IBExpander        import expand, gensym
+from IBCore            import lEval, global_env, lisp_str
+from IBAST            import lFalse
 
 _STOP = [ 'quote', 'stop-iteration' ]     # a value mini-Python source cannot make
 

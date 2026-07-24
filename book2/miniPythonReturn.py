@@ -1,5 +1,5 @@
 """
-IttyBittyPythonReturn - the lowering, completed: early return via call/cc.
+miniPythonReturn - the lowering, completed: early return via call/cc.
 
 Chapter 13 lowered everything but a return that is not the last thing a function
 does.  An early return abandons the rest of the body and leaves the function then
@@ -22,15 +22,15 @@ its end never invokes `ret`, and call/cc returns the body's own last value.
 
 The pipeline is unchanged: python text -> parse -> lower -> expand -> lEval.
 
-Run with: python IttyBittyPythonReturn.py
+Run with: python miniPythonReturn.py
 """
 
 import sys
 sys.path.insert( 0, '.' )
-from IttyBittyPythonParser import Parser
-from IttyBittyExpander import expand, gensym
-from IttyBittyCore import lEval, global_env, lisp_str
-from IttyBittyAST      import lFalse
+from miniPythonParser import Parser
+from IBExpander import expand, gensym
+from IBCore import lEval, global_env, lisp_str
+from IBAST      import lFalse
 
 
 # ---------------------------------------------------------------------------

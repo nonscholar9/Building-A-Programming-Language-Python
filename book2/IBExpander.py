@@ -1,16 +1,16 @@
 """
-IttyBittyExpander - the expander: the sugar moves out of the machine.
+IBExpander - the expander: the sugar moves out of the machine.
 
 This is Chapter 9's code, and it is also a phase of the pipeline that every
 later chapter imports and none of them changes:
 
-    from IttyBittyExpander import expand
+    from IBExpander import expand
 
 Look at the import below it, too, because it is the first thing this chapter
 earns.  The machine is in another file now.  It is finished, we are not going
 to open it again, and everything in this file runs *in front of* it.
 
-Two halves here, the same way IttyBittyCore has two halves:
+Two halves here, the same way IBCore has two halves:
 
   * The expander itself (expand, apply_rule, define_macro, gensym) is FINAL.
     It hardcodes exactly three names, `quote`, `lambda`, and `set!`, and those
@@ -29,7 +29,7 @@ over the program once, before the machine ever sees it.  The machine got
 smaller and the language stayed exactly the same size.
 
 Two of the four were already rewrites and had been since Chapter 2.  The `let`
-branch in IttyBittyBase built a lambda and pointed C at it; the `cond` branch
+branch in IBBase built a lambda and pointed C at it; the `cond` branch
 built an `if` and pointed C at that.  Neither touched V, E, or K.  They were
 translators parked in the evaluator's dispatch, running at the last possible
 moment, one node at a time, on every pass of the loop.  The other two, `and`
@@ -44,12 +44,12 @@ A rule written in Lisp has to be *run* in order to expand a form, and running
 Lisp is the one thing we already know how to do.  So the expander calls the
 evaluator, and the compiler now contains the interpreter.
 
-Run with: python IttyBittyExpander.py
+Run with: python IBExpander.py
 """
 
-from IttyBittyCore import (
+from IBCore import (
     VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
-from IttyBittyAST import lTrue, lFalse
+from IBAST import lTrue, lFalse
 
 
 # ---------------------------------------------------------------------------

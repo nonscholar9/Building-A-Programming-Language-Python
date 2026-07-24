@@ -1,5 +1,5 @@
 """
-IttyBittyBase - Book One's machine, with the challenges done.
+IBBase - Book One's machine, with the challenges done.
 
 This is the machine Book Two builds on, and it is not a new one.  It is
 IttyBittyLisp5, the CEK machine from Book One, plus exactly the things Book One
@@ -21,10 +21,10 @@ That is the point, and it is worth being plain about it.  Book Two never changes
 this machine.  It sits underneath, and everything we build from here runs in
 front of it -- which is what it means to call it a *backend*.
 
-Run with: python IttyBittyBase.py
+Run with: python IBBase.py
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse
+from IBAST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

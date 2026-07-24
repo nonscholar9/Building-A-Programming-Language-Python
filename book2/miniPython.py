@@ -1,43 +1,43 @@
 """
-IttyBittyPython - the finished interpreter, everything folded in.
+miniPython - the finished interpreter, everything folded in.
 
 The whole front end, assembled onto the whole Lisp interpreter.  A program in
-IttyBittyPython passes through every stage both books built and comes out a
+mini-Python passes through every stage both books built and comes out a
 value:
 
     text --parse--> tree --lower--> Lisp --expand--> core --analyze--> core --lEval--> value
 
 Each arrow is a piece the book built:
 
-    parse    book2/IttyBittyPythonParser.py  (Ch 11-12, on ParserBase)
-    lower    book2/IttyBittyPythonGen.py      (Ch 13-15: the assigned-names scan,
+    parse    book2/miniPythonParser.py  (Ch 11-12, on ParserBase)
+    lower    book2/miniPythonGen.py      (Ch 13-15: the assigned-names scan,
                                                while->tail recursion, return->call/cc,
                                                yield->a call/cc coroutine)
-    expand   book2/IttyBittyExpander.py        (Ch 9: let/cond/and/or -> core)
-    analyze  book2/IttyBittyAnalyzer.py         (Ch 10: the checker; quiet unless the
+    expand   book2/IBExpander.py        (Ch 9: let/cond/and/or -> core)
+    analyze  book2/IBAnalyzer.py         (Ch 10: the checker; quiet unless the
                                                 lowered program is malformed)
-    lEval    book2/IttyBittyCore.py             (Book One's CEK machine, sealed at Ch 9)
+    lEval    book2/IBCore.py             (Book One's CEK machine, sealed at Ch 9)
 
 Two languages, one tower.  The lower half is the complete Lisp interpreter
-(reader, expander, analyzer, CEK evaluator).  IttyBittyPython is perched on top,
+(reader, expander, analyzer, CEK evaluator).  mini-Python is perched on top,
 and it is really a second front end: it lowers its own surface into the Lisp the
 tower already runs.  Nothing below `lower` knows the program began as something
 that looked like Python, and the machine has not changed a line since Chapter 9.
 
-Run with: python IttyBittyPython.py
+Run with: python miniPython.py
 """
 
 import sys
 sys.path.insert( 0, '.' )
-from IttyBittyPythonParser import Parser
-from IttyBittyPythonGen    import lower_module      # the full lowering, yield and all
-from IttyBittyExpander     import expand
-from IttyBittyAnalyzer     import analyze
-from IttyBittyCore         import lEval, global_env, lisp_str
+from miniPythonParser import Parser
+from miniPythonGen    import lower_module      # the full lowering, yield and all
+from IBExpander     import expand
+from IBAnalyzer     import analyze
+from IBCore         import lEval, global_env, lisp_str
 
 
 def run( source ):
-    """Run a whole IttyBittyPython program through every stage of the tower."""
+    """Run a whole mini-Python program through every stage of the tower."""
     tree = Parser().parse( source )       # text  -> tree
     core = expand( lower_module( tree ) ) # tree  -> Lisp -> core
     core = analyze( core )                # core  -> core, or a refusal
@@ -92,7 +92,7 @@ print(next(g))
 
 
 def main():
-    print( '--- an IttyBittyPython program, run end to end ---\n' )
+    print( '--- a mini-Python program, run end to end ---\n' )
     print( 'source:' )
     print( PROGRAM )
     print( 'output:' )

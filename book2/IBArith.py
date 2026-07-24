@@ -1,5 +1,5 @@
 """
-IttyBittyArith - a parser for infix arithmetic, built on the ParserBase tool.
+IBArith - a parser for infix arithmetic, built on the ParserBase tool.
 
 This is the worked example for the parsing chapter.  It parses ordinary infix
 arithmetic, `1 + 2 * 3`, into the s-expressions the machine already runs:
@@ -21,11 +21,11 @@ Two parsers are shown, and they produce identical trees:
 Neither uses the ParserBase's backtracking.  LL(1) never rewinds; the save and
 restore are there in the tool for grammars that need them, not for this one.
 
-Run with: python IttyBittyArith.py
+Run with: python IBArith.py
 """
 
 from ParserBase  import LexerBase, ParserBase, ParseError
-from IttyBittyCore import lEval, global_env, lisp_str
+from IBCore import lEval, global_env, lisp_str
 
 
 # ---------------------------------------------------------------------------

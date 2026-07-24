@@ -1,12 +1,12 @@
 """
-IttyBittyPythonParser - the front end for IttyBittyPython, on the ParserBase.
+miniPythonParser - the front end for mini-Python, on the ParserBase.
 
 A Lexer (tokens) and a Parser (grammar), each a subclass of the pared-down
-ParserBase.  Together they turn IttyBittyPython source text into an AST; a later
-pass lowers that AST onto the machine.  ("IttyBittyPython", never bare "Python":
+ParserBase.  Together they turn mini-Python source text into an AST; a later
+pass lowers that AST onto the machine.  ("mini-Python", never bare "Python":
 the host we write it in is Python too.)
 
-The grammar is examples/book2/IttyBittyPython.ebnf, and every parse method below
+The grammar is examples/book2/miniPython.ebnf, and every parse method below
 is that grammar's matching production run through one mechanical rule:
 
     "t"        -> self._expect(T)
@@ -17,11 +17,11 @@ is that grammar's matching production run through one mechanical rule:
     a*         -> while self._peek() in FIRST(a): ...
     a+         -> once, then the while
 
-The one idea the Lisp reader never needed is in the Lexer: IttyBittyPython's
+The one idea the Lisp reader never needed is in the Lexer: mini-Python's
 blocks are significant whitespace, so the scanner keeps an indent stack and
 emits INDENT and DEDENT tokens the source never contained.
 
-Run with: python IttyBittyPythonParser.py
+Run with: python miniPythonParser.py
 """
 
 import string

@@ -1,5 +1,5 @@
 """
-IttyBittyAnalyzer - a checker that runs before the machine does, and finds out
+IBAnalyzer - a checker that runs before the machine does, and finds out
 by building it exactly how far such a checker can get.
 
 The introduction admitted the machine checks nothing: hand it a broken program
@@ -19,12 +19,12 @@ It runs after everything else the front end does, so the only forms it ever
 meets are the core forms the machine knows: quote, lambda, if, set!, begin, and
 application.  The sugar is already gone.
 
-Run with: python IttyBittyAnalyzer.py
+Run with: python IBAnalyzer.py
 """
 
-from IttyBittyCore import lisp_str
-from IttyBittyExpander import expand
-from IttyBittyAST import lTrue
+from IBCore import lisp_str
+from IBExpander import expand
+from IBAST import lTrue
 
 
 class LispError( Exception ):

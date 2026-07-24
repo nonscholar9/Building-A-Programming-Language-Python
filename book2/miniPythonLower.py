@@ -1,5 +1,5 @@
 """
-IttyBittyPythonLower - lower the IttyBittyPython AST onto the machine.
+miniPythonLower - lower the mini-Python AST onto the machine.
 
 The last stage of the front end.  The parser produced a tree that speaks of def,
 while, and return, which the machine has never heard of.  This turns that tree
@@ -22,15 +22,15 @@ after it (early return) is a non-local exit, and expressing one language's
 non-local exit in another needs call/cc.  That is the next chapter; this file
 runs every program whose returns are all in tail position, and no others.
 
-Run with: python IttyBittyPythonLower.py
+Run with: python miniPythonLower.py
 """
 
 import sys
 sys.path.insert( 0, '.' )
-from IttyBittyPythonParser import Parser
-from IttyBittyExpander import expand, gensym
-from IttyBittyCore import lEval, global_env, lisp_str
-from IttyBittyAST      import lFalse
+from miniPythonParser import Parser
+from IBExpander import expand, gensym
+from IBCore import lEval, global_env, lisp_str
+from IBAST      import lFalse
 
 
 # ---------------------------------------------------------------------------

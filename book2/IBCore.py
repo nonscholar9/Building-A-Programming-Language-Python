@@ -1,10 +1,10 @@
 """
-IttyBittyCore - the machine, finished.
+IBCore - the machine, finished.
 
 This is where Chapter 9 leaves the evaluator, and it is the last time the
 evaluator changes.  From Chapter 10 on, every example in this book begins with
 
-    from IttyBittyCore import lEval, global_env, lisp_str
+    from IBCore import lEval, global_env, lisp_str
 
 and never opens this file again.  That import is the whole argument of Book Two
 written as one line: everything we build from here runs *in front of* the
@@ -28,10 +28,10 @@ Two halves, and they are not equally settled:
     to the evaluator, it is a change to what happens to be bound in the global
     environment when it starts, and later chapters may well add one.
 
-Run with: python IttyBittyCore.py   (a short check that the machine is alive)
+Run with: python IBCore.py   (a short check that the machine is alive)
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse, lisp_str
+from IBAST import LBoolean, lTrue, lFalse, lisp_str
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -281,7 +281,7 @@ global_env = Environment( bindings=globalBindings )
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-# The value printer lisp_str is imported from IttyBittyAST.py (top of file):
+# The value printer lisp_str is imported from IBAST.py (top of file):
 # one renderer shared by every stage of the pipeline, and Core is just one of
 # its callers.  Continuation and the two sentinels above describe themselves
 # through __repr__, so the shared printer needs no special case for them.

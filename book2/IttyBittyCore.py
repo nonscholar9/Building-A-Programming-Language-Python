@@ -31,7 +31,7 @@ Two halves, and they are not equally settled:
 Run with: python IttyBittyCore.py   (a short check that the machine is alive)
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse
+from IttyBittyAST import LBoolean, lTrue, lFalse, lisp_str
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -53,16 +53,22 @@ class Continuation:
     """A reified continuation: a snapshot of the K stack."""
     def __init__( self, stack ):
         self.stack = stack
+    def __repr__( self ):
+        return '#<continuation>'
 
 class _CallCC:
     """A sentinel, not a plain callable: capturing the continuation needs the
     machine's K register, which an ordinary primitive never sees."""
+    def __repr__( self ):
+        return '#<primitive call/cc>'
 
 CALLCC = _CallCC()
 
 class _Apply:
     """Also a sentinel: apply must open a scope and run a body, which no ordinary
     primitive can do, so the evaluator recognizes it at the call site."""
+    def __repr__( self ):
+        return '#<primitive apply>'
 
 APPLY = _Apply()
 
@@ -275,21 +281,10 @@ global_env = Environment( bindings=globalBindings )
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-
-def lisp_str( val ):
-    if isinstance( val, list ):
-        return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-    if isinstance( val, tuple ):
-        return '#<procedure (' + ' '.join( val[1] ) + ')>'
-    if isinstance( val, Continuation ):
-        return '#<continuation>'
-    if val is CALLCC:
-        return '#<primitive call/cc>'
-    if val is APPLY:
-        return '#<primitive apply>'
-    if callable( val ):
-        return '#<primitive>'
-    return str( val )
+# The value printer lisp_str is imported from IttyBittyAST.py (top of file):
+# one renderer shared by every stage of the pipeline, and Core is just one of
+# its callers.  Continuation and the two sentinels above describe themselves
+# through __repr__, so the shared printer needs no special case for them.
 
 
 # ---------------------------------------------------------------------------

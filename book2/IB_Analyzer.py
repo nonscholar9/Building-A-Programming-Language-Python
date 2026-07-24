@@ -1,5 +1,5 @@
 """
-IBAnalyzer - a checker that runs before the machine does, and finds out
+IB_Analyzer - a checker that runs before the machine does, and finds out
 by building it exactly how far such a checker can get.
 
 The introduction admitted the machine checks nothing: hand it a broken program
@@ -19,11 +19,11 @@ It runs after everything else the front end does, so the only forms it ever
 meets are the core forms the machine knows: quote, lambda, if, set!, begin, and
 application.  The sugar is already gone.
 
-Run with: python IBAnalyzer.py
+Run with: python IB_Analyzer.py
 """
 
-from IBCore import lisp_str
-from IBExpander import expand
+from IB_Core import lisp_str
+from IB_Expander import expand
 from IB_AST import lTrue
 
 

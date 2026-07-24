@@ -1,5 +1,5 @@
 """
-IBAddresser - the first pass that makes the program FASTER rather than
+IB_Addresser - the first pass that makes the program FASTER rather than
 safer, and the first one that has to earn its keep with a number.
 
 Every pass so far has either changed what the program says (the expander) or
@@ -39,12 +39,12 @@ An `Addressed` symbol is a `str` subclass, so every pass downstream keeps
 working without knowing this one exists: it hashes, compares and prints as its
 own name.  The address rides along as an attribute for the machine to find.
 
-Run with: python IBAddresser.py
+Run with: python IB_Addresser.py
 """
 
-from IBCore     import lisp_str
-from IBExpander import expand
-from IBAnalyzer import analyze, LispError
+from IB_Core     import lisp_str
+from IB_Expander import expand
+from IB_Analyzer import analyze, LispError
 
 
 # ---------------------------------------------------------------------------

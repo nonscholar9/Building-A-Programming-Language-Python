@@ -1,7 +1,7 @@
 """
-IBLisp6 - A Bytecode VM.
+IB_Lisp6 - A Bytecode VM.
 
-The CEK machine of IBLisp4 re-walks the AST and re-decides "which
+The CEK machine of IB_Lisp4 re-walks the AST and re-decides "which
 transition runs next" on every single step.  But for a fixed program that
 decision never changes -- `(lambda (x) x)` is always a lambda.  So why make it
 over and over at run time?
@@ -12,7 +12,7 @@ these numbered instructions.  At run time there is no AST left to dispatch on an
 no EVAL/APPLY state flag: the loop just reads the next opcode and does it.  That
 is all a bytecode VM is -- the CEK machine with its dispatch precomputed.
 
-This toy compiles the same pure lambda calculus + if as IBLisp4 (a number
+This toy compiles the same pure lambda calculus + if as IB_Lisp4 (a number
 is true unless it is 0), so the new idea -- compilation -- stands alone, exactly
 as #4 isolated the machine.  Compiling the full language of #5 works the same
 way, with more opcodes.
@@ -30,7 +30,7 @@ the surrounding AST.  A flat instruction stream has no surrounding tree, so the
 return address must be stored explicitly -- on K.  A tail call (OP_TCALL) stores
 no return address, so K stays flat across tail calls and TCO is still structural.
 
-Run with: python IBLisp6.py
+Run with: python IB_Lisp6.py
 """
 
 from IB_AST import LBoolean, lTrue, lFalse
@@ -64,7 +64,7 @@ _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
 
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IBLisp2-5)
+# Environment: a linked chain of scopes (same class as IB_Lisp2-5)
 # ---------------------------------------------------------------------------
 
 class Environment:

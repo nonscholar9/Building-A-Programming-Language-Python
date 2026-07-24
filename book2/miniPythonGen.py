@@ -23,8 +23,8 @@ Run with: python miniPythonGen.py
 import sys
 sys.path.insert( 0, '.' )
 from miniPythonParser import Parser
-from IBExpander        import expand, gensym
-from IBCore            import lEval, global_env, lisp_str
+from IB_Expander        import expand, gensym
+from IB_Core            import lEval, global_env, lisp_str
 from IB_AST            import lFalse
 
 _STOP = [ 'quote', 'stop-iteration' ]     # a value mini-Python source cannot make

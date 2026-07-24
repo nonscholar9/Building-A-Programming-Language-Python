@@ -13,10 +13,10 @@ Each arrow is a piece the book built:
     lower    book2/miniPythonGen.py      (Ch 13-15: the assigned-names scan,
                                                while->tail recursion, return->call/cc,
                                                yield->a call/cc coroutine)
-    expand   book2/IBExpander.py        (Ch 9: let/cond/and/or -> core)
-    analyze  book2/IBAnalyzer.py         (Ch 10: the checker; quiet unless the
+    expand   book2/IB_Expander.py        (Ch 9: let/cond/and/or -> core)
+    analyze  book2/IB_Analyzer.py         (Ch 10: the checker; quiet unless the
                                                 lowered program is malformed)
-    lEval    book2/IBCore.py             (Book One's CEK machine, sealed at Ch 9)
+    lEval    book2/IB_Core.py             (Book One's CEK machine, sealed at Ch 9)
 
 Two languages, one tower.  The lower half is the complete Lisp interpreter
 (reader, expander, analyzer, CEK evaluator).  mini-Python is perched on top,
@@ -31,9 +31,9 @@ import sys
 sys.path.insert( 0, '.' )
 from miniPythonParser import Parser
 from miniPythonGen    import lower_module      # the full lowering, yield and all
-from IBExpander     import expand
-from IBAnalyzer     import analyze
-from IBCore         import lEval, global_env, lisp_str
+from IB_Expander     import expand
+from IB_Analyzer     import analyze
+from IB_Core         import lEval, global_env, lisp_str
 
 
 def run( source ):

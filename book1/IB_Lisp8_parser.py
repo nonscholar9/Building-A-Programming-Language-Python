@@ -1,8 +1,8 @@
 """
-IBLisp8_parser -- An S-expression scanner and reader for the IttyBitty Lisp.
+IB_Lisp8_parser -- An S-expression scanner and reader for the IttyBitty Lisp.
 
 Turns a source string into the nested Python list AST that lEval (from
-IBLisp1.py) evaluates directly.  Two stages, the same split real
+IB_Lisp1.py) evaluates directly.  Two stages, the same split real
 compilers use:
 
     source string
@@ -22,7 +22,7 @@ allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
 separated by spaces (see the challenges in Chapter 7).
 
-Run with: python IBLisp8_parser.py
+Run with: python IB_Lisp8_parser.py
 """
 
 from IB_AST import lTrue, lFalse
@@ -142,7 +142,7 @@ def parse( source ):
 
 
 # ---------------------------------------------------------------------------
-# The minimal evaluator (from IBLisp1) to complete the pipeline
+# The minimal evaluator (from IB_Lisp1) to complete the pipeline
 # ---------------------------------------------------------------------------
 
 def lEval( expr, env ):

@@ -1,8 +1,8 @@
 """
-IBLisp2b_objects - Object-oriented programs running on the Part 2 evaluator.
+IB_Lisp2b_objects - Object-oriented programs running on the Part 2 evaluator.
 
 This is NOT a new evaluator.  It imports lEval and the global environment from
-IBLisp2.py *unchanged* and feeds them ordinary object-oriented programs.
+IB_Lisp2.py *unchanged* and feeds them ordinary object-oriented programs.
 The point: the recursive evaluator of Part 2 -- the first one with closures --
 already runs OO with no OO feature anywhere in it.
 
@@ -20,10 +20,10 @@ arguments it needs: `(acct 'deposit 50)` and `(acct 'balance)` are both fine.
 Delegation forwards with `apply`, so a wrapper never has to know how many
 arguments the message it is passing on actually takes.
 
-Run with: python IBLisp2b_objects.py
+Run with: python IB_Lisp2b_objects.py
 """
 
-from IBLisp2 import lEval, global_env, lisp_str
+from IB_Lisp2 import lEval, global_env, lisp_str
 
 
 def run( expr ):

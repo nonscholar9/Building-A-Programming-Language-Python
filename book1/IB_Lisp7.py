@@ -1,7 +1,7 @@
 """
-IBLisp7 - Garbage Collection.
+IB_Lisp7 - Garbage Collection.
 
-Continues from IBLisp6, the bytecode VM.  Every machine so far has been
+Continues from IB_Lisp6, the bytecode VM.  Every machine so far has been
 borrowing.  #4 stopped borrowing Python's call stack, and #6 stopped borrowing
 Python's dispatch, but every closure and every environment any of them built was
 still handed out by Python and taken back by Python.  The word "heap" has been
@@ -32,7 +32,7 @@ exist:
     backwards in time.  Reference counting is not merely adequate for such a
     language, it is complete.  set! is what breaks it.
 
-Run with: python IBLisp7.py
+Run with: python IB_Lisp7.py
 """
 
 # ---------------------------------------------------------------------------

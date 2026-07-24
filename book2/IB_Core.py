@@ -1,10 +1,10 @@
 """
-IBCore - the machine, finished.
+IB_Core - the machine, finished.
 
 This is where Chapter 9 leaves the evaluator, and it is the last time the
 evaluator changes.  From Chapter 10 on, every example in this book begins with
 
-    from IBCore import lEval, global_env, lisp_str
+    from IB_Core import lEval, global_env, lisp_str
 
 and never opens this file again.  That import is the whole argument of Book Two
 written as one line: everything we build from here runs *in front of* the
@@ -28,7 +28,7 @@ Two halves, and they are not equally settled:
     to the evaluator, it is a change to what happens to be bound in the global
     environment when it starts, and later chapters may well add one.
 
-Run with: python IBCore.py   (a short check that the machine is alive)
+Run with: python IB_Core.py   (a short check that the machine is alive)
 """
 
 from IB_AST import LBoolean, lTrue, lFalse, lisp_str

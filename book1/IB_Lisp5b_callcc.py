@@ -1,27 +1,33 @@
 """
-IBBase - Book One's machine, with the challenges done.
+IB_Lisp5b_callcc - The CEK Machine, Complete, plus call/cc.
 
-This is the machine Book Two builds on, and it is not a new one.  It is
-IBLisp5, the CEK machine from Book One, plus exactly the things Book One
-asked you to add and then left to you:
+This is IB_Lisp5 with one feature added: call/cc (call-with-current-
+continuation), Scheme's most powerful control operator.  The point of putting
+it here is how *little* it takes.
 
-  * `cond`                       Book One, Chapter 1 challenge
-  * `not`, `and`, `or`           Book One, Chapter 1 challenge
-  * `car cdr cons list null?`    Book One, Chapter 1 challenge
-  * rest parameters              Book One, Chapter 2 challenge
-  * `call/cc`                    Book One, the second interlude
+In the CEK machine the continuation is not hidden inside Python's call stack;
+it is a plain Python list sitting in the register K.  So "capture the current
+continuation" -- the thing that sounds exotic -- is literally "copy K", and
+"invoke a captured continuation" is "throw away the current K and put the saved
+one back".  That is the whole idea.  Everything below is bookkeeping around
+those two moves.
 
-Nothing here is new.  If you worked those challenges, this file is what you
-already have, and you can keep using yours.  If you skipped them, take this one:
-every addition is a few lines you can read in place, and none of them touches
-the evaluator's shape.  The two loops, the registers, and the frames are exactly
-as Chapter 5 left them.
+What we add to IB_Lisp5:
 
-That is the point, and it is worth being plain about it.  Book Two never changes
-this machine.  It sits underneath, and everything we build from here runs in
-front of it -- which is what it means to call it a *backend*.
+  * a Continuation value: a snapshot of the K stack (one small class);
+  * a CALLCC sentinel bound to 'call/cc' in the global environment;
+  * two short branches in the APPLY loop's application case:
+      - if the function being called is CALLCC, snapshot K into a Continuation
+        and hand it to the user's function;
+      - if the function being called *is* a Continuation, restore its saved K
+        and let the argument flow into it.
 
-Run with: python IBBase.py
+Nothing else changes.  The two loops, the four frame kinds, tail-call handling:
+all untouched.  That call/cc costs ~15 lines here, and would cost a rewrite in
+the recursive evaluators of Chapters 1-3, is the clearest possible measure of
+what reifying the continuation bought us.
+
+Run with: python IB_Lisp5b_callcc.py
 """
 
 from IB_AST import LBoolean, lTrue, lFalse
@@ -72,7 +78,7 @@ class _Apply:
 APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IBLisp2/3/4)
+# Environment: a linked chain of scopes (same class as IB_Lisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -362,66 +368,38 @@ def run( expr ):
 
 
 def main():
-    print( '--- everything Chapter 5 had, unchanged ---\n' )
-    run( ['+', ['-', 10, 7], 2] )                          # 5
+    # --- the full IB_Lisp5 language still works, unchanged ---
+    run( ['+', ['-', 10, 7], 2] )                      # 5
     run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )       # 25
-    run( ['quote', ['a', 'b', 'c']] )                      # (a b c)
+          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )    # 25
 
-    print( "--- Chapter 1's list primitives ---\n" )
-    run( ['car', ['quote', ['a', 'b', 'c']]] )             # a
-    run( ['cdr', ['quote', ['a', 'b', 'c']]] )             # (b c)
-    run( ['cons', 1, ['quote', [2, 3]]] )                  # (1 2 3)
-    run( ['list', 1, 2, 3] )                               # (1 2 3)
-    run( ['null?', ['quote', []]] )                        # #t
+    # --- call/cc ---
 
-    print( "--- Chapter 1's cond, and, or, not ---\n" )
-    run( ['set!', 'sign',
-          ['lambda', ['n'],
-           ['cond', [['=', 'n', 0], ['quote', 'zero']],
-                    [['<', 'n', 0], ['quote', 'negative']],
-                    ['else',        ['quote', 'positive']]]]] )
-    run( ['sign', 0] )                                     # zero
-    run( ['sign', -5] )                                    # negative
-    run( ['sign', 5] )                                     # positive
+    # 1) Escape.  call/cc hands the current continuation to the function as `k`.
+    #    Calling `(k 5)` abandons the pending `(+ 10 ...)` entirely and jumps
+    #    straight back to the `(+ 1 _)` that was waiting outside call/cc.
+    #    So the (+ 10 ...) never happens: the answer is (+ 1 5) = 6.
+    run( ['+', 1,
+          ['call/cc', ['lambda', ['k'],
+                       ['+', 10, ['k', 5]]]]] )          # 6
 
-    run( ['and', 1, 2, 3] )                                # 3   (last value)
-    run( ['and', 1, lFalse, 3] )                           # #f
-    run( ['or', lFalse, 2, 3] )                            # 2   (first true value)
-    run( ['or', lFalse, lFalse] )                          # #f
-    run( ['not', lFalse] )                                 # #t
+    # 2) Transparent.  If the function never invokes k, call/cc is invisible:
+    #    the function's ordinary return value (42) is call/cc's value, so this
+    #    is just (+ 1 42) = 43.
+    run( ['+', 1,
+          ['call/cc', ['lambda', ['k'], 42]]] )          # 43
 
-    # Short-circuiting is the reason these cannot be primitives: if `and` ran
-    # like `+`, this would print 99 before deciding anything.
-    run( ['and', lFalse, ['print', 99]] )                  # #f, and 99 never prints
-
-    print( "--- Chapter 2's rest parameters ---\n" )
-    run( ['set!', 'tally', ['lambda', ['first', '.', 'rest'],
-                            ['list', 'first', 'rest']]] )
-    run( ['tally', 1] )                                    # (1 ())
-    run( ['tally', 1, 2, 3] )                              # (1 (2 3))
-
-    print( '--- the second interlude: call/cc ---\n' )
-    run( ['+', 1, ['call/cc', ['lambda', ['k'], ['+', 10, ['k', 5]]]]] )   # 6
-
-    # An escape, which is what mini-Python's `return` will need.
-    run( ['set!', 'first-negative',
-          ['lambda', ['xs'],
-           ['call/cc', ['lambda', ['return'],
-             ['begin',
-              ['set!', 'walk', ['lambda', ['ys'],
-                ['cond', [['null?', 'ys'], lFalse],
-                         [['<', ['car', 'ys'], 0], ['return', ['car', 'ys']]],
-                         ['else', ['walk', ['cdr', 'ys']]]]]],
-              ['walk', 'xs']]]]]] )
-    run( ['first-negative', ['quote', [3, 7, -2, 9]]] )    # -2
-    run( ['first-negative', ['quote', [3, 7, 9]]] )        # #f
-
-    print( '--- and the machine is still the machine ---\n' )
-    run( ['set!', 'countdown',
-          ['lambda', ['n'],
-           ['if', ['=', 'n', 0], 0, ['countdown', ['-', 'n', 1]]]]] )
-    run( ['countdown', 100000] )                           # 0, in constant K
+    # 3) First-class and resumable.  Stash the continuation in a global, let the
+    #    call/cc return normally (value 1, so 100 + 1 = 101).  THEN, from a later
+    #    top-level expression, call the saved continuation: it reinstates the old
+    #    "(+ 100 _)" context and runs it with a new value.  It can be resumed as
+    #    many times as you like -- these are full, multi-shot continuations.
+    run( ['set!', 'saved', 0] )
+    run( ['+', 100,
+          ['call/cc', ['lambda', ['k'],
+                       ['begin', ['set!', 'saved', 'k'], 1]]]] )   # 101
+    run( ['saved', 10] )                                 # 110  (resumes (+ 100 10))
+    run( ['saved', 55] )                                 # 155  (resumes again)
 
 
 if __name__ == '__main__':

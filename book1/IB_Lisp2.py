@@ -1,7 +1,7 @@
 """
-IBLisp2 - A recursive Lisp evaluator with closures.
+IB_Lisp2 - A recursive Lisp evaluator with closures.
 
-Extends IBLisp1.py (Part 1) with:
+Extends IB_Lisp1.py (Part 1) with:
   - Environment   : a linked chain of scopes for lexical binding
   - Function : a closure that captures its defining environment
   - let   : local variable binding
@@ -9,7 +9,7 @@ Extends IBLisp1.py (Part 1) with:
 
 This is a *recursive* evaluator -- every call in tail position pushes a new
 Python stack frame.  It will overflow Python's ~1000-frame limit for deeply
-recursive Lisp programs.  See IBLisp3.py for the looping version that
+recursive Lisp programs.  See IB_Lisp3.py for the looping version that
 avoids this with tail-call optimization (TCO).
 
 Stack discipline: like Part 1, every call -- tail and non-tail alike --
@@ -17,7 +17,7 @@ recurses, so the Python call stack holds the entire evaluation and overflows
 even for simple tail recursion.  Closures and scoping change *what* is
 evaluated, not *how* the stack is used.
 
-Run with: python IBLisp2.py
+Run with: python IB_Lisp2.py
 """
 
 from IB_AST import lTrue, lFalse

@@ -1,30 +1,27 @@
 """
-IBLisp5 - The CEK Machine, Complete.
+IB_Base - Book One's machine, with the challenges done.
 
-Continues from IBLisp4, which introduced the CEK machine on pure lambda
-calculus + if -- the smallest setting that still has closures and control flow,
-so the machine itself (the C/E/K registers, the two-state EVAL/APPLY loop, the
-continuation frames) stands out with nothing else competing for attention.
+This is the machine Book Two builds on, and it is not a new one.  It is
+IB_Lisp5, the CEK machine from Book One, plus exactly the things Book One
+asked you to add and then left to you:
 
-This part puts the full IBLisp3 language back: #t/#f with Scheme
-truthiness (#f is the only false value -- 0 is true), quote, set!, begin,
-multi-argument lambdas and applications, let, and primitives.  The lesson is
-that doing so does NOT change the machine's shape.  The two loops and the
-explicit K stack are untouched; the language just contributes more kinds of
-continuation frame:
+  * `cond`                       Book One, Chapter 1 challenge
+  * `not`, `and`, `or`           Book One, Chapter 1 challenge
+  * `car cdr cons list null?`    Book One, Chapter 1 challenge
+  * rest parameters              Book One, Chapter 2 challenge
+  * `call/cc`                    Book One, the second interlude
 
-  FRAME_IF   -- wait on a test value, then pick a branch
-  FRAME_SET  -- wait on a value, then assign it
-  FRAME_SEQ  -- a begin / lambda-body with forms still to run
-  FRAME_ARG  -- an application accumulating operator + operands
+Nothing here is new.  If you worked those challenges, this file is what you
+already have, and you can keep using yours.  If you skipped them, take this one:
+every addition is a few lines you can read in place, and none of them touches
+the evaluator's shape.  The two loops, the registers, and the frames are exactly
+as Chapter 5 left them.
 
-let needs no frame of its own: it desugars to a lambda application right in the
-EVAL loop.  A function call pushes no frame (FRAME_ARG installs the body
-directly), so a tail call reuses the current K depth -- the same tail-call
-optimization #3 and #4 have, now living on the explicit stack.  (countdown
-100000) at the bottom runs in constant K depth to prove it.
+That is the point, and it is worth being plain about it.  Book Two never changes
+this machine.  It sits underneath, and everything we build from here runs in
+front of it -- which is what it means to call it a *backend*.
 
-Run with: python IBLisp5.py
+Run with: python IB_Base.py
 """
 
 from IB_AST import LBoolean, lTrue, lFalse
@@ -45,7 +42,37 @@ FRAME_AND = 4   # an and with operands still to run
 FRAME_OR  = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IBLisp2/3/4)
+# call/cc support
+# ---------------------------------------------------------------------------
+# A captured continuation is nothing but a saved copy of the K stack.  Because
+# K is an ordinary list, "reify the continuation" = "copy the list", and
+# "resume the continuation" = "make that list be K again".
+
+class Continuation:
+    """A reified continuation: a snapshot of the K stack, taken at the moment
+    call/cc ran.  Invoking it like a one-argument function discards whatever K
+    is current and reinstates this saved one, so control jumps back to wherever
+    the continuation was captured, carrying the supplied value."""
+    def __init__( self, stack ):
+        self.stack = stack
+
+class _CallCC:
+    """The call/cc primitive is a sentinel, not an ordinary Python callable,
+    because capturing the continuation needs the machine's K register -- which
+    a plain primitive never sees.  The APPLY loop recognizes this object and
+    does the capture itself."""
+
+CALLCC = _CallCC()
+
+class _Apply:
+    """apply is also a value, not a special form: it must open a scope and run a
+    body, which no primitive can do, so the evaluator recognizes it at the call
+    site (see the splice in FRAME_ARG), the same way it recognizes call/cc."""
+
+APPLY = _Apply()
+
+# ---------------------------------------------------------------------------
+# Environment: a linked chain of scopes (same class as IB_Lisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -105,7 +132,8 @@ def bind_params( params, args ):
 #   K : continuation stack (a Python list)
 #
 # Value forms: a number; a boolean (#t / #f); a primitive (a Python callable);
-#              a closure (VAL_CLOSURE, params, body, captured_env).
+#              a closure (VAL_CLOSURE, params, body, captured_env);
+#              a Continuation (a saved K stack); the CALLCC sentinel.
 
 def lEval( expr, env ):
     C = expr
@@ -210,11 +238,22 @@ def lEval( expr, env ):
                 # operator + all operands evaluated -> apply done[0] to done[1:]
                 fn, args = done[0], done[1:]
 
-                # apply is a value: splice its final list into the argument
-                # positions and call the real function, here at the call site.
-                # The loop lets (apply apply ...) resolve.
-                while fn is APPLY:
+                while fn is APPLY:             # apply is a value: splice its final
+                    # list into the argument positions and call the real function,
+                    # here at the call site, just as call/cc reaches in below.
                     fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+
+                if fn is CALLCC:               # (call/cc f): reify K, then call f with it
+                    # This application's own frame was already popped above, so K
+                    # right now *is* the continuation of the whole (call/cc f)
+                    # expression.  Snapshot it, and redirect to "call f on it".
+                    cont = Continuation( list(K) )
+                    fn, args = args[0], [cont]
+
+                if isinstance( fn, Continuation ):   # invoking a captured continuation
+                    K = list( fn.stack )       # discard current K, reinstate the saved one
+                    V = args[0]                # the value handed to the continuation...
+                    continue                   # ...flows straight into the restored K
 
                 if callable( fn ):             # primitive: compute the value, flow it on
                     V = fn( args )
@@ -266,14 +305,6 @@ def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identi
         result *= x
     return result
 
-# apply is a value the evaluator recognizes at the call site, not a special form
-# and not an ordinary primitive: it must open a scope and run a body, which a
-# Python primitive cannot do.
-class _Apply:
-    pass
-
-APPLY = _Apply()
-
 globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
@@ -297,9 +328,9 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
-
-    # apply, above, is bound to the sentinel the evaluator watches for.
-    'apply': APPLY,
+    'call/cc':                       CALLCC,                    # the star of this file
+    'call-with-current-continuation': CALLCC,                  # its full Scheme name
+    'apply':                         APPLY,                     # a value, spliced at the call site
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -310,10 +341,14 @@ global_env = Environment( bindings=globalBindings )
 def lisp_str( val ):
     if isinstance( val, list ):
         return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-    if isinstance( val, tuple ):             # a closure: (VAL_CLOSURE, params, body, env)
-        return '#<procedure (' + ' '.join( val[1] ) + ')>'
+    if isinstance( val, Continuation ):      # a reified continuation
+        return '#<continuation>'
+    if val is CALLCC:
+        return '#<primitive call/cc>'
     if val is APPLY:
         return '#<primitive apply>'
+    if isinstance( val, tuple ):             # a closure: (VAL_CLOSURE, params, body, env)
+        return '#<procedure (' + ' '.join( val[1] ) + ')>'
     if callable( val ):
         return '#<primitive>'
     return str( val )
@@ -327,58 +362,66 @@ def run( expr ):
 
 
 def main():
-    run( ['+', ['-', 10, 7], 2] )                      # 5
-
-    # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
-    # reaches outside the evaluator -- and it *returns* its argument, so it
-    # composes inside a larger expression.  Because run() evaluates before it
-    # echoes, the raw 10 (the effect) prints above the >>> line, and 15 (the
-    # returned 10, flowed on into +) is the value.
-    run( ['+', ['print', 10], 5] )                     # prints 10, ==> 15
-
-    run( ['set!', 'x', ['*', 6, 7]] )                  # 42
-    run( 'x' )                                          # 42
-
-    run( ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]] )
-    run( ['square', 5] )                                # 25
-
+    print( '--- everything Chapter 5 had, unchanged ---\n' )
+    run( ['+', ['-', 10, 7], 2] )                          # 5
     run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )    # 25
+          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )       # 25
+    run( ['quote', ['a', 'b', 'c']] )                      # (a b c)
 
-    run( ['begin', ['set!', 'y', 1], ['set!', 'y', ['+', 'y', 9]], 'y'] )   # 10
+    print( "--- Chapter 1's list primitives ---\n" )
+    run( ['car', ['quote', ['a', 'b', 'c']]] )             # a
+    run( ['cdr', ['quote', ['a', 'b', 'c']]] )             # (b c)
+    run( ['cons', 1, ['quote', [2, 3]]] )                  # (1 2 3)
+    run( ['list', 1, 2, 3] )                               # (1 2 3)
+    run( ['null?', ['quote', []]] )                        # #t
 
-    run( ['if', 0, 100, 200] )                          # 100  (0 is TRUE in Scheme)
-    run( ['quote', ['a', 'b', 'c']] )                   # (a b c)
+    print( "--- Chapter 1's cond, and, or, not ---\n" )
+    run( ['set!', 'sign',
+          ['lambda', ['n'],
+           ['cond', [['=', 'n', 0], ['quote', 'zero']],
+                    [['<', 'n', 0], ['quote', 'negative']],
+                    ['else',        ['quote', 'positive']]]]] )
+    run( ['sign', 0] )                                     # zero
+    run( ['sign', -5] )                                    # negative
+    run( ['sign', 5] )                                     # positive
 
-    # Tail-recursive countdown: TCO keeps K bounded, so 100,000 iterations run
-    # without growing the continuation stack.
+    run( ['and', 1, 2, 3] )                                # 3   (last value)
+    run( ['and', 1, lFalse, 3] )                           # #f
+    run( ['or', lFalse, 2, 3] )                            # 2   (first true value)
+    run( ['or', lFalse, lFalse] )                          # #f
+    run( ['not', lFalse] )                                 # #t
+
+    # Short-circuiting is the reason these cannot be primitives: if `and` ran
+    # like `+`, this would print 99 before deciding anything.
+    run( ['and', lFalse, ['print', 99]] )                  # #f, and 99 never prints
+
+    print( "--- Chapter 2's rest parameters ---\n" )
+    run( ['set!', 'tally', ['lambda', ['first', '.', 'rest'],
+                            ['list', 'first', 'rest']]] )
+    run( ['tally', 1] )                                    # (1 ())
+    run( ['tally', 1, 2, 3] )                              # (1 (2 3))
+
+    print( '--- the second interlude: call/cc ---\n' )
+    run( ['+', 1, ['call/cc', ['lambda', ['k'], ['+', 10, ['k', 5]]]]] )   # 6
+
+    # An escape, which is what mini-Python's `return` will need.
+    run( ['set!', 'first-negative',
+          ['lambda', ['xs'],
+           ['call/cc', ['lambda', ['return'],
+             ['begin',
+              ['set!', 'walk', ['lambda', ['ys'],
+                ['cond', [['null?', 'ys'], lFalse],
+                         [['<', ['car', 'ys'], 0], ['return', ['car', 'ys']]],
+                         ['else', ['walk', ['cdr', 'ys']]]]]],
+              ['walk', 'xs']]]]]] )
+    run( ['first-negative', ['quote', [3, 7, -2, 9]]] )    # -2
+    run( ['first-negative', ['quote', [3, 7, 9]]] )        # #f
+
+    print( '--- and the machine is still the machine ---\n' )
     run( ['set!', 'countdown',
           ['lambda', ['n'],
            ['if', ['=', 'n', 0], 0, ['countdown', ['-', 'n', 1]]]]] )
-    run( ['countdown', 100000] )                        # 0
-
-    # Chapter 1's forms, now on the machine.
-    run( ['car', ['quote', ['a', 'b', 'c']]] )          # a
-    run( ['cons', 1, ['quote', [2, 3]]] )               # (1 2 3)
-    run( ['cond', [['<', 2, 1], ['quote', 'no']],
-                  ['else', ['quote', 'yes']]] )         # yes
-    run( ['and', lFalse, ['print', 'unreached']] )      # #f, and nothing prints
-    run( ['or', lFalse, ['quote', 'fallback']] )        # fallback
-
-    # Chapter 2's: a rest parameter, and apply spreading a list back out.
-    run( ['set!', 'tally',
-          ['lambda', ['label', '.', 'nums'],
-           ['list', 'label', ['apply', '+', 'nums']]]] )
-    run( ['tally', ['quote', 'total']] )                # (total 0)
-    run( ['tally', ['quote', 'total'], 1, 2, 3] )       # (total 6)
-    run( ['apply', '+', 10, 20, ['quote', [1, 2, 3]]] ) # 36
-
-    # A tail apply is still a tail call: K stays bounded here too.
-    run( ['set!', 'countdown2',
-          ['lambda', ['n', '.', 'rest'],
-           ['cond', [['=', 'n', 0], 0],
-                    ['else', ['apply', 'countdown2', ['list', ['-', 'n', 1]]]]]]] )
-    run( ['countdown2', 100000] )                       # 0
+    run( ['countdown', 100000] )                           # 0, in constant K
 
 
 if __name__ == '__main__':

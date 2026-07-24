@@ -25,6 +25,7 @@ sys.path.insert( 0, '.' )
 from IttyBittyPythonParser import Parser
 from IttyBittyExpander        import expand, gensym
 from IttyBittyCore            import lEval, global_env, lisp_str
+from IttyBittyAST            import lFalse
 
 _STOP = [ 'quote', 'stop-iteration' ]     # a value mini-Python source cannot make
 
@@ -90,10 +91,10 @@ def lower_stmt( s, ctx ):
     if tag == 'expr':
         return lower_expr( s[1] )
     if tag == 'pass':
-        return '#f'
+        return lFalse
     if tag == 'return':
         if ctx[0] == 'func':
-            value = lower_expr( s[1] ) if s[1] is not None else '#f'
+            value = lower_expr( s[1] ) if s[1] is not None else lFalse
             return [ ctx[1], value ]                  # (ret value)
         return [ ctx[2], _STOP ]                      # a return ends a generator
     if tag == 'yield':
@@ -118,20 +119,20 @@ def lower_def( s ):
 
     ret = gensym()
     cc = [ 'call/cc', [ 'lambda', [ ret ] ] + lower_body( body, ( 'func', ret ) ) ]
-    inner = [ [ 'let', [ [ v, '#f' ] for v in locals_ ], cc ] ] if locals_ else [ cc ]
+    inner = [ [ 'let', [ [ v, lFalse ] for v in locals_ ], cc ] ] if locals_ else [ cc ]
     return [ 'set!', name, [ 'lambda', list( params ) ] + inner ]
 
 def lower_generator( name, params, body, locals_ ):
     resume, consumer, ig, kn = gensym(), gensym(), gensym(), gensym()
     ctx   = ( 'gen', resume, consumer )
-    cells = [ [ resume, '#f' ], [ consumer, '#f' ] ] + [ [ v, '#f' ] for v in locals_ ]
+    cells = [ [ resume, lFalse ], [ consumer, lFalse ] ] + [ [ v, lFalse ] for v in locals_ ]
 
     resume_body = lower_body( body, ctx ) + [ [ consumer, _STOP ] ]   # ran off the end
     resume_fn   = [ 'lambda', [ ig ] ] + resume_body
     next_thunk  = [ 'lambda', [],
                     [ 'call/cc', [ 'lambda', [ kn ],
                                    [ 'set!', consumer, kn ],
-                                   [ resume, '#f' ] ] ] ]
+                                   [ resume, lFalse ] ] ] ]
     gen_fn = [ 'lambda', list( params ),
                [ 'let', cells, [ 'set!', resume, resume_fn ], next_thunk ] ]
     return [ 'set!', name, gen_fn ]
@@ -151,8 +152,8 @@ def lower_while( s, ctx ):
     helper = [ 'lambda', [],
                [ 'if', lower_expr( test ),
                  [ 'begin' ] + lower_body( body, ctx ) + [ [ loop ] ],
-                 '#f' ] ]
-    return [ 'let', [ [ loop, '#f' ] ], [ 'set!', loop, helper ], [ loop ] ]
+                 lFalse ] ]
+    return [ 'let', [ [ loop, lFalse ] ], [ 'set!', loop, helper ], [ loop ] ]
 
 def lower_expr( e ):
     tag = e[0]

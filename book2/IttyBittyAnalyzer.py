@@ -24,6 +24,7 @@ Run with: python IttyBittyAnalyzer.py
 
 from IttyBittyCore import lisp_str
 from IttyBittyExpander import expand
+from IttyBittyAST import lTrue
 
 
 class LispError( Exception ):
@@ -180,7 +181,7 @@ def main():
             print( f'  error   {label}:  {e}' )
 
     print( '--- shapes: caught, every one, with nothing but the tree ---\n' )
-    check( '(if #t)',          ['if', '#t'] )
+    check( '(if #t)',          ['if', lTrue] )
     check( '(set! 5 1)',       ['set!', 5, 1] )
     check( '(lambda x x)',     ['lambda', 'x', 'x'] )
     check( '(lambda (a a) a)', ['lambda', ['a', 'a'], 'a'] )

@@ -25,6 +25,8 @@ separated by spaces (see the challenges in Chapter 7).
 Run with: python IttyBittyLisp8_parser.py
 """
 
+from IttyBittyAST import lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # The scanner: a character cursor with a one-token lookahead
 # ---------------------------------------------------------------------------
@@ -122,10 +124,12 @@ def read_list( scanner ):
 
 
 def atom( text ):
-    """Classify an atom's text as a Python int, or else a symbol (a string)."""
+    """Classify an atom's text as an int, a boolean, or else a symbol (a string)."""
     try:
         return int( text )
     except ValueError:
+        if text == '#t': return lTrue           # the two booleans, minted here at the
+        if text == '#f': return lFalse          # parse boundary (a name stays a string)
         return text                             # a symbol -- a plain string
 
 
@@ -142,11 +146,9 @@ def parse( source ):
 # ---------------------------------------------------------------------------
 
 def lEval( expr, env ):
-    if expr in ( '#t', '#f' ):         # boolean -> return unchanged
-        return expr
-    elif isinstance( expr, str ):      # symbol -> look it up
+    if isinstance( expr, str ):        # symbol -> look it up
         return env[expr]
-    elif not isinstance( expr, list ):
+    elif not isinstance( expr, list ):  # number or boolean -> return unchanged
         return expr
     elif len( expr ) == 0:
         return []
@@ -155,7 +157,7 @@ def lEval( expr, env ):
 
     if head == 'if':
         cond = lEval( expr[1], env )
-        return lEval( expr[3] if cond == '#f' else expr[2], env )
+        return lEval( expr[3] if cond is lFalse else expr[2], env )
 
     elif head == 'begin':
         for sub in expr[1:-1]:
@@ -179,8 +181,8 @@ global_env = {
     '+':  lambda args: args[0] + args[1],
     '-':  lambda args: args[0] - args[1],
     '*':  lambda args: args[0] * args[1],
-    '=':  lambda args: '#t' if args[0] == args[1] else '#f',
-    '<':  lambda args: '#t' if args[0] <  args[1] else '#f',
+    '=':  lambda args: lTrue if args[0] == args[1] else lFalse,
+    '<':  lambda args: lTrue if args[0] <  args[1] else lFalse,
 }
 
 

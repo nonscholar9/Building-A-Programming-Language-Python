@@ -24,6 +24,8 @@ front of it -- which is what it means to call it a *backend*.
 Run with: python IttyBittyBase.py
 """
 
+from IttyBittyAST import LBoolean, lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
@@ -129,7 +131,7 @@ def bind_params( params, args ):
 #   E : current environment
 #   K : continuation stack (a Python list)
 #
-# Value forms: a number; '#t' / '#f'; a primitive (a Python callable);
+# Value forms: a number; a boolean (#t / #f); a primitive (a Python callable);
 #              a closure (VAL_CLOSURE, params, body, captured_env);
 #              a Continuation (a saved K stack); the CALLCC sentinel.
 
@@ -143,13 +145,10 @@ def lEval( expr, env ):
 
         # ----- state EVAL: descend into C (pushing frames) until a leaf -> V -----
         while True:
-            if C in ('#t', '#f'):              # boolean literal -> itself
-                V = C
-                break
-            elif isinstance( C, str ):         # variable -> look it up
+            if isinstance( C, str ):           # variable -> look it up
                 V = E.lookup( C )
                 break
-            elif isinstance( C, (int, float) ):  # number -> itself
+            elif isinstance( C, (int, float, LBoolean) ):  # number or boolean -> itself
                 V = C
                 break
             elif C[0] == 'quote':              # ['quote', datum] -> the datum, unevaluated
@@ -178,7 +177,7 @@ def lEval( expr, env ):
                 # Really a chain of ifs, so say so: peel one clause and re-dispatch.
                 clauses = list( C[1:] )
                 if not clauses:
-                    V = '#f'
+                    V = lFalse
                     break
                 test, result = clauses[0]
                 if test == 'else':
@@ -188,14 +187,14 @@ def lEval( expr, env ):
             elif C[0] == 'and':                # ['and', *forms] -- short-circuits
                 forms = list( C[1:] )
                 if not forms:
-                    V = '#t'                   # (and) with no forms is true
+                    V = lTrue                  # (and) with no forms is true
                     break
                 K.append( (FRAME_AND, forms[1:], E) )
                 C = forms[0]
             elif C[0] == 'or':                 # ['or', *forms] -- short-circuits
                 forms = list( C[1:] )
                 if not forms:
-                    V = '#f'                   # (or) with no forms is false
+                    V = lFalse                 # (or) with no forms is false
                     break
                 K.append( (FRAME_OR, forms[1:], E) )
                 C = forms[0]
@@ -212,7 +211,7 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V != '#f' else frame[2]   # #f is the only false
+                C = frame[1] if V is not lFalse else frame[2]   # #f is the only false
                 E = frame[3]
                 break
 
@@ -268,7 +267,7 @@ def lEval( expr, env ):
                 break
 
             elif ftag == FRAME_AND:            # (FRAME_AND, remaining_forms, env)
-                if V == '#f':                  # short-circuit: the #f flows on
+                if V is lFalse:                # short-circuit: the #f flows on
                     continue
                 forms = frame[1]
                 if not forms:                  # V is the last operand's value
@@ -279,10 +278,10 @@ def lEval( expr, env ):
                 break
 
             elif ftag == FRAME_OR:             # (FRAME_OR, remaining_forms, env)
-                if V != '#f':                  # short-circuit: the true value flows on
+                if V is not lFalse:            # short-circuit: the true value flows on
                     continue
                 forms = frame[1]
-                if not forms:                  # V is '#f'
+                if not forms:                  # V is #f
                     continue
                 E = frame[2]
                 K.append( (FRAME_OR, forms[1:], E) )
@@ -311,24 +310,24 @@ globalBindings = {
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
-    '=':     lambda args: '#t' if args[0] == args[1] else '#f',
-    '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
-    '>':     lambda args: '#t' if args[0] >  args[1] else '#f',
-    '<=':    lambda args: '#t' if args[0] <= args[1] else '#f',
-    '>=':    lambda args: '#t' if args[0] >= args[1] else '#f',
+    '=':     lambda args: lTrue if args[0] == args[1] else lFalse,
+    '<':     lambda args: lTrue if args[0] <  args[1] else lFalse,
+    '>':     lambda args: lTrue if args[0] >  args[1] else lFalse,
+    '<=':    lambda args: lTrue if args[0] <= args[1] else lFalse,
+    '>=':    lambda args: lTrue if args[0] >= args[1] else lFalse,
     'print': lisp_print,
 
     # `not` computes from an already-evaluated argument, so it is an ordinary
     # primitive.  `and` and `or` cannot be: they must skip evaluating an
     # operand, which only a special form can do.
-    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+    'not':   lambda args: lTrue if args[0] is lFalse else lFalse,
 
     # The list primitives.  A Lisp list is a Python list, so each is one line.
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
-    'null?': lambda args: '#t' if args[0] == [] else '#f',
+    'null?': lambda args: lTrue if args[0] == [] else lFalse,
     'call/cc':                       CALLCC,                    # the star of this file
     'call-with-current-continuation': CALLCC,                  # its full Scheme name
     'apply':                         APPLY,                     # a value, spliced at the call site
@@ -387,14 +386,14 @@ def main():
     run( ['sign', 5] )                                     # positive
 
     run( ['and', 1, 2, 3] )                                # 3   (last value)
-    run( ['and', 1, '#f', 3] )                             # #f
-    run( ['or', '#f', 2, 3] )                              # 2   (first true value)
-    run( ['or', '#f', '#f'] )                              # #f
-    run( ['not', '#f'] )                                   # #t
+    run( ['and', 1, lFalse, 3] )                           # #f
+    run( ['or', lFalse, 2, 3] )                            # 2   (first true value)
+    run( ['or', lFalse, lFalse] )                          # #f
+    run( ['not', lFalse] )                                 # #t
 
     # Short-circuiting is the reason these cannot be primitives: if `and` ran
     # like `+`, this would print 99 before deciding anything.
-    run( ['and', '#f', ['print', 99]] )                    # #f, and 99 never prints
+    run( ['and', lFalse, ['print', 99]] )                  # #f, and 99 never prints
 
     print( "--- Chapter 2's rest parameters ---\n" )
     run( ['set!', 'tally', ['lambda', ['first', '.', 'rest'],
@@ -411,7 +410,7 @@ def main():
            ['call/cc', ['lambda', ['return'],
              ['begin',
               ['set!', 'walk', ['lambda', ['ys'],
-                ['cond', [['null?', 'ys'], '#f'],
+                ['cond', [['null?', 'ys'], lFalse],
                          [['<', ['car', 'ys'], 0], ['return', ['car', 'ys']]],
                          ['else', ['walk', ['cdr', 'ys']]]]]],
               ['walk', 'xs']]]]]] )

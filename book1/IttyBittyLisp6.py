@@ -33,6 +33,8 @@ no return address, so K stays flat across tail calls and TCO is still structural
 Run with: python IttyBittyLisp6.py
 """
 
+from IttyBittyAST import LBoolean, lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
@@ -90,16 +92,12 @@ class Environment:
 # closure, with an OP_JUMP in front so the closure-building path skips over it.
 
 def compile_expr( expr, out, tail ):
-    if expr in ( '#t', '#f' ):              # a boolean literal -> a constant, like a number
+    if isinstance( expr, (int, LBoolean) ):  # a number or boolean literal -> a constant
         out.append( (OP_INT, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif isinstance( expr, str ):           # a variable
         out.append( (OP_VAR, expr) )
-        if tail: out.append( (OP_RET,) )
-
-    elif isinstance( expr, int ):           # a number literal
-        out.append( (OP_INT, expr) )
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'lambda':               # ['lambda', param, body]
@@ -198,7 +196,7 @@ def run_vm( prog ):
         elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
             frame = K.pop()
             E  = frame[3]
-            pc = frame[1] if V != '#f' else frame[2]
+            pc = frame[1] if V is not lFalse else frame[2]
 
         elif op == OP_RET:                  # end of a body
             if not K:
@@ -244,8 +242,8 @@ def main():
     run( 42 )                                              # 42
     run( [['lambda', 'x', 'x'], 7] )                       # 7
     run( [[['lambda', 'x', ['lambda', 'y', 'x']], 3], 9] ) # 3
-    run( ['if', '#t', 100, 200] )                          # 100
-    run( ['if', '#f', 100, 200] )                          # 200
+    run( ['if', lTrue, 100, 200] )                         # 100
+    run( ['if', lFalse, 100, 200] )                        # 200
     run( [['lambda', 'f', ['f', 3]], ['lambda', 'x', 'x']] )  # 3
 
 

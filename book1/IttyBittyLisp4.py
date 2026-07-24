@@ -43,6 +43,8 @@ that is where the machine's tail-call optimization comes from.
 Run with: python IttyBittyLisp4.py
 """
 
+from IttyBittyAST import LBoolean, lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
@@ -100,13 +102,10 @@ def lEval( expr, env ):
 
         # ----- state EVAL: descend into C, pushing frames, until a leaf -> V -----
         while True:
-            if C in ( '#t', '#f' ):           # boolean literal -> itself
-                V = C
-                break
-            elif isinstance( C, str ):        # a variable -> look it up
+            if isinstance( C, str ):          # a variable -> look it up
                 V = E.lookup( C )
                 break
-            elif isinstance( C, int ):        # a number literal -> itself
+            elif isinstance( C, (int, LBoolean) ):  # a number or boolean literal -> itself
                 V = C
                 break
             elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure
@@ -129,7 +128,7 @@ def lEval( expr, env ):
 
             if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
                 # V is the test value; #f is the only false value, as everywhere else.
-                C = frame[1] if V != '#f' else frame[2]
+                C = frame[1] if V is not lFalse else frame[2]
                 E = frame[3]
                 break
 
@@ -182,10 +181,10 @@ def main():
     run( [[['lambda', 'x', ['lambda', 'y', 'x']], 3], 9] )
 
     # (if #t 100 200) -- a true test takes the then branch.
-    run( ['if', '#t', 100, 200] )
+    run( ['if', lTrue, 100, 200] )
 
     # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
-    run( ['if', '#f', 100, 200] )
+    run( ['if', lFalse, 100, 200] )
 
     # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
     run( [['lambda', 'f', ['f', 3]], ['lambda', 'x', 'x']] )

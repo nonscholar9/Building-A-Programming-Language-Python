@@ -20,6 +20,8 @@ evaluated, not *how* the stack is used.
 Run with: python IttyBittyLisp2.py
 """
 
+from IttyBittyAST import lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes
 # ---------------------------------------------------------------------------
@@ -87,11 +89,9 @@ def bind_params( params, args ):
 def lEval( expr, env ):
 
     # ---- State = EVAL (dispatch on expression syntax) ----
-    if expr in ('#t', '#f'):           # boolean literals evaluate to themselves (they are
-        return expr                    # data, not identifiers -- never looked up)
-    elif isinstance(expr, str):        # a symbol
+    if isinstance(expr, str):          # a symbol -> look it up
         return env.lookup(expr)
-    elif not isinstance(expr, list):   # everything else evaluates to itself
+    elif not isinstance(expr, list):   # a number or boolean -> itself
         return expr
     elif expr[0] == 'set!':
         name, valExpr = expr[1:]
@@ -101,33 +101,33 @@ def lEval( expr, env ):
     elif expr[0] == 'if':
         condExpr, thenExpr, elseExpr = expr[1:]
         condVal = lEval(condExpr, env)
-        return lEval(elseExpr if condVal == '#f' else thenExpr, env)
+        return lEval(elseExpr if condVal is lFalse else thenExpr, env)
 
     elif expr[0] == 'cond':
         # Really a chain of ifs, so say so: peel one clause and re-evaluate the
         # rest.  `else` is the clause whose test always holds.
         clauses = expr[1:]
         if not clauses:
-            return '#f'
+            return lFalse
         test, result = clauses[0]
         if test == 'else':
             return lEval(result, env)
         return lEval( ['if', test, result, ['cond'] + list(clauses[1:])], env )
 
     elif expr[0] == 'and':             # short-circuits: stops at the first #f
-        val = '#t'                     # (and) with no forms is true
+        val = lTrue                    # (and) with no forms is true
         for subExpr in expr[1:]:
             val = lEval(subExpr, env)
-            if val == '#f':
-                return '#f'
-        return val                     # the last operand's value, not '#t'
+            if val is lFalse:
+                return lFalse
+        return val                     # the last operand's value, not #t
 
     elif expr[0] == 'or':              # short-circuits: stops at the first true
         for subExpr in expr[1:]:
             val = lEval(subExpr, env)
-            if val != '#f':
-                return val             # the true value itself, not '#t'
-        return '#f'                    # (or) with no forms is false
+            if val is not lFalse:
+                return val             # the true value itself, not #t
+        return lFalse                  # (or) with no forms is false
 
     elif expr[0] == 'begin':
         for subExpr in expr[1:-1]:     # non-tail forms: evaluated for effect
@@ -201,24 +201,24 @@ globalBindings = {
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
-    '=':     lambda args: '#t' if args[0] == args[1] else '#f',
-    '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
-    '>':     lambda args: '#t' if args[0] >  args[1] else '#f',
-    '<=':    lambda args: '#t' if args[0] <= args[1] else '#f',
-    '>=':    lambda args: '#t' if args[0] >= args[1] else '#f',
+    '=':     lambda args: lTrue if args[0] == args[1] else lFalse,
+    '<':     lambda args: lTrue if args[0] <  args[1] else lFalse,
+    '>':     lambda args: lTrue if args[0] >  args[1] else lFalse,
+    '<=':    lambda args: lTrue if args[0] <= args[1] else lFalse,
+    '>=':    lambda args: lTrue if args[0] >= args[1] else lFalse,
     'print': lisp_print,
 
     # `not` computes from an already-evaluated argument, so it is an ordinary
     # primitive.  `and` and `or` cannot be: they must skip evaluating an
     # operand, which only a special form can do.
-    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+    'not':   lambda args: lTrue if args[0] is lFalse else lFalse,
 
     # The list primitives.  A Lisp list is a Python list, so each is one line.
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
-    'null?': lambda args: '#t' if args[0] == [] else '#f',
+    'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': APPLY,

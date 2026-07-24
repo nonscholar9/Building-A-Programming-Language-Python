@@ -31,6 +31,8 @@ Two halves, and they are not equally settled:
 Run with: python IttyBittyCore.py   (a short check that the machine is alive)
 """
 
+from IttyBittyAST import LBoolean, lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Tags
 # ---------------------------------------------------------------------------
@@ -117,7 +119,7 @@ def bind_params( params, args ):
 #
 # Registers:  C (expression), V (value), E (environment), K (frame stack).
 #
-# Value forms: a number; '#t' / '#f'; a list; a primitive (a Python callable);
+# Value forms: a number; a boolean (#t / #f); a list; a primitive (a Python callable);
 #              a closure (VAL_CLOSURE, params, body, captured_env);
 #              a Continuation; the CALLCC sentinel.
 #
@@ -135,14 +137,11 @@ def lEval( expr, env ):
 
         # ----- state EVAL: descend into C (pushing frames) until a leaf -> V -----
         while True:
-            if C in ('#t', '#f'):              # boolean literal -> itself
-                V = C
-                break
-            elif isinstance( C, (int, float) ):  # number -> itself
-                V = C
-                break
-            elif isinstance( C, str ):         # variable -> look it up
+            if isinstance( C, str ):           # variable -> look it up
                 V = E.lookup( C )
+                break
+            elif isinstance( C, (int, float, LBoolean) ):  # number or boolean -> itself
+                V = C
                 break
             elif C[0] == 'quote':              # ['quote', datum] -> the datum
                 V = C[1]
@@ -174,7 +173,7 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V != '#f' else frame[2]
+                C = frame[1] if V is not lFalse else frame[2]
                 E = frame[3]
                 break
 
@@ -244,7 +243,7 @@ def lisp_mul( args ):
     return result
 
 def lisp_bool( b ):
-    return '#t' if b else '#f'
+    return lTrue if b else lFalse
 
 globalBindings = {
     '+':     lambda args: sum( args ),
@@ -264,7 +263,7 @@ globalBindings = {
     'list':  lambda args: list( args ),
     'null?': lambda args: lisp_bool( args[0] == [] ),
 
-    'not':   lambda args: lisp_bool( args[0] == '#f' ),
+    'not':   lambda args: lisp_bool( args[0] is lFalse ),
 
     'call/cc':                        CALLCC,
     'call-with-current-continuation': CALLCC,

@@ -30,6 +30,7 @@ sys.path.insert( 0, '.' )
 from IttyBittyPythonParser import Parser
 from IttyBittyExpander import expand, gensym
 from IttyBittyCore import lEval, global_env, lisp_str
+from IttyBittyAST      import lFalse
 
 
 # ---------------------------------------------------------------------------
@@ -78,10 +79,10 @@ def lower_stmt( s, ret ):
     if tag == 'expr':
         return lower_expr( s[1] )
     if tag == 'return':
-        value = lower_expr( s[1] ) if s[1] is not None else '#f'
+        value = lower_expr( s[1] ) if s[1] is not None else lFalse
         return [ ret, value ]                 # jump to the function's continuation
     if tag == 'pass':
-        return '#f'
+        return lFalse
     if tag == 'if':
         return lower_if( s, ret )
     if tag == 'while':
@@ -96,7 +97,7 @@ def lower_def( s ):
     locals_ = sorted( assigned_names( body ) - set( params ) )
     cc = [ 'call/cc', [ 'lambda', [ ret ] ] + lower_body( body, ret ) ]
     if locals_:
-        bindings = [ [ v, '#f' ] for v in locals_ ]
+        bindings = [ [ v, lFalse ] for v in locals_ ]
         lam_body = [ [ 'let', bindings, cc ] ]
     else:
         lam_body = [ cc ]
@@ -117,8 +118,8 @@ def lower_while( s, ret ):
     helper = [ 'lambda', [],
                [ 'if', lower_expr( test ),
                  [ 'begin' ] + lower_body( body, ret ) + [ [ loop ] ],
-                 '#f' ] ]
-    return [ 'let', [ [ loop, '#f' ] ],
+                 lFalse ] ]
+    return [ 'let', [ [ loop, lFalse ] ],
              [ 'set!', loop, helper ],
              [ loop ] ]
 

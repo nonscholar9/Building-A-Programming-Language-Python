@@ -49,6 +49,7 @@ Run with: python IttyBittyExpander.py
 
 from IttyBittyCore import (
     VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
+from IttyBittyAST import lTrue, lFalse
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +86,7 @@ def rule_cond( form ):
     # `else` is the clause whose test always holds.
     clauses = list( form[1:] )
     if not clauses:
-        return '#f'
+        return lFalse
     test, result = clauses[0][0], clauses[0][1]
     if test == 'else':
         return result
@@ -98,10 +99,10 @@ def rule_and( form ):
     # (and x rest...)  ->  (if x (and rest...) #f)
     forms = list( form[1:] )
     if not forms:
-        return '#t'
+        return lTrue
     if len(forms) == 1:
         return forms[0]
-    return [ 'if', forms[0], ['and'] + forms[1:], '#f' ]
+    return [ 'if', forms[0], ['and'] + forms[1:], lFalse ]
 
 
 def rule_or( form ):
@@ -117,7 +118,7 @@ def rule_or( form ):
     # before any reader of this file has asked for a macro.
     forms = list( form[1:] )
     if not forms:
-        return '#f'
+        return lFalse
     if len(forms) == 1:
         return forms[0]
     tmp = gensym()
@@ -166,7 +167,7 @@ def define_macro( form ):
     params = list( spec[1:] )
     body   = [ expand(f) for f in form[2:] ]
     RULES[name] = ( VAL_CLOSURE, params, body, global_env )
-    return '#f'
+    return lFalse
 
 
 def is_rule_use( form ):
@@ -240,11 +241,11 @@ def main():
                   [['<', 1, 2], ['quote', 'yes']],
                   ['else',      ['quote', 'fallback']]] )      # yes
     run( ['and', 1, 2] )                                       # 2
-    run( ['and', '#f', 99] )                                   # #f
-    run( ['or', '#f', 7] )                                     # 7
+    run( ['and', lFalse, 99] )                                 # #f
+    run( ['or', lFalse, 7] )                                   # 7
 
     print( "--- `and` short-circuits, and so the rewrite must too ---\n" )
-    run( ['and', '#f', ['print', 99]] )                        # #f, 99 unprinted
+    run( ['and', lFalse, ['print', 99]] )                      # #f, 99 unprinted
 
     print( "--- why `or`'s rule needs a name you cannot type ---\n" )
     run( ['or', ['print', 7], 99] )                            # prints 7 ONCE
@@ -253,7 +254,7 @@ def main():
     run( ['define-macro', ['when', 'test', '.', 'body'],
           ['list', ['quote', 'if'], 'test',
                    ['cons', ['quote', 'begin'], 'body'],
-                   ['quote', '#f']]] )
+                   ['quote', lFalse]]] )
     run( ['when', ['<', 1, 2], ['print', ['quote', 'yes']]] )  # yes
     run( ['when', ['>', 1, 2], ['print', ['quote', 'no']]] )   # #f, nothing printed
 

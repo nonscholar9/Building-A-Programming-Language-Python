@@ -29,6 +29,8 @@ still overflow.
 Run with: python IttyBittyLisp3.py
 """
 
+from IttyBittyAST import lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes
 # ---------------------------------------------------------------------------
@@ -102,11 +104,9 @@ def lEval( expr, env ):
     
     while True:
         # ---- State = EVAL (dispatch on expression syntax) ----
-        if C in ('#t', '#f'):         # boolean literals self-evaluate (they are
-            return C                   # data, not identifiers -- never looked up)
-        elif isinstance(C, str):      # a symbol -- look it up in the environment
+        if isinstance(C, str):        # a symbol -- look it up in the environment
             return E.lookup(C)
-        elif not isinstance(C, list): # everything else evaluates to itself
+        elif not isinstance(C, list): # a number or boolean -- evaluates to itself
             return C
         elif C[0] == 'set!':
             name, valExpr = C[1:]
@@ -116,7 +116,7 @@ def lEval( expr, env ):
         elif C[0] == 'if':
             condExpr, thenExpr, elseExpr = C[1:]
             condVal = lEval(condExpr, E)   # condition: not tail, recurse
-            C = elseExpr if condVal == '#f' else thenExpr
+            C = elseExpr if condVal is lFalse else thenExpr
             continue                            # tail branch: loop
 
         elif C[0] == 'cond':
@@ -124,7 +124,7 @@ def lEval( expr, env ):
             # chosen result stays in tail position, so cond keeps TCO.
             clauses = C[1:]
             if not clauses:
-                return '#f'
+                return lFalse
             test, result = clauses[0]
             if test == 'else':
                 C = result
@@ -135,21 +135,21 @@ def lEval( expr, env ):
         elif C[0] == 'and':                     # short-circuits at the first #f
             forms = C[1:]
             if not forms:
-                return '#t'                     # (and) with no forms is true
+                return lTrue                    # (and) with no forms is true
             for subExpr in forms[:-1]:          # non-tail forms: recurse
-                if lEval(subExpr, E) == '#f':
-                    return '#f'
+                if lEval(subExpr, E) is lFalse:
+                    return lFalse
             C = forms[-1]
             continue                            # tail: the last form's value wins
 
         elif C[0] == 'or':                      # short-circuits at the first true
             forms = C[1:]
             if not forms:
-                return '#f'                     # (or) with no forms is false
+                return lFalse                   # (or) with no forms is false
             for subExpr in forms[:-1]:          # non-tail forms: recurse
                 val = lEval(subExpr, E)
-                if val != '#f':
-                    return val                  # the true value itself, not '#t'
+                if val is not lFalse:
+                    return val                  # the true value itself, not #t
             C = forms[-1]
             continue                            # tail: the last form's value wins
 
@@ -232,24 +232,24 @@ globalBindings = {
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
-    '=':     lambda args: '#t' if args[0] == args[1] else '#f',
-    '<':     lambda args: '#t' if args[0] <  args[1] else '#f',
-    '>':     lambda args: '#t' if args[0] >  args[1] else '#f',
-    '<=':    lambda args: '#t' if args[0] <= args[1] else '#f',
-    '>=':    lambda args: '#t' if args[0] >= args[1] else '#f',
+    '=':     lambda args: lTrue if args[0] == args[1] else lFalse,
+    '<':     lambda args: lTrue if args[0] <  args[1] else lFalse,
+    '>':     lambda args: lTrue if args[0] >  args[1] else lFalse,
+    '<=':    lambda args: lTrue if args[0] <= args[1] else lFalse,
+    '>=':    lambda args: lTrue if args[0] >= args[1] else lFalse,
     'print': lisp_print,
 
     # `not` computes from an already-evaluated argument, so it is an ordinary
     # primitive.  `and` and `or` cannot be: they must skip evaluating an
     # operand, which only a special form can do.
-    'not':   lambda args: '#t' if args[0] == '#f' else '#f',
+    'not':   lambda args: lTrue if args[0] is lFalse else lFalse,
 
     # The list primitives.  A Lisp list is a Python list, so each is one line.
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list( args ),
-    'null?': lambda args: '#t' if args[0] == [] else '#f',
+    'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': APPLY,
@@ -326,7 +326,7 @@ def main():
     run( ['countdown2', 100000] )
 
     # and/or keep their last form in tail position too.
-    run( ['and', ['<', 1, 2], ['or', '#f', ['quote', 'reached']]] )
+    run( ['and', ['<', 1, 2], ['or', lFalse, ['quote', 'reached']]] )
 
 
 if __name__ == '__main__':

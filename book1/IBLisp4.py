@@ -1,12 +1,12 @@
 """
-IttyBittyLisp4 - A CEK machine Lisp evaluator.
+IBLisp4 - A CEK machine Lisp evaluator.
 
 The CEK machine is named for its three-part state:
   C - Control:      the expression currently being evaluated
   E - Environment:  the current lexical scope
   K - Kontinuation: an explicit stack of continuation frames
 
-Unlike the looping evaluator (IttyBittyLisp3), the CEK machine never calls
+Unlike the looping evaluator (IBLisp3), the CEK machine never calls
 lEval recursively -- not even for non-tail sub-expressions.  Instead it pushes
 a continuation frame onto K that resumes when the sub-expression's value
 arrives.  Non-tail depth is absorbed by K (a heap list), not the Python call
@@ -32,7 +32,7 @@ This toy is a pure lambda calculus + if (#f is the only false value) -- the
 smallest setting that still has closures and control flow, so the machine itself
 stands out with nothing else competing for attention.  The fuller language of
 toys 1-3 (let, set!, begin, primitives, ...) would only add more frame kinds, not
-change the machine's shape -- which is exactly what IttyBittyLisp5 does, putting
+change the machine's shape -- which is exactly what IBLisp5 does, putting
 the full language back on this same machine.
 
 Stack discipline: nothing recurses -- all depth, tail and non-tail alike, lives
@@ -40,10 +40,10 @@ in the explicit K stack on the heap.  A function call pushes no frame of its own
 (FRAME_CALL just installs the body), so a tail call reuses the current K depth --
 that is where the machine's tail-call optimization comes from.
 
-Run with: python IttyBittyLisp4.py
+Run with: python IBLisp4.py
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse
+from IBAST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -58,7 +58,7 @@ FRAME_ARG  = 1   # waiting on a function value
 FRAME_CALL = 2   # waiting on an argument value
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IttyBittyLisp2/3)
+# Environment: a linked chain of scopes (same class as IBLisp2/3)
 # ---------------------------------------------------------------------------
 
 class Environment:

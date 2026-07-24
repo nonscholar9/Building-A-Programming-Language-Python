@@ -1,5 +1,5 @@
 """
-IttyBittyAST - the value types shared across the machines.
+IBAST - the value types shared across the machines.
 
 A real interpreter keeps its value and AST types in one module, so every stage
 -- reader, expander, evaluator, printer -- agrees on what a value *is*.  This

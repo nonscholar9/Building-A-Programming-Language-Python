@@ -1,12 +1,12 @@
 """
-IttyBittyLisp5 - The CEK Machine, Complete.
+IBLisp5 - The CEK Machine, Complete.
 
-Continues from IttyBittyLisp4, which introduced the CEK machine on pure lambda
+Continues from IBLisp4, which introduced the CEK machine on pure lambda
 calculus + if -- the smallest setting that still has closures and control flow,
 so the machine itself (the C/E/K registers, the two-state EVAL/APPLY loop, the
 continuation frames) stands out with nothing else competing for attention.
 
-This part puts the full IttyBittyLisp3 language back: #t/#f with Scheme
+This part puts the full IBLisp3 language back: #t/#f with Scheme
 truthiness (#f is the only false value -- 0 is true), quote, set!, begin,
 multi-argument lambdas and applications, let, and primitives.  The lesson is
 that doing so does NOT change the machine's shape.  The two loops and the
@@ -24,10 +24,10 @@ directly), so a tail call reuses the current K depth -- the same tail-call
 optimization #3 and #4 have, now living on the explicit stack.  (countdown
 100000) at the bottom runs in constant K depth to prove it.
 
-Run with: python IttyBittyLisp5.py
+Run with: python IBLisp5.py
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse
+from IBAST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -45,7 +45,7 @@ FRAME_AND = 4   # an and with operands still to run
 FRAME_OR  = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
+# Environment: a linked chain of scopes (same class as IBLisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:

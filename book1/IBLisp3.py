@@ -1,11 +1,11 @@
 """
-IttyBittyLisp3 - A looping Lisp evaluator with tail-call optimization (TCO).
+IBLisp3 - A looping Lisp evaluator with tail-call optimization (TCO).
 
 The key idea: instead of recursing into tail positions, overwrite the
 current expression and environment and loop.
 
 This is the first part where C and E become real machine registers.  Where
-IttyBittyLisp1 recursed for *every* sub-expression, here a tail position
+IBLisp1 recursed for *every* sub-expression, here a tail position
 just reassigns the registers and loops back:
 
   C - the Control:      the expression currently being evaluated  (was `expr`)
@@ -15,10 +15,10 @@ K -- the continuation -- is still implicit here.  Non-tail sub-expressions
 (an `if` condition, a call's arguments, non-tail body forms) are still
 evaluated by a recursive lEval call, so they still ride the Python call
 stack -- the stack *is* K for now.  That is why deeply *non-tail* recursion
-can still overflow.  IttyBittyLisp4 promotes K to an explicit stack as well,
+can still overflow.  IBLisp4 promotes K to an explicit stack as well,
 removing the last use of Python's call stack.
 
-Compare with IttyBittyLisp1.py, which uses a naive recursive evaluator
+Compare with IBLisp1.py, which uses a naive recursive evaluator
 and overflows Python's call stack even for tail-recursive programs.
 
 Stack discipline: tail positions loop (the Python stack stays flat), but
@@ -26,10 +26,10 @@ non-tail sub-expressions still recurse -- so only *non-tail* depth uses the
 Python call stack.  Tail recursion runs forever; deep non-tail nesting can
 still overflow.
 
-Run with: python IttyBittyLisp3.py
+Run with: python IBLisp3.py
 """
 
-from IttyBittyAST import lTrue, lFalse
+from IBAST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes
@@ -304,7 +304,7 @@ def main():
           ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )
 
     # Tail-recursive countdown.
-    # The naive recursive evaluator in IttyBittyLisp1.py would hit Python's
+    # The naive recursive evaluator in IBLisp1.py would hit Python's
     # ~1000-frame stack limit and crash.  With TCO each tail call reuses
     # the same Python frame, so 100,000 iterations need only a handful of
     # stack frames.

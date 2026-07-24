@@ -1,7 +1,7 @@
 """
-IttyBittyLisp5b_callcc - The CEK Machine, Complete, plus call/cc.
+IBLisp5b_callcc - The CEK Machine, Complete, plus call/cc.
 
-This is IttyBittyLisp5 with one feature added: call/cc (call-with-current-
+This is IBLisp5 with one feature added: call/cc (call-with-current-
 continuation), Scheme's most powerful control operator.  The point of putting
 it here is how *little* it takes.
 
@@ -12,7 +12,7 @@ continuation" -- the thing that sounds exotic -- is literally "copy K", and
 one back".  That is the whole idea.  Everything below is bookkeeping around
 those two moves.
 
-What we add to IttyBittyLisp5:
+What we add to IBLisp5:
 
   * a Continuation value: a snapshot of the K stack (one small class);
   * a CALLCC sentinel bound to 'call/cc' in the global environment;
@@ -27,10 +27,10 @@ all untouched.  That call/cc costs ~15 lines here, and would cost a rewrite in
 the recursive evaluators of Chapters 1-3, is the clearest possible measure of
 what reifying the continuation bought us.
 
-Run with: python IttyBittyLisp5b_callcc.py
+Run with: python IBLisp5b_callcc.py
 """
 
-from IttyBittyAST import LBoolean, lTrue, lFalse
+from IBAST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -78,7 +78,7 @@ class _Apply:
 APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
+# Environment: a linked chain of scopes (same class as IBLisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -368,7 +368,7 @@ def run( expr ):
 
 
 def main():
-    # --- the full IttyBittyLisp5 language still works, unchanged ---
+    # --- the full IBLisp5 language still works, unchanged ---
     run( ['+', ['-', 10, 7], 2] )                      # 5
     run( ['let', [['a', 3], ['b', 4]],
           ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )    # 25

@@ -2,7 +2,7 @@
 IBBase - Book One's machine, with the challenges done.
 
 This is the machine Book Two builds on, and it is not a new one.  It is
-IttyBittyLisp5, the CEK machine from Book One, plus exactly the things Book One
+IBLisp5, the CEK machine from Book One, plus exactly the things Book One
 asked you to add and then left to you:
 
   * `cond`                       Book One, Chapter 1 challenge
@@ -72,7 +72,7 @@ class _Apply:
 APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IttyBittyLisp2/3/4)
+# Environment: a linked chain of scopes (same class as IBLisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:

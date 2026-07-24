@@ -24,7 +24,7 @@ Run with: python IBAnalyzer.py
 
 from IBCore import lisp_str
 from IBExpander import expand
-from IBAST import lTrue
+from IB_AST import lTrue
 
 
 class LispError( Exception ):

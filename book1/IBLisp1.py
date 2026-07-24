@@ -37,7 +37,7 @@ tail recursion.
 Run with: python IBLisp1.py
 """
 
-from IBAST import lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # The recursive evaluator

@@ -49,7 +49,7 @@ Run with: python IBExpander.py
 
 from IBCore import (
     VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
-from IBAST import lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 
 # ---------------------------------------------------------------------------

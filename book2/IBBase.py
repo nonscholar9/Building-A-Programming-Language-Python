@@ -24,7 +24,7 @@ front of it -- which is what it means to call it a *backend*.
 Run with: python IBBase.py
 """
 
-from IBAST import LBoolean, lTrue, lFalse
+from IB_AST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

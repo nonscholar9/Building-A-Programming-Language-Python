@@ -25,7 +25,7 @@ separated by spaces (see the challenges in Chapter 7).
 Run with: python IBLisp8_parser.py
 """
 
-from IBAST import lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # The scanner: a character cursor with a one-token lookahead

@@ -33,7 +33,7 @@ no return address, so K stays flat across tail calls and TCO is still structural
 Run with: python IBLisp6.py
 """
 
-from IBAST import LBoolean, lTrue, lFalse
+from IB_AST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

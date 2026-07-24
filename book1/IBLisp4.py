@@ -43,7 +43,7 @@ that is where the machine's tail-call optimization comes from.
 Run with: python IBLisp4.py
 """
 
-from IBAST import LBoolean, lTrue, lFalse
+from IB_AST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

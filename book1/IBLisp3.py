@@ -29,7 +29,7 @@ still overflow.
 Run with: python IBLisp3.py
 """
 
-from IBAST import lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Environment: a linked chain of scopes

@@ -31,7 +31,7 @@ Two halves, and they are not equally settled:
 Run with: python IBCore.py   (a short check that the machine is alive)
 """
 
-from IBAST import LBoolean, lTrue, lFalse, lisp_str
+from IB_AST import LBoolean, lTrue, lFalse, lisp_str
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -281,7 +281,7 @@ global_env = Environment( bindings=globalBindings )
 # ---------------------------------------------------------------------------
 # Rendering
 # ---------------------------------------------------------------------------
-# The value printer lisp_str is imported from IBAST.py (top of file):
+# The value printer lisp_str is imported from IB_AST.py (top of file):
 # one renderer shared by every stage of the pipeline, and Core is just one of
 # its callers.  Continuation and the two sentinels above describe themselves
 # through __repr__, so the shared printer needs no special case for them.

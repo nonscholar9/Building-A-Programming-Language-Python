@@ -27,7 +27,7 @@ optimization #3 and #4 have, now living on the explicit stack.  (countdown
 Run with: python IBLisp5.py
 """
 
-from IBAST import LBoolean, lTrue, lFalse
+from IB_AST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

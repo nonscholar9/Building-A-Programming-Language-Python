@@ -1,5 +1,5 @@
 """
-IBAST - the value types shared across the machines.
+IB_AST - the value types shared across the machines.
 
 A real interpreter keeps its value and AST types in one module, so every stage
 -- reader, expander, evaluator, printer -- agrees on what a value *is*.  This
@@ -21,3 +21,19 @@ class LBoolean:
 
 lTrue  = LBoolean()
 lFalse = LBoolean()
+
+
+def lisp_str( val ):
+    # Render any value in Lisp surface syntax.  Every stage that shows a value
+    # -- reader, expander, evaluator -- shares this one printer, so a value
+    # prints the same wherever it comes from.  Most values describe themselves
+    # through __repr__ (which str() reaches): a number, an LBoolean, a
+    # continuation, a primitive sentinel.  The two shapes that are bare Python
+    # containers, a list and a closure tuple, are spelled out here.
+    if isinstance( val, list ):
+        return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
+    if isinstance( val, tuple ):                 # a closure: (VAL_CLOSURE, params, body, env)
+        return '#<procedure (' + ' '.join( val[1] ) + ')>'
+    if callable( val ):
+        return '#<primitive>'
+    return str( val )

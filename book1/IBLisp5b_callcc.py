@@ -30,7 +30,7 @@ what reifying the continuation bought us.
 Run with: python IBLisp5b_callcc.py
 """
 
-from IBAST import LBoolean, lTrue, lFalse
+from IB_AST import LBoolean, lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags

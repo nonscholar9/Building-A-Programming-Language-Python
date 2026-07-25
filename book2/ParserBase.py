@@ -6,11 +6,13 @@ subclass it once per language: a Lexer supplies the tokens (one method,
 _scanNextToken), and a Parser supplies the grammar (one recursive-descent
 method per production).  This is the general-purpose one: it knows nothing
 about any particular language, and it carries what a real front end wants
-anyway, including errors that point at a file, line and column.  Book Two's
-mini-Python front end subclasses it.  Book One's Lisp reader in Chapter 8 is
-this same design cut down to a single language's needs and written out by
-hand rather than inherited: a syntax that is already a tree needs no base to
-share.
+anyway, including errors that point at a file, line and column.  Book Two
+subclasses it twice, and neither subclass is Lisp: IB_Arith.py parses infix
+arithmetic, the parsing chapter's worked example, and miniPythonParser.py is
+the mini-Python front end.  Both hand their trees to the same Lisp back end.
+Book One's Lisp reader in Chapter 8 is this same design cut down to a single
+language's needs and written out by hand rather than inherited: a syntax that
+is already a tree keeps its reader small enough to need no base to share.
 
   * LexerBuffer - a cursor over the source text: peek a character, consume it,
     scan a run, remember where a lexeme began, and track line and column so an

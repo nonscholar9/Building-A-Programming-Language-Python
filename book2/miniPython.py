@@ -5,7 +5,8 @@ The whole front end, assembled onto the whole Lisp interpreter.  A program in
 mini-Python passes through every stage both books built and comes out a
 value:
 
-    text --parse--> tree --lower--> Lisp --expand--> core --analyze--> core --lEval--> value
+    mini-Python:  text --parse--> mini-Python AST --lower--> Lisp AST
+    Lisp:         Lisp AST --expand--> core AST --analyze--> core AST --lEval--> value
 
 Each arrow is a piece the book built:
 

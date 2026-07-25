@@ -22,12 +22,13 @@ is already a tree keeps its reader small enough to need no base to share.
   * ParserBase  - the abstract parse(source) a concrete grammar implements.
   * ParseError  - a syntax error that renders as file (line, col) with a caret.
 
-What is missing is missing deliberately.  A fuller parser reaches for
-machinery we do not need, and which you can add when you do: backtracking (save
-and restore the scanner to try another alternative), more than one token of
-lookahead, and error recovery (resynchronising after a mistake instead of
-stopping at the first).  LL(1) recursive descent needs none of it.  One token of
-lookahead decides every step, and it never rewinds.
+For a language that LL(1) can parse, nothing here is missing.  What is absent
+is absent deliberately.  A fuller parser reaches for machinery we do not need,
+and which you can add when you do: backtracking (save and restore the scanner
+to try another alternative), more than one token of lookahead, and error
+recovery (resynchronising after a mistake instead of stopping at the first).
+Recursive descent needs none of it.  One token of lookahead decides every step,
+and it never rewinds.
 """
 
 from abc import ABC, abstractmethod

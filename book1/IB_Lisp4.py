@@ -26,7 +26,7 @@ is no need for the value/code discriminator the textbook one-register CEK uses.
 A continuation frame is just a tagged tuple -- (FRAME_IF, ...), (FRAME_ARG, ...),
 (FRAME_CALL, ...) -- dispatched on its tag in the APPLY loop.  There are no frame
 classes and no `step` methods: a frame is plain data and all the behavior lives
-here in the machine, the way the real interpreters (pyScheme / cppScheme2) do it.
+here in the machine, the way a real interpreter would.
 
 This toy is a pure lambda calculus + if (#f is the only false value) -- the
 smallest setting that still has closures and control flow, so the machine itself

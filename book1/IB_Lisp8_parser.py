@@ -22,6 +22,13 @@ allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
 separated by spaces (see the challenges in Chapter 8).
 
+What is here is the smallest version of a general tool.  The cursor, the one
+token of lookahead, and the recursive descent over the token stream are what
+every hand-written front end is made of; Book Two packages exactly those, plus
+line and column tracking for error messages, as a reusable ParserBase.py that a
+language subclasses.  This file is that design cut down to what one Lisp needs
+and written out by hand, which is why it fits in a chapter.
+
 Run with: python IB_Lisp8_parser.py
 """
 

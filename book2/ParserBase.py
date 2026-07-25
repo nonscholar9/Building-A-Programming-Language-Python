@@ -4,9 +4,13 @@ ParserBase - the small reusable base for LL(1) recursive-descent parsing.
 Everything a hand-written scanner and parser share, and nothing else.  You
 subclass it once per language: a Lexer supplies the tokens (one method,
 _scanNextToken), and a Parser supplies the grammar (one recursive-descent
-method per production).  Book Two's mini-Python front end subclasses these.
-Book One's Lisp reader is the same shapes one size down, written out by hand
-rather than inherited: a syntax that is already a tree needs no base to share.
+method per production).  This is the general-purpose one: it knows nothing
+about any particular language, and it carries what a real front end wants
+anyway, including errors that point at a file, line and column.  Book Two's
+mini-Python front end subclasses it.  Book One's Lisp reader in Chapter 8 is
+this same design cut down to a single language's needs and written out by
+hand rather than inherited: a syntax that is already a tree needs no base to
+share.
 
   * LexerBuffer - a cursor over the source text: peek a character, consume it,
     scan a run, remember where a lexeme began, and track line and column so an

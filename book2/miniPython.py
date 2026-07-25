@@ -20,7 +20,7 @@ Each arrow is a piece the book built:
     lEval    book2/IB_Core.py             (Book One's CEK machine, sealed at Ch 9)
 
 Two languages, one tower.  The lower half is the complete Lisp interpreter
-(reader, expander, analyzer, CEK evaluator).  mini-Python is perched on top,
+(expander, analyzer, CEK evaluator).  mini-Python is perched on top,
 and it is really a second front end: it lowers its own surface into the Lisp the
 tower already runs.  Nothing below `lower` knows the program began as something
 that looked like Python, and the machine has not changed a line since Chapter 9.

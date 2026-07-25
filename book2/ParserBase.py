@@ -6,8 +6,10 @@ subclass it once per language: a Lexer supplies the tokens (one method,
 _scanNextToken), and a Parser supplies the grammar (one recursive-descent
 method per production).  This is the general-purpose one: it knows nothing
 about any particular language, and it carries what a real front end wants
-anyway, including errors that point at a file, line and column.  Book Two
-subclasses it twice, and neither subclass is Lisp: IB_Arith.py parses infix
+anyway, including errors that point at a file, line and column.  This is very
+nearly the full production version used in real interpreters, short only of
+backtracking and a few conveniences.  Book Two subclasses it twice, and
+neither subclass is Lisp: IB_Arith.py parses infix
 arithmetic, the parsing chapter's worked example, and miniPythonParser.py is
 the mini-Python front end.  Both hand their trees to the same Lisp back end.
 Book One's Lisp reader in Chapter 8 is this same design cut down to a single
@@ -22,7 +24,7 @@ is already a tree keeps its reader small enough to need no base to share.
   * ParserBase  - the abstract parse(source) a concrete grammar implements.
   * ParseError  - a syntax error that renders as file (line, col) with a caret.
 
-This is deliberately the minimal version.  A production parser reaches for
+What is missing is missing deliberately.  A fuller parser reaches for
 machinery we do not need, and which you can add when you do: backtracking (save
 and restore the scanner to try another alternative), more than one token of
 lookahead, and error recovery (resynchronising after a mistake instead of

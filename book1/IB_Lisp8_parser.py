@@ -20,7 +20,7 @@ Unlike a pad-the-parens-and-split tokenizer, the scanner reads the source one
 character at a time.  For a Lisp that is a little more code than the trick
 allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
-separated by spaces (see the challenges in Chapter 7).
+separated by spaces (see the challenges in Chapter 8).
 
 Run with: python IB_Lisp8_parser.py
 """

@@ -31,7 +31,7 @@ Two halves, and they are not equally settled:
 Run with: python IB_Core.py   (a short check that the machine is alive)
 """
 
-from IB_AST import LBoolean, lTrue, lFalse, lisp_str
+from IB_AST import lTrue, lFalse, lisp_str
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -146,7 +146,7 @@ def lEval( expr, env ):
             if isinstance( C, str ):           # variable -> look it up
                 V = E.lookup( C )
                 break
-            elif isinstance( C, (int, float, LBoolean) ):  # number or boolean -> itself
+            elif not isinstance( C, list ):    # number or boolean -> itself
                 V = C
                 break
             elif C[0] == 'quote':              # ['quote', datum] -> the datum

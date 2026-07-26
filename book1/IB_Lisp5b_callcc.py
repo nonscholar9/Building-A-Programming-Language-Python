@@ -30,7 +30,7 @@ what reifying the continuation bought us.
 Run with: python IB_Lisp5b_callcc.py
 """
 
-from IB_AST import LBoolean, lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -154,7 +154,7 @@ def lEval( expr, env ):
             if isinstance( C, str ):           # variable -> look it up
                 V = E.lookup( C )
                 break
-            elif isinstance( C, (int, float, LBoolean) ):  # number or boolean -> itself
+            elif not isinstance( C, list ):    # number or boolean -> itself
                 V = C
                 break
             elif C[0] == 'quote':              # ['quote', datum] -> the datum, unevaluated

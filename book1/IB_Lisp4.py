@@ -43,7 +43,7 @@ that is where the machine's tail-call optimization comes from.
 Run with: python IB_Lisp4.py
 """
 
-from IB_AST import LBoolean, lTrue, lFalse
+from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -105,7 +105,7 @@ def lEval( expr, env ):
             if isinstance( C, str ):          # a variable -> look it up
                 V = E.lookup( C )
                 break
-            elif isinstance( C, (int, LBoolean) ):  # a number or boolean literal -> itself
+            elif not isinstance( C, list ):   # a number or boolean literal -> itself
                 V = C
                 break
             elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure

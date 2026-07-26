@@ -163,18 +163,20 @@ def lEval( expr, env ):
     head = expr[0]
 
     if head == 'if':
-        cond = lEval( expr[1], env )
-        return lEval( expr[3] if cond is lFalse else expr[2], env )
+        _, condExpr, thenExpr, elseExpr = expr
+        condVal = lEval( condExpr, env )
+        return lEval( elseExpr if condVal is lFalse else thenExpr, env )
 
     elif head == 'begin':
-        for sub in expr[1:-1]:
+        _, *forms = expr
+        for sub in forms[:-1]:
             lEval( sub, env )
-        return lEval( expr[-1], env )
+        return lEval( forms[-1], env )
 
     elif head == 'set!':
-        var, valExpr = expr[1:]
+        _, name, valExpr = expr
         val = lEval( valExpr, env )
-        env[var] = val
+        env[name] = val
         return val
 
     elif head == 'quote':

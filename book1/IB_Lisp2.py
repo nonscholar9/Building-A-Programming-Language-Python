@@ -94,12 +94,12 @@ def lEval( expr, env ):
     elif not isinstance(expr, list):   # a number or boolean -> itself
         return expr
     elif expr[0] == 'set!':
-        name, valExpr = expr[1:]
+        _, name, valExpr = expr
         val = lEval(valExpr, env)
         return env.set(name, val)
 
     elif expr[0] == 'if':
-        condExpr, thenExpr, elseExpr = expr[1:]
+        _, condExpr, thenExpr, elseExpr = expr
         condVal = lEval(condExpr, env)
         return lEval(elseExpr if condVal is lFalse else thenExpr, env)
 
@@ -130,19 +130,20 @@ def lEval( expr, env ):
         return lFalse                  # (or) with no forms is false
 
     elif expr[0] == 'begin':
-        for subExpr in expr[1:-1]:     # non-tail forms: evaluated for effect
+        _, *forms = expr
+        for subExpr in forms[:-1]:     # non-tail forms: evaluated for effect
             lEval(subExpr, env)
-        return lEval(expr[-1], env)    # tail form: its value is the result
+        return lEval(forms[-1], env)   # tail form: its value is the result
 
     elif expr[0] == 'quote':
         return expr[1]
 
     elif expr[0] == 'lambda':
-        params, *body = expr[1:]
+        _, params, *body = expr
         return Function(params, body, env)
 
     elif expr[0] == 'let':
-        bindingPairs, *body = expr[1:]
+        _, bindingPairs, *body = expr
         # Each init is evaluated in the OUTER env -- that is what makes this let, not let*.
         initialBindings = { name: lEval(initExpr, env) for name, initExpr in bindingPairs }
         new_env = Environment( parent=env, bindings=initialBindings )
@@ -245,8 +246,8 @@ def lisp_str( val ):
 
 
 def run( expr ):
-    result = lEval( expr, global_env )
     print( f'>>> {lisp_str( expr )}' )
+    result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )
     print()
 
@@ -257,8 +258,8 @@ def main():
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
-    # composes inside a larger expression.  Because run() evaluates before it
-    # echoes, the raw 10 (the effect) prints above the >>> line, and 15 (the
+    # composes inside a larger expression.  run() echoes the form first, so the
+    # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
     run( ['+', ['print', 10], 5] )
 

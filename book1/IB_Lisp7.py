@@ -578,37 +578,41 @@ def compile_expr( expr, out, tail ):
         lam_idx  = len( out ); out.append( None )
         jump_idx = len( out ); out.append( None )
         body_pc  = len( out )
-        compile_body( expr[2:], out, tail=True )
-        out[lam_idx]  = (OP_LAM, [intern( p ) for p in expr[1]], body_pc)
+        _, params, *body = expr
+        compile_body( body, out, tail=True )
+        out[lam_idx]  = (OP_LAM, [intern( p ) for p in params], body_pc)
         out[jump_idx] = (OP_JUMP, len( out ))
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'if':                       # ['if', test, then, else]
+        _, condExpr, thenExpr, elseExpr = expr
         if_idx = len( out ); out.append( None )
-        compile_expr( expr[1], out, tail=False )
+        compile_expr( condExpr, out, tail=False )
         out.append( (OP_APPLY_IF,) )
         then_pc = len( out )
-        compile_expr( expr[2], out, tail=tail )
+        compile_expr( thenExpr, out, tail=tail )
         if not tail:
             then_jump = len( out ); out.append( None )
         else_pc = len( out )
-        compile_expr( expr[3], out, tail=tail )
+        compile_expr( elseExpr, out, tail=tail )
         if not tail:
             out[then_jump] = (OP_JUMP, len( out ))
         out[if_idx] = (OP_IF_START, then_pc, else_pc)
 
     elif expr[0] == 'set!':                     # ['set!', name, valueExpr]
-        compile_expr( expr[2], out, tail=False )
-        out.append( (OP_SET, intern( expr[1] )) )
+        _, name, valExpr = expr
+        compile_expr( valExpr, out, tail=False )
+        out.append( (OP_SET, intern( name )) )
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'begin':                    # ['begin', *forms]
         compile_body( expr[1:], out, tail )
 
     elif expr[0] == 'let':                      # ['let', ((name init)...), *body]
-        names = [b[0] for b in expr[1]]
-        inits = [b[1] for b in expr[1]]
-        compile_expr( [['lambda', names] + list( expr[2:] )] + inits, out, tail )
+        _, bindingPairs, *body = expr
+        names = [ pair[0] for pair in bindingPairs ]
+        inits = [ pair[1] for pair in bindingPairs ]
+        compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
 
     elif expr[0] == 'quote':                    # ['quote', datum]
         _compile_quoted( expr[1], out )
@@ -646,10 +650,11 @@ def compile_expr( expr, out, tail ):
                            forms[0]], out, tail )
 
     elif expr[0] == 'list':                     # ['list', *elts] -- a cons chain
-        if len( expr ) == 1:
+        _, *elts = expr
+        if not elts:
             compile_expr( ['quote', []], out, tail )
         else:
-            compile_expr( ['cons', expr[1], ['list'] + list( expr[2:] )], out, tail )
+            compile_expr( ['cons', elts[0], ['list'] + list( elts[1:] )], out, tail )
 
     else:                                       # [fn, *args] -- an application
         out.append( (OP_APP_START, len( expr )) )

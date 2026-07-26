@@ -53,13 +53,13 @@ def lEval( expr, env ):
     elif expr[0] == 'set!':
         # Real Scheme separates `define` (introduce a binding) from `set!`
         # (assign an existing one); this tiny Lisp uses one lenient `set!`.
-        name, valExpr = expr[1:]
+        _, name, valExpr = expr
         val = lEval(valExpr, env)
         env[name] = val
         return val
 
     elif expr[0] == 'if':
-        condExpr, thenExpr, elseExpr = expr[1:]
+        _, condExpr, thenExpr, elseExpr = expr
         condVal = lEval(condExpr, env)
         return lEval(elseExpr if condVal is lFalse else thenExpr, env)
 
@@ -90,9 +90,10 @@ def lEval( expr, env ):
         return lFalse                  # (or) with no forms is false
 
     elif expr[0] == 'begin':
-        for subExpr in expr[1:-1]:     # non-tail forms: evaluated for effect
+        _, *forms = expr
+        for subExpr in forms[:-1]:     # non-tail forms: evaluated for effect
             lEval(subExpr, env)
-        return lEval(expr[-1], env)    # tail form: its value is the result
+        return lEval(forms[-1], env)   # tail form: its value is the result
 
     elif expr[0] == 'quote':
         return expr[1]
@@ -159,8 +160,8 @@ def lisp_str( val ):
     return str( val )
 
 def run( expr ):
-    result = lEval( expr, global_env )
     print( f'>>> {lisp_str( expr )}' )    # the expression, in Lisp syntax
+    result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )  # its value, in Lisp syntax
     print()
 
@@ -180,8 +181,8 @@ def main() -> None:
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
-    # composes inside a larger expression.  Because run() evaluates before it
-    # echoes, the raw 10 (the effect) prints above the >>> line, and 15 (the
+    # composes inside a larger expression.  run() echoes the form first, so the
+    # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
     run( ['+', ['print', 10], 5] )
 

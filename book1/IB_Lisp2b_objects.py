@@ -27,8 +27,8 @@ from IB_Lisp2 import lEval, global_env, lisp_str
 
 
 def run( expr ):
-    result = lEval( expr, global_env )
     print( f'>>> {lisp_str( expr )}' )
+    result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )
     print()
 

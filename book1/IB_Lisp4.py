@@ -109,14 +109,17 @@ def lEval( expr, env ):
                 V = C
                 break
             elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure
-                V = ( VAL_CLOSURE, C[1], C[2], E )
+                _, param, body = C
+                V = ( VAL_CLOSURE, param, body, E )
                 break
             elif C[0] == 'if':                # ['if', test, then, else]
-                K.append( (FRAME_IF, C[2], C[3], E) )
-                C = C[1]                      # evaluate the test first (keep descending)
+                _, condExpr, thenExpr, elseExpr = C
+                K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+                C = condExpr                  # evaluate the test first (keep descending)
             else:                             # [fn, arg] -- an application
-                K.append( (FRAME_ARG, C[1], E) )
-                C = C[0]                      # evaluate fn first (keep descending)
+                fnExpr, argExpr = C
+                K.append( (FRAME_ARG, argExpr, E) )
+                C = fnExpr                    # evaluate fn first (keep descending)
 
         # ----- state APPLY: feed V to the top frame -----
         while True:
@@ -128,22 +131,25 @@ def lEval( expr, env ):
 
             if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
                 # V is the test value; #f is the only false value, as everywhere else.
-                C = frame[1] if V is not lFalse else frame[2]
-                E = frame[3]
+                _, thenExpr, elseExpr, env = frame
+                C = thenExpr if V is not lFalse else elseExpr
+                E = env
                 break
 
             elif ftag == FRAME_ARG:           # (FRAME_ARG, arg, env)
                 # V is the function value; remember it, evaluate the argument next.
+                _, argExpr, env = frame
                 K.append( (FRAME_CALL, V) )
-                C = frame[1]                  # arg
-                E = frame[2]                  # env
+                C = argExpr
+                E = env
                 break
 
             elif ftag == FRAME_CALL:          # (FRAME_CALL, closure)
-                # V is the argument value; frame[1] is the closure.  Bind the
-                # parameter in the closure's captured env and evaluate the body.
+                # V is the argument value, and the frame carries the closure.  Bind
+                # the parameter in the closure's captured env and evaluate the body.
                 # No frame is pushed here -- a tail call reuses this K depth (TCO).
-                _, param, body, clo_env = frame[1]
+                _, closure = frame
+                _, param, body, clo_env = closure
                 E = Environment( parent=clo_env, bindings={ param: V } )
                 C = body
                 break
@@ -164,8 +170,8 @@ def lisp_str( val ):
 
 
 def run( expr ):
-    result = lEval( expr, Environment() )
     print( f'>>> {lisp_str( expr )}' )
+    result = lEval( expr, Environment() )
     print( f'==> {lisp_str( result )}' )
     print()
 

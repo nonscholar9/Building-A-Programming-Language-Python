@@ -153,22 +153,26 @@ def lEval( expr, env ):
                 V = C[1]
                 break
             elif C[0] == 'lambda':             # ['lambda', params, *body] -> a closure
-                V = ( VAL_CLOSURE, C[1], list(C[2:]), E )
+                _, params, *body = C
+                V = ( VAL_CLOSURE, params, body, E )
                 break
             elif C[0] == 'if':                 # ['if', test, then, else]
-                K.append( (FRAME_IF, C[2], C[3], E) )
-                C = C[1]
+                _, condExpr, thenExpr, elseExpr = C
+                K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+                C = condExpr
             elif C[0] == 'set!':               # ['set!', name, valueExpr]
-                K.append( (FRAME_SET, C[1], E) )
-                C = C[2]
+                _, name, valExpr = C
+                K.append( (FRAME_SET, name, E) )
+                C = valExpr
             elif C[0] == 'begin':              # ['begin', *forms]
                 forms = list( C[1:] )
                 if len(forms) > 1:
                     K.append( (FRAME_SEQ, forms[1:], E) )
                 C = forms[0]
             else:                              # [fn, *args] -- an application
-                K.append( (FRAME_ARG, [], list(C[1:]), E) )
-                C = C[0]
+                fnExpr, *argExprs = C
+                K.append( (FRAME_ARG, [], argExprs, E) )
+                C = fnExpr
 
         # ----- state APPLY: feed V to the top frame -----
         while True:
@@ -179,31 +183,33 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V is not lFalse else frame[2]
-                E = frame[3]
+                _, thenExpr, elseExpr, env = frame
+                C = thenExpr if V is not lFalse else elseExpr
+                E = env
                 break
 
             elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
-                frame[2].set( frame[1], V )
+                _, name, env = frame
+                env.set( name, V )
                 continue
 
             elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)
-                forms = frame[1]
-                E = frame[2]
+                _, forms, env = frame
+                E = env
                 if len(forms) > 1:
                     K.append( (FRAME_SEQ, forms[1:], E) )
                 C = forms[0]
                 break
 
-            elif ftag == FRAME_ARG:            # (FRAME_ARG, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:
-                    K.append( (FRAME_ARG, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
+            elif ftag == FRAME_ARG:            # (FRAME_ARG, doneList, todoList, env)
+                _, doneList, todoList, env = frame
+                doneList = doneList + [V]
+                if todoList:
+                    K.append( (FRAME_ARG, doneList, todoList[1:], env) )
+                    C = todoList[0]
+                    E = env
                     break
-                fn, args = done[0], done[1:]
+                fn, *args = doneList
 
                 while fn is APPLY:             # apply is a value: splice its final
                     # list into the argument positions and call the real function,

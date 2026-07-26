@@ -127,14 +127,17 @@ def lEval( expr, env ):
                 V = C[1]
                 break
             elif C[0] == 'lambda':             # ['lambda', params, *body] -> a closure
-                V = ( VAL_CLOSURE, C[1], list(C[2:]), E )
+                _, params, *body = C
+                V = ( VAL_CLOSURE, params, body, E )
                 break
             elif C[0] == 'if':                 # ['if', test, then, else]
-                K.append( (FRAME_IF, C[2], C[3], E) )
-                C = C[1]                       # evaluate the test first
+                _, condExpr, thenExpr, elseExpr = C
+                K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+                C = condExpr                       # evaluate the test first
             elif C[0] == 'set!':               # ['set!', name, valueExpr]
-                K.append( (FRAME_SET, C[1], E) )
-                C = C[2]                       # evaluate the value first
+                _, name, valExpr = C
+                K.append( (FRAME_SET, name, E) )
+                C = valExpr                       # evaluate the value first
             elif C[0] == 'begin':              # ['begin', *forms]
                 forms = list( C[1:] )
                 if len(forms) > 1:
@@ -142,9 +145,10 @@ def lEval( expr, env ):
                 C = forms[0]
             elif C[0] == 'let':                # ['let', ((name init)...), *body]
                 # Desugar to ((lambda (name...) body...) init...) and re-dispatch.
-                names = [ pair[0] for pair in C[1] ]
-                inits = [ pair[1] for pair in C[1] ]
-                C = [ ['lambda', names] + list(C[2:]) ] + inits
+                _, bindingPairs, *body = C
+                names = [ pair[0] for pair in bindingPairs ]
+                inits = [ pair[1] for pair in bindingPairs ]
+                C = [ ['lambda', names] + list(body) ] + inits
             elif C[0] == 'cond':               # ['cond', (test result)...]
                 # Really a chain of ifs, so say so: peel one clause and re-dispatch.
                 clauses = list( C[1:] )
@@ -171,8 +175,9 @@ def lEval( expr, env ):
                 K.append( (FRAME_OR, forms[1:], E) )
                 C = forms[0]
             else:                              # [fn, *args] -- an application
-                K.append( (FRAME_ARG, [], list(C[1:]), E) )
-                C = C[0]                       # evaluate the operator first
+                fnExpr, *argExprs = C
+                K.append( (FRAME_ARG, [], argExprs, E) )
+                C = fnExpr                       # evaluate the operator first
 
         # ----- state APPLY: feed V to the top frame -----
         while True:
@@ -183,32 +188,34 @@ def lEval( expr, env ):
             ftag  = frame[0]
 
             if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
-                C = frame[1] if V is not lFalse else frame[2]   # #f is the only false
-                E = frame[3]
+                _, thenExpr, elseExpr, env = frame
+                C = thenExpr if V is not lFalse else elseExpr   # #f is the only false
+                E = env
                 break
 
             elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
-                frame[2].set( frame[1], V )    # V is set!'s result; it flows on
+                _, name, env = frame
+                env.set( name, V )    # V is set!'s result; it flows on
                 continue                       # stay in APPLY
 
             elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)
-                forms = frame[1]               # the previous form's value V is discarded
-                E = frame[2]
+                _, forms, env = frame               # the previous form's value V is discarded
+                E = env
                 if len(forms) > 1:
                     K.append( (FRAME_SEQ, forms[1:], E) )
                 C = forms[0]
                 break
 
-            elif ftag == FRAME_ARG:            # (FRAME_ARG, done, todo, env)
-                done = frame[1] + [V]
-                todo = frame[2]
-                if todo:                       # more operands to evaluate
-                    K.append( (FRAME_ARG, done, todo[1:], frame[3]) )
-                    C = todo[0]
-                    E = frame[3]
+            elif ftag == FRAME_ARG:            # (FRAME_ARG, doneList, todoList, env)
+                _, doneList, todoList, env = frame
+                doneList = doneList + [V]
+                if todoList:                       # more operands to evaluate
+                    K.append( (FRAME_ARG, doneList, todoList[1:], env) )
+                    C = todoList[0]
+                    E = env
                     break
-                # operator + all operands evaluated -> apply done[0] to done[1:]
-                fn, args = done[0], done[1:]
+                # operator + all operands evaluated -> apply doneList[0] to doneList[1:]
+                fn, *args = doneList
 
                 # apply is a value: splice its final list into the argument
                 # positions and call the real function, here at the call site.
@@ -230,10 +237,10 @@ def lEval( expr, env ):
             elif ftag == FRAME_AND:            # (FRAME_AND, remaining_forms, env)
                 if V is lFalse:                # short-circuit: the #f flows on
                     continue
-                forms = frame[1]
+                _, forms, env = frame
                 if not forms:                  # V is the last operand's value
                     continue
-                E = frame[2]
+                E = env
                 K.append( (FRAME_AND, forms[1:], E) )
                 C = forms[0]
                 break
@@ -241,10 +248,10 @@ def lEval( expr, env ):
             elif ftag == FRAME_OR:             # (FRAME_OR, remaining_forms, env)
                 if V is not lFalse:            # short-circuit: the true value flows on
                     continue
-                forms = frame[1]
+                _, forms, env = frame
                 if not forms:                  # V is #f
                     continue
-                E = frame[2]
+                E = env
                 K.append( (FRAME_OR, forms[1:], E) )
                 C = forms[0]
                 break
@@ -320,8 +327,8 @@ def lisp_str( val ):
 
 
 def run( expr ):
-    result = lEval( expr, global_env )
     print( '>>> ' + lisp_str( expr ) )
+    result = lEval( expr, global_env )
     print( '==> ' + lisp_str( result ) )
     print()
 
@@ -331,8 +338,8 @@ def main():
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
-    # composes inside a larger expression.  Because run() evaluates before it
-    # echoes, the raw 10 (the effect) prints above the >>> line, and 15 (the
+    # composes inside a larger expression.  run() echoes the form first, so the
+    # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
     run( ['+', ['print', 10], 5] )                     # prints 10, ==> 15
 

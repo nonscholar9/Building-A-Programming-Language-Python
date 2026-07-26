@@ -104,31 +104,34 @@ def compile_expr( expr, out, tail ):
         lam_idx  = len(out); out.append( None )   # reserve OP_LAM
         jump_idx = len(out); out.append( None )   # reserve OP_JUMP (skip the body)
         body_pc  = len(out)
-        compile_expr( expr[2], out, tail=True )   # a body is always in tail position
+        _, param, body = expr
+        compile_expr( body, out, tail=True )      # a body is always in tail position
         past_body = len(out)
-        out[lam_idx]  = (OP_LAM, expr[1], body_pc)
+        out[lam_idx]  = (OP_LAM, param, body_pc)
         out[jump_idx] = (OP_JUMP, past_body)
         if tail: out.append( (OP_RET,) )
 
     elif expr[0] == 'if':                   # ['if', test, then, else]
+        _, condExpr, thenExpr, elseExpr = expr
         if_idx = len(out); out.append( None )     # reserve OP_IF_START
-        compile_expr( expr[1], out, tail=False )  # the test is never in tail position
+        compile_expr( condExpr, out, tail=False ) # the test is never in tail position
         out.append( (OP_APPLY_IF,) )
         then_pc = len(out)
-        compile_expr( expr[2], out, tail=tail )   # then inherits our tail context
+        compile_expr( thenExpr, out, tail=tail )  # then inherits our tail context
         if not tail:
             then_jump_idx = len(out); out.append( None )   # skip the else branch
         else_pc = len(out)
-        compile_expr( expr[3], out, tail=tail )   # else inherits our tail context
+        compile_expr( elseExpr, out, tail=tail )  # else inherits our tail context
         if not tail:
             out[then_jump_idx] = (OP_JUMP, len(out))
         out[if_idx] = (OP_IF_START, then_pc, else_pc)
 
     else:                                   # [fn, arg] -- an application
+        fnExpr, argExpr = expr
         out.append( (OP_APP_START,) )
-        compile_expr( expr[0], out, tail=False )  # fn  -- not in tail position
+        compile_expr( fnExpr, out, tail=False )   # fn  -- not in tail position
         out.append( (OP_APPLY_ARG,) )
-        compile_expr( expr[1], out, tail=False )  # arg -- not in tail position
+        compile_expr( argExpr, out, tail=False )  # arg -- not in tail position
         out.append( (OP_TCALL,) if tail else (OP_CALL,) )
 
 
@@ -163,7 +166,8 @@ def run_vm( prog ):
             pc += 1
 
         elif op == OP_LAM:                  # capture E inside the closure
-            V = (VAL_CLOSURE, instr[1], instr[2], E)
+            _, param, body_pc = instr
+            V = (VAL_CLOSURE, param, body_pc, E)
             pc += 1
 
         elif op == OP_JUMP:
@@ -179,24 +183,25 @@ def run_vm( prog ):
             pc += 1
 
         elif op == OP_CALL:                 # non-tail: save return pc, enter body
-            closure = K.pop()[1]
+            _, param, body_pc, clo_env = K.pop()[1]
             K.append( (FRAME_RET, pc + 1) )
-            E  = Environment( parent=closure[3], bindings={ closure[1]: V } )
-            pc = closure[2]                 # body_pc
+            E  = Environment( parent=clo_env, bindings={ param: V } )
+            pc = body_pc
 
         elif op == OP_TCALL:                # tail: enter body, push NO return frame
-            closure = K.pop()[1]
-            E  = Environment( parent=closure[3], bindings={ closure[1]: V } )
-            pc = closure[2]
+            _, param, body_pc, clo_env = K.pop()[1]
+            E  = Environment( parent=clo_env, bindings={ param: V } )
+            pc = body_pc
 
         elif op == OP_IF_START:             # remember both branch pcs and E
-            K.append( (FRAME_IF, instr[1], instr[2], E) )
+            _, then_pc, else_pc = instr
+            K.append( (FRAME_IF, then_pc, else_pc, E) )
             pc += 1
 
         elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
-            frame = K.pop()
-            E  = frame[3]
-            pc = frame[1] if V is not lFalse else frame[2]
+            _, then_pc, else_pc, env = K.pop()
+            E  = env
+            pc = then_pc if V is not lFalse else else_pc
 
         elif op == OP_RET:                  # end of a body
             if not K:

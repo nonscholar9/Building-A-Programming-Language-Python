@@ -109,12 +109,12 @@ def lEval( expr, env ):
         elif not isinstance(C, list): # a number or boolean -- evaluates to itself
             return C
         elif C[0] == 'set!':
-            name, valExpr = C[1:]
+            _, name, valExpr = C
             val = lEval(valExpr, E)             # rvalue: not tail, recurse
             return E.set(name, val)
 
         elif C[0] == 'if':
-            condExpr, thenExpr, elseExpr = C[1:]
+            _, condExpr, thenExpr, elseExpr = C
             condVal = lEval(condExpr, E)   # condition: not tail, recurse
             C = elseExpr if condVal is lFalse else thenExpr
             continue                            # tail branch: loop
@@ -154,20 +154,21 @@ def lEval( expr, env ):
             continue                            # tail: the last form's value wins
 
         elif C[0] == 'begin':
-            for subExpr in C[1:-1]:             # non-tail forms: recurse
+            _, *forms = C
+            for subExpr in forms[:-1]:          # non-tail forms: recurse
                 lEval(subExpr, E)
-            C = C[-1]
+            C = forms[-1]
             continue                            # tail: last form
 
         elif C[0] == 'quote':
             return C[1]
 
         elif C[0] == 'lambda':
-            params, *body = C[1:]
+            _, params, *body = C
             return Function(params, body, E)
 
         elif C[0] == 'let':
-            bindingPairs, *body = C[1:]
+            _, bindingPairs, *body = C
             
             # Eval every init expr in the OUTER env E (parallel `let`, not `let*`),
             # then open a new scope that holds them all.
@@ -274,8 +275,8 @@ def lisp_str( val ):
     return str( val )
 
 def run( expr ):
-    result = lEval( expr, global_env )
     print( f'>>> {lisp_str( expr )}' )    # the expression, in Lisp syntax
+    result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )  # its value, in Lisp syntax
     print()
 
@@ -286,8 +287,8 @@ def main():
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
-    # composes inside a larger expression.  Because run() evaluates before it
-    # echoes, the raw 10 (the effect) prints above the >>> line, and 15 (the
+    # composes inside a larger expression.  run() echoes the form first, so the
+    # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
     run( ['+', ['print', 10], 5] )
 

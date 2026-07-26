@@ -223,12 +223,11 @@ def run( expr ):
 
     Every phase this book adds from here shows up in this function.
     """
-    core   = expand( expr )
-    result = lEval( core, global_env )
-
     print( '>>> ' + lisp_str( expr ) )
+    core = expand( expr )
     if core != expr:
         print( '  = ' + lisp_str( core ) )
+    result = lEval( core, global_env )
     print( '==> ' + lisp_str( result ) )
     print()
 

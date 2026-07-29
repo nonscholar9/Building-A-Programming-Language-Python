@@ -315,14 +315,13 @@ def env_lookup( env, nid ):
 def env_set( env, nid, value ):
     """Assign to a name.  If nothing in the stack has it, it becomes a global,
     which is what toys 1-5 do and what a prompt needs to be usable."""
-    e = env
-    while e != NIL:
-        a = addr_of( e )
+    while env != NIL:
+        a = addr_of( env )
         for i in range( heap[a + 3] ):
             if heap[a + 4 + 2 * i] == nid:
                 heap[a + 5 + 2 * i] = value      # <-- the write that makes cycles
                 return
-        e = heap[a + 2]
+        env = heap[a + 2]
     define_global( nid, value )
 
 

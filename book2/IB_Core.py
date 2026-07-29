@@ -86,20 +86,20 @@ class Environment:
         self._global   = outer._global if outer else self
 
     def lookup( self, name ):
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                return scope._bindings[name]
-            scope = scope._outer
+        env = self
+        while env:
+            if name in env._bindings:
+                return env._bindings[name]
+            env = env._outer
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                scope._bindings[name] = value
+        env = self
+        while env:
+            if name in env._bindings:
+                env._bindings[name] = value
                 return value
-            scope = scope._outer
+            env = env._outer
         self._global._bindings[name] = value
         return value
 

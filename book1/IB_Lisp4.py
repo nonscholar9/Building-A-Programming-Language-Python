@@ -68,21 +68,21 @@ class Environment:
         self._global   = outer._global if outer else self   # direct handle to the root
 
     def lookup( self, name ):
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                return scope._bindings[name]
-            scope = scope._outer
+        env = self
+        while env:
+            if name in env._bindings:
+                return env._bindings[name]
+            env = env._outer
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
         # Walk to the innermost scope that already owns the name.
-        scope = self
-        while scope:
-            if name in scope._bindings:
-                scope._bindings[name] = value
+        env = self
+        while env:
+            if name in env._bindings:
+                env._bindings[name] = value
                 return value
-            scope = scope._outer
+            env = env._outer
         # Name not found anywhere -- create it in the global scope.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value

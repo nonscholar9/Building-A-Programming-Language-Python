@@ -3,7 +3,7 @@ IB_Lisp4 - A CEK machine Lisp evaluator.
 
 The CEK machine is named for its three-part state:
   C - Control:      the expression currently being evaluated
-  E - Environment:  the current lexical scope
+  E - Environment:  the current lexical environment
   K - Kontinuation: an explicit stack of continuation frames
 
 Unlike the looping evaluator (IB_Lisp3), the CEK machine never calls
@@ -58,7 +58,7 @@ FRAME_ARG  = 1   # waiting on a function value
 FRAME_CALL = 2   # waiting on an argument value
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes (same class as IB_Lisp2/3)
+# Environment: a scope at run time, linked into a stack (same class as IB_Lisp2/3)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -76,14 +76,14 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        # Walk to the innermost scope that already owns the name.
+        # Walk to the innermost environment that already owns the name.
         env = self
         while env:
             if name in env._bindings:
                 env._bindings[name] = value
                 return value
             env = env._outer
-        # Name not found anywhere -- create it in the global scope.  The _global
+        # Name not found anywhere -- create it in the global environment.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
@@ -95,7 +95,7 @@ class Environment:
 def lEval( expr, env ):
     C = expr                                       # Control:      expression being evaluated
     V = None                                       # Value:        result flowing back in APPLY
-    E = env                                        # Environment:  lexical scope (caller supplies it)
+    E = env                                        # Environment:  the lexical environment (caller supplies it)
     K = []                                         # Kontinuation: a stack of frames
 
     while True:

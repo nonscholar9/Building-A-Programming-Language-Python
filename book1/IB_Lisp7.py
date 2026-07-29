@@ -975,8 +975,8 @@ def main():
     run( [['lambda', ['n', 'm'], ['+', 'n', 'm']], 3, 4] )
     run( ['let', [['a', 3], ['b', 4]], ['*', 'a', 'b']] )
 
-    # A local recursive helper.  The let scope binds f; the closure captures the
-    # let scope; set! makes the scope point back at the closure.  Those two
+    # A local recursive helper.  The let environment binds f; the closure captures
+    # it; set! makes the environment point back at the closure.  Those two
     # objects now point at each other, so neither will ever see its reference
     # count reach zero, and once the let returns nobody else can reach either.
     # Reference counting would keep that pair until the process died.
@@ -984,7 +984,7 @@ def main():
              ['set!', 'f', ['lambda', ['n'],
                             ['if', ['=', 'n', 0], 0, ['f', ['-', 'n', 1]]]]],
              ['f', 5]]
-    print( 'a cycle: the let scope and the closure point at each other.' )
+    print( 'a cycle: the let environment and the closure point at each other.' )
     print( 'the begin makes it die, by moving E off it before the program ends.' )
     run( ['begin', cycle, 42] )
     print( f'  in the heap when it is done : {census()}' )

@@ -2,7 +2,7 @@
 IB_Lisp2 - A recursive Lisp evaluator with closures.
 
 Extends IB_Lisp1.py (Part 1) with:
-  - Environment   : a linked stack of scopes for lexical binding
+  - Environment   : a scope at run time, linked into a stack
   - Function : a closure that captures its defining environment
   - let   : local variable binding
   - lambda: first-class functions (closures)
@@ -23,7 +23,7 @@ Run with: python IB_Lisp2.py
 from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes
+# Environment: a scope at run time, linked into a stack
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -41,14 +41,14 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        # Walk to the innermost scope that already owns the name.
+        # Walk to the innermost environment that already owns the name.
         env = self
         while env:
             if name in env._bindings:
                 env._bindings[name] = value
                 return value
             env = env._outer
-        # Name not found anywhere -- create it in the global scope.  The _global
+        # Name not found anywhere -- create it in the global environment.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
@@ -166,7 +166,7 @@ def lEval( expr, env ):
         if callable(fn):                   # primitive implemented in Python
             return fn(args)
         else:
-            # user-defined function: evaluate its body in a fresh local scope stacked
+            # user-defined function: evaluate its body in a fresh local environment stacked
             # off the *captured* (lexical) environment, not the caller's.
             initialBindings = bind_params(fn.params, args)
             new_env = Environment(outer=fn.env, bindings=initialBindings)

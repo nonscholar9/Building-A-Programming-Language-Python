@@ -74,7 +74,7 @@ APPLY = _Apply()
 
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes
+# Environment: a scope at run time, linked into a stack
 # ---------------------------------------------------------------------------
 
 class Environment:

@@ -68,7 +68,7 @@ _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
 
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes (same class as IB_Lisp2-5)
+# Environment: a scope at run time, linked into a stack (same class as IB_Lisp2-5)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -86,14 +86,14 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        # Walk to the innermost scope that already owns the name.
+        # Walk to the innermost environment that already owns the name.
         env = self
         while env:
             if name in env._bindings:
                 env._bindings[name] = value
                 return value
             env = env._outer
-        # Name not found anywhere -- create it in the global scope.
+        # Name not found anywhere -- create it in the global environment.
         self._global._bindings[name] = value
         return value
 
@@ -331,7 +331,7 @@ def run_vm( prog, pc=0, env=None ):
         elif op == OP_RET:                  # end of a body
             if not K:
                 return V                    # top level: done
-            _, pc, E = K.pop()              # resume the caller, in the caller's scope
+            _, pc, E = K.pop()              # resume the caller, in the caller's environment
 
 
 def lEval( expr, env=None ):

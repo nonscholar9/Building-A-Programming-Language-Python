@@ -32,7 +32,7 @@ Run with: python IB_Lisp3.py
 from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes
+# Environment: a scope at run time, linked into a stack
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -50,14 +50,14 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        # Walk to the innermost scope that already owns the name.
+        # Walk to the innermost environment that already owns the name.
         env = self
         while env:
             if name in env._bindings:
                 env._bindings[name] = value
                 return value
             env = env._outer
-        # Name not found anywhere -- create it in the global scope.  The _global
+        # Name not found anywhere -- create it in the global environment.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
@@ -171,7 +171,7 @@ def lEval( expr, env ):
             _, bindingPairs, *body = C
             
             # Eval every init expr in the OUTER env E (parallel `let`, not `let*`),
-            # then open a new scope that holds them all.
+            # then open a new environment that holds them all.
             initialBindings = { name: lEval(initExpr, E) for name, initExpr in bindingPairs }
             E = Environment( outer=E, bindings=initialBindings )
         
@@ -196,7 +196,7 @@ def lEval( expr, env ):
                 return fn(args)
             else:
                 # user-defined function: TCO -- reassign the registers and loop.  The new
-                # scope is opened on the *captured* (lexical) env, not the caller's.
+                # the new environment is opened on the *captured* (lexical) env, not the caller's.
                 initialBindings = bind_params(fn.params, args)
                 E = Environment( outer=fn.env, bindings=initialBindings )
 

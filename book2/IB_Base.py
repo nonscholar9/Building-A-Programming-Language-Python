@@ -72,7 +72,7 @@ class _Apply:
 APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked stack of scopes (same class as IB_Lisp2/3/4)
+# Environment: a scope at run time, linked into a stack (same class as IB_Lisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -90,14 +90,14 @@ class Environment:
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
-        # Walk to the innermost scope that already owns the name.
+        # Walk to the innermost environment that already owns the name.
         env = self
         while env:
             if name in env._bindings:
                 env._bindings[name] = value
                 return value
             env = env._outer
-        # Name not found anywhere -- create it in the global scope.  The _global
+        # Name not found anywhere -- create it in the global environment.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value

@@ -146,7 +146,7 @@ def apply_macro( macro, form ):
     """
     _, params, body, env = macro
     args  = list( form[1:] )
-    local = Environment( parent=env, bindings=bind_params( params, args ) )
+    local = Environment( outer=env, bindings=bind_params( params, args ) )
     return lEval( ['begin'] + body, local )
 
 

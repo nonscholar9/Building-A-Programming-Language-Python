@@ -76,17 +76,17 @@ APPLY = _Apply()
 # ---------------------------------------------------------------------------
 
 class Environment:
-    def __init__( self, parent=None, bindings=None ):
+    def __init__( self, outer=None, bindings=None ):
         self._bindings = dict(bindings or {})
-        self._parent   = parent
-        self._global   = parent._global if parent else self   # direct handle to the root
+        self._outer   = outer
+        self._global   = outer._global if outer else self   # direct handle to the root
 
     def lookup( self, name ):
         scope = self
         while scope:
             if name in scope._bindings:
                 return scope._bindings[name]
-            scope = scope._parent
+            scope = scope._outer
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
@@ -96,7 +96,7 @@ class Environment:
             if name in scope._bindings:
                 scope._bindings[name] = value
                 return value
-            scope = scope._parent
+            scope = scope._outer
         # Name not found anywhere -- create it in the global scope.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
@@ -267,7 +267,7 @@ def lEval( expr, env ):
                     continue                   # stay in APPLY
                 _, params, body, clo_env = fn  # closure: bind params, run the body
                 initialBindings = bind_params( params, args )
-                E = Environment( parent=clo_env, bindings=initialBindings )
+                E = Environment( outer=clo_env, bindings=initialBindings )
                 if len(body) > 1:
                     K.append( (FRAME_SEQ, body[1:], E) )
                 C = body[0]

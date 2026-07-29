@@ -88,7 +88,7 @@ def name_of( nid ):
 # cells, counting the two header cells.  The size is what lets the sweep walk
 # the heap object by object without knowing what any of them are.
 #
-#   ENV      tag size parent n   id0 val0 id1 val1 ...      size = 4 + 2n
+#   ENV      tag size outer n   id0 val0 id1 val1 ...      size = 4 + 2n
 #   CLOSURE  tag size lam_pc env                            size = 4
 #   PRIM     tag size prim_id                               size = 3
 #   RET      tag size next ret_pc env                       size = 5
@@ -219,7 +219,7 @@ def alloc( tag, size ):
 
 # --- constructors ----------------------------------------------------------
 
-def mk_env( parent, param_ids, args ):
+def mk_env( outer, param_ids, args ):
     # A dotted parameter list `(first . rest)` gathers the leftover arguments.
     # The dot reaches us as the ordinary interned name '.', so look for it; if it
     # is there, the name after it binds to a list of whatever arguments remain.
@@ -235,7 +235,7 @@ def mk_env( parent, param_ids, args ):
             V = mk_pair( x, V )
         n = dot + 1
         a = alloc( TAG_ENV, 4 + 2 * n )          # may collect; V roots the rest list
-        heap[a + 2], heap[a + 3] = parent, n
+        heap[a + 2], heap[a + 3] = outer, n
         for i in range( dot ):
             heap[a + 4 + 2 * i] = param_ids[i]
             heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
@@ -246,7 +246,7 @@ def mk_env( parent, param_ids, args ):
 
     n = len( param_ids )
     a = alloc( TAG_ENV, 4 + 2 * n )
-    heap[a + 2], heap[a + 3] = parent, n
+    heap[a + 2], heap[a + 3] = outer, n
     for i in range( n ):
         heap[a + 4 + 2 * i] = param_ids[i]
         # zip's silent truncation, by hand: a missing argument is simply absent.

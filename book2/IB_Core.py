@@ -78,19 +78,19 @@ APPLY = _Apply()
 # ---------------------------------------------------------------------------
 
 class Environment:
-    def __init__( self, parent=None, bindings=None ):
+    def __init__( self, outer=None, bindings=None ):
         # Note: this COPIES the bindings it is given.  Handing more primitives
         # to an environment that already exists means calling .set() on it.
         self._bindings = dict(bindings or {})
-        self._parent   = parent
-        self._global   = parent._global if parent else self
+        self._outer   = outer
+        self._global   = outer._global if outer else self
 
     def lookup( self, name ):
         scope = self
         while scope:
             if name in scope._bindings:
                 return scope._bindings[name]
-            scope = scope._parent
+            scope = scope._outer
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
@@ -99,7 +99,7 @@ class Environment:
             if name in scope._bindings:
                 scope._bindings[name] = value
                 return value
-            scope = scope._parent
+            scope = scope._outer
         self._global._bindings[name] = value
         return value
 
@@ -229,7 +229,7 @@ def lEval( expr, env ):
                     V = fn( args )
                     continue
                 _, params, body, clo_env = fn  # closure
-                E = Environment( parent=clo_env, bindings=bind_params( params, args ) )
+                E = Environment( outer=clo_env, bindings=bind_params( params, args ) )
                 if len(body) > 1:
                     K.append( (FRAME_SEQ, body[1:], E) )
                 C = body[0]

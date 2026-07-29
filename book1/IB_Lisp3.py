@@ -36,17 +36,17 @@ from IB_AST import lTrue, lFalse
 # ---------------------------------------------------------------------------
 
 class Environment:
-    def __init__( self, parent=None, bindings=None ):
+    def __init__( self, outer=None, bindings=None ):
         self._bindings = dict(bindings or {})
-        self._parent   = parent
-        self._global   = parent._global if parent else self   # direct handle to the root
+        self._outer   = outer
+        self._global   = outer._global if outer else self   # direct handle to the root
 
     def lookup( self, name ):
         scope = self
         while scope:
             if name in scope._bindings:
                 return scope._bindings[name]
-            scope = scope._parent
+            scope = scope._outer
         raise NameError( f'Unbound variable: {name}' )
 
     def set( self, name, value ):
@@ -56,7 +56,7 @@ class Environment:
             if name in scope._bindings:
                 scope._bindings[name] = value
                 return value
-            scope = scope._parent
+            scope = scope._outer
         # Name not found anywhere -- create it in the global scope.  The _global
         # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
@@ -173,7 +173,7 @@ def lEval( expr, env ):
             # Eval every init expr in the OUTER env E (parallel `let`, not `let*`),
             # then open a new scope that holds them all.
             initialBindings = { name: lEval(initExpr, E) for name, initExpr in bindingPairs }
-            E = Environment( parent=E, bindings=initialBindings )
+            E = Environment( outer=E, bindings=initialBindings )
         
             # Execute body in the new E
             for subExpr in body[:-1]:            # non-tail body forms: recurse
@@ -198,7 +198,7 @@ def lEval( expr, env ):
                 # user-defined function: TCO -- reassign the registers and loop.  The new
                 # scope is opened on the *captured* (lexical) env, not the caller's.
                 initialBindings = bind_params(fn.params, args)
-                E = Environment( parent=fn.env, bindings=initialBindings )
+                E = Environment( outer=fn.env, bindings=initialBindings )
 
                 # Execute the body in the new E
                 for subExpr in fn.body[:-1]:            # non-tail body forms: recurse

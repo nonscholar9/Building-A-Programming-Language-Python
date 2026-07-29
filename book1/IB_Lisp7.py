@@ -35,6 +35,8 @@ exist:
 Run with: python IB_Lisp7.py
 """
 
+from IB_AST import LBoolean, lTrue, lFalse
+
 # ---------------------------------------------------------------------------
 # Values: an int, with the low bit saying what it is
 # ---------------------------------------------------------------------------
@@ -483,6 +485,22 @@ def _car(  a ): return heap[ addr_of( a[0] ) + 2 ]
 def _cdr(  a ): return heap[ addr_of( a[0] ) + 3 ]
 def _null( a ): return TRUE if a[0] == NIL else FALSE
 
+def _list( a ):
+    """A chain of pairs from the arguments.
+
+    This one allocates more than once, and that is what makes it interesting.
+    Every mk_pair below can collect, and the chain built so far would live only
+    in a Python local, where the collector cannot see it.  So it rides in V,
+    which is a root, exactly as mk_env does when it gathers a rest parameter.
+    The arguments stay reachable throughout on the ARG frame, still on K.
+    """
+    global V
+    saved, V = V, NIL
+    for x in reversed( a ):
+        V = mk_pair( x, V )
+    built, V = V, saved
+    return built
+
 def _print( a ): print( show( a[0] ) ); return a[0]
 
 # apply is a value, but not a leaf primitive: a Python function has no way to
@@ -494,7 +512,7 @@ def _apply( a ): raise RuntimeError( 'apply is spliced in the VM, never called' 
 PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt),
          ('%', _mod), ('>', _gt), ('<=', _le), ('>=', _ge), ('not', _not),
          ('cons', _cons), ('car', _car), ('cdr', _cdr), ('null?', _null),
-         ('print', _print), ('apply', _apply)]
+         ('list', _list), ('print', _print), ('apply', _apply)]
 
 # The names the measurement demos boot with: only the arithmetic the countdown
 # and the heap dumps actually use, so those transcripts stay exactly as this
@@ -542,7 +560,7 @@ _OR_TMP = '%or-tmp%'
 def _compile_quoted( datum, out ):
     """Emit code that BUILDS `datum` as a value: a boolean, a symbol, a number,
     or a list -- a list becomes a chain of conses ending in the empty list."""
-    if datum == '#t' or datum == '#f':
+    if isinstance( datum, LBoolean ):
         out.append( (OP_BOOL, datum) )
     elif isinstance( datum, str ):
         out.append( (OP_SYM, intern( datum )) )
@@ -562,7 +580,7 @@ def compile_body( forms, out, tail ):
 
 
 def compile_expr( expr, out, tail ):
-    if expr in ( '#t', '#f' ):
+    if isinstance( expr, LBoolean ):
         out.append( (OP_BOOL, expr) )
         if tail: out.append( (OP_RET,) )
 
@@ -621,7 +639,7 @@ def compile_expr( expr, out, tail ):
     elif expr[0] == 'cond':                     # ['cond', (test result)...]
         clauses = expr[1:]
         if not clauses:
-            compile_expr( '#f', out, tail )
+            compile_expr( lFalse, out, tail )
         elif clauses[0][0] == 'else':
             compile_expr( clauses[0][1], out, tail )
         else:                                   # a chain of ifs, peeled one clause
@@ -631,30 +649,23 @@ def compile_expr( expr, out, tail ):
     elif expr[0] == 'and':                      # ['and', *forms] -- short-circuits
         forms = expr[1:]
         if not forms:
-            compile_expr( '#t', out, tail )     # (and) is true
+            compile_expr( lTrue, out, tail )    # (and) is true
         elif len( forms ) == 1:
             compile_expr( forms[0], out, tail )
         else:                                   # (if a (and rest...) #f)
-            compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), '#f'],
+            compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), lFalse],
                           out, tail )
 
     elif expr[0] == 'or':                       # ['or', *forms] -- short-circuits
         forms = expr[1:]
         if not forms:
-            compile_expr( '#f', out, tail )     # (or) is false
+            compile_expr( lFalse, out, tail )   # (or) is false
         elif len( forms ) == 1:
             compile_expr( forms[0], out, tail )
         else:                                   # bind a once, return it if true
             compile_expr( [['lambda', [_OR_TMP],
                             ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
                            forms[0]], out, tail )
-
-    elif expr[0] == 'list':                     # ['list', *elts] -- a cons chain
-        _, *elts = expr
-        if not elts:
-            compile_expr( ['quote', []], out, tail )
-        else:
-            compile_expr( ['cons', elts[0], ['list'] + list( elts[1:] )], out, tail )
 
     else:                                       # [fn, *args] -- an application
         out.append( (OP_APP_START, len( expr )) )
@@ -744,7 +755,7 @@ def _run( prog ):
             V = mk_num( prog[pc][1] ); pc += 1
 
         elif op == OP_BOOL:
-            V = TRUE if prog[pc][1] == '#t' else FALSE; pc += 1
+            V = TRUE if prog[pc][1] is lTrue else FALSE; pc += 1
 
         elif op == OP_SYM:
             V = mk_symbol( prog[pc][1] ); pc += 1
@@ -961,7 +972,7 @@ def main():
     run( 42 )
     run( [['lambda', ['x'], 'x'], 7] )
     run( ['+', ['*', 6, 6], 6] )
-    run( ['if', '#f', 100, 200] )
+    run( ['if', lFalse, 100, 200] )
     run( [['lambda', ['n', 'm'], ['+', 'n', 'm']], 3, 4] )
     run( ['let', [['a', 3], ['b', 4]], ['*', 'a', 'b']] )
 
@@ -1034,7 +1045,7 @@ def main():
     print( 'the full language, at parity with Chapter 5:' )
     run( ['cond', [['<', 2, 1], 10], [['=', 2, 2], 20], ['else', 30]], full=True )  # 20
     run( ['and', 1, 2, 3], full=True )                                    # 3
-    run( ['or', '#f', 7], full=True )                                     # 7
+    run( ['or', lFalse, 7], full=True )                                   # 7
     run( ['not', ['=', 1, 2]], full=True )                               # #t
     run( ['%', 17, 5], full=True )                                       # 2
     run( ['car', ['list', 1, 2, 3]], full=True )                         # 1

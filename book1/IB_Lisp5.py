@@ -45,7 +45,7 @@ FRAME_AND = 4   # an and with operands still to run
 FRAME_OR  = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IB_Lisp2/3/4)
+# Environment: a linked stack of scopes (same class as IB_Lisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -71,7 +71,7 @@ class Environment:
                 return value
             scope = scope._parent
         # Name not found anywhere -- create it in the global scope.  The _global
-        # handle goes straight there, with no second walk down the chain.
+        # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
 

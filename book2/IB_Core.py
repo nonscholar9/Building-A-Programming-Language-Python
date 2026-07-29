@@ -74,7 +74,7 @@ APPLY = _Apply()
 
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes
+# Environment: a linked stack of scopes
 # ---------------------------------------------------------------------------
 
 class Environment:

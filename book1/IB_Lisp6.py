@@ -68,7 +68,7 @@ _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
 
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IB_Lisp2-5)
+# Environment: a linked stack of scopes (same class as IB_Lisp2-5)
 # ---------------------------------------------------------------------------
 
 class Environment:

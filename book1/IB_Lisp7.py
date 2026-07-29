@@ -313,7 +313,7 @@ def env_lookup( env, nid ):
 
 
 def env_set( env, nid, value ):
-    """Assign to a name.  If nothing in the chain has it, it becomes a global,
+    """Assign to a name.  If nothing in the stack has it, it becomes a global,
     which is what toys 1-5 do and what a prompt needs to be usable."""
     e = env
     while e != NIL:

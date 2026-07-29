@@ -72,7 +72,7 @@ class _Apply:
 APPLY = _Apply()
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes (same class as IB_Lisp2/3/4)
+# Environment: a linked stack of scopes (same class as IB_Lisp2/3/4)
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -98,7 +98,7 @@ class Environment:
                 return value
             scope = scope._parent
         # Name not found anywhere -- create it in the global scope.  The _global
-        # handle goes straight there, with no second walk down the chain.
+        # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
 

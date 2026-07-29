@@ -2,7 +2,7 @@
 IB_Lisp2 - A recursive Lisp evaluator with closures.
 
 Extends IB_Lisp1.py (Part 1) with:
-  - Environment   : a linked chain of scopes for lexical binding
+  - Environment   : a linked stack of scopes for lexical binding
   - Function : a closure that captures its defining environment
   - let   : local variable binding
   - lambda: first-class functions (closures)
@@ -23,7 +23,7 @@ Run with: python IB_Lisp2.py
 from IB_AST import lTrue, lFalse
 
 # ---------------------------------------------------------------------------
-# Environment: a linked chain of scopes
+# Environment: a linked stack of scopes
 # ---------------------------------------------------------------------------
 
 class Environment:
@@ -49,7 +49,7 @@ class Environment:
                 return value
             scope = scope._parent
         # Name not found anywhere -- create it in the global scope.  The _global
-        # handle goes straight there, with no second walk down the chain.
+        # handle goes straight there, with no second walk down the stack.
         self._global._bindings[name] = value
         return value
 
@@ -166,7 +166,7 @@ def lEval( expr, env ):
         if callable(fn):                   # primitive implemented in Python
             return fn(args)
         else:
-            # user-defined function: evaluate its body in a fresh local scope chained
+            # user-defined function: evaluate its body in a fresh local scope stacked
             # off the *captured* (lexical) environment, not the caller's.
             initialBindings = bind_params(fn.params, args)
             new_env = Environment(parent=fn.env, bindings=initialBindings)

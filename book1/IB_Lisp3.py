@@ -86,10 +86,10 @@ def bind_params( params, args ):
 # ---------------------------------------------------------------------------
 
 class Function:
-    def __init__( self, params, body, env ):
+    def __init__( self, params, body, definingEnv ):
         self.params = params   # list of parameter name strings
         self.body   = body     # list of body expressions; last is the tail
-        self.env    = env      # lexical environment at definition time
+        self.definingEnv = definingEnv   # captured when the lambda is evaluated
 
 # ---------------------------------------------------------------------------
 # The looping evaluator with TCO
@@ -195,10 +195,10 @@ def lEval( expr, env ):
             if callable(fn):                        # primitive implemented in Python
                 return fn(args)
             else:
-                # user-defined function: TCO -- reassign the registers and loop.  The new
-                # the new environment is opened on the *captured* (lexical) env, not the caller's.
+                # user-defined function: TCO -- reassign the registers and loop.  The
+                # new environment is opened on the *captured* (lexical) env, not the caller's.
                 initialBindings = bind_params(fn.params, args)
-                E = Environment( outer=fn.env, bindings=initialBindings )
+                E = Environment( outer=fn.definingEnv, bindings=initialBindings )
 
                 # Execute the body in the new E
                 for subExpr in fn.body[:-1]:            # non-tail body forms: recurse

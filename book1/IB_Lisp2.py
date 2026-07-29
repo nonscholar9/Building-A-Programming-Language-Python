@@ -58,10 +58,10 @@ class Environment:
 # ---------------------------------------------------------------------------
 
 class Function:
-    def __init__( self, params, body, env ):
+    def __init__( self, params, body, definingEnv ):
         self.params: list[str]   = params
         self.body:   list        = body    # last expression is in tail position
-        self.env:    Environment = env     # captured at definition -- this is what makes it a closure
+        self.definingEnv: Environment = definingEnv   # this is what makes it a closure
 
 # ---------------------------------------------------------------------------
 # Binding a call's arguments
@@ -169,7 +169,7 @@ def lEval( expr, env ):
             # user-defined function: evaluate its body in a fresh local environment stacked
             # off the *captured* (lexical) environment, not the caller's.
             initialBindings = bind_params(fn.params, args)
-            new_env = Environment(outer=fn.env, bindings=initialBindings)
+            new_env = Environment(outer=fn.definingEnv, bindings=initialBindings)
 
             for subExpr in fn.body[:-1]:       # non-tail body forms
                 lEval(subExpr, new_env)

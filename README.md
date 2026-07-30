@@ -1,7 +1,7 @@
-# Building a Programming Language from Scratch (Python Edition)
+# Building a Programming Language from Scratch in Python
 
 Companion source code for the book
-**_Building a Programming Language from Scratch (Python Edition)_**, in two books:
+**_Building a Programming Language from Scratch in Python_**, in two books:
 
 - **Book One, _From Parentheses to Bytecode_** — the machine, built six times over.
 - **Book Two, _The Interpreter Front End_** — a second language, compiled onto it.

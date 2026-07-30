@@ -1,21 +1,16 @@
 """
-IB_Base - Book One's machine, with the challenges done.
+IB_Base - Book One's machine, ready to be built on.
 
 This is the machine Book Two builds on, and it is not a new one.  It is
-IB_Lisp5, the CEK machine from Book One, plus exactly the things Book One
-asked you to add and then left to you:
+IB_Lisp5, the CEK machine from Chapter 5, plus one thing: `call/cc`, from the
+second interlude.  Line for line it is IB_Lisp5b_callcc.py under a name that
+says what it is used for rather than which chapter made it.
 
-  * `cond`                       Book One, Chapter 1 challenge
-  * `not`, `and`, `or`           Book One, Chapter 1 challenge
-  * `car cdr cons list null?`    Book One, Chapter 1 challenge
-  * rest parameters              Book One, Chapter 2 challenge
-  * `call/cc`                    Book One, the second interlude
-
-Nothing here is new.  If you worked those challenges, this file is what you
-already have, and you can keep using yours.  If you skipped them, take this one:
-every addition is a few lines you can read in place, and none of them touches
-the evaluator's shape.  The two loops, the registers, and the frames are exactly
-as Chapter 5 left them.
+Nothing here is new, and nothing here is yours to add.  Everything else the
+machine does it could already do by the end of Chapter 5: `cond`, `and`, `or`
+and `not`, the list primitives, rest parameters, and `apply`.  If you read the
+second interlude you already have this file; keep using yours.  The two loops,
+the registers, and the frames are exactly as Chapter 5 left them.
 
 That is the point, and it is worth being plain about it.  Book Two never changes
 this machine.  It sits underneath, and everything we build from here runs in

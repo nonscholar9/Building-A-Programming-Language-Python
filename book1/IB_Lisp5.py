@@ -102,7 +102,7 @@ def bind_params( params, args ):
 #   C : current expression  (EVAL loop)
 #   V : current value        (APPLY loop)
 #   E : current environment
-#   K : continuation stack (a Python list)
+#   K : continuation stack (Python spells a stack as a list)
 #
 # Value forms: a number; a boolean (#t / #f); a primitive (a Python callable);
 #              a closure (VAL_CLOSURE, params, body, captured_env).

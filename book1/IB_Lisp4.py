@@ -9,7 +9,7 @@ The CEK machine is named for its three-part state:
 Unlike the looping evaluator (IB_Lisp3), the CEK machine never calls
 lEval recursively -- not even for non-tail sub-expressions.  Instead it pushes
 a continuation frame onto K that resumes when the sub-expression's value
-arrives.  Non-tail depth is absorbed by K (a heap list), not the Python call
+arrives.  Non-tail depth is absorbed by K (a stack on the heap), not the Python call
 stack, so the Python stack stays flat no matter how deeply a program nests.
 
 The machine runs as two states, written as two inner loops:

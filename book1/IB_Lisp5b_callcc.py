@@ -6,7 +6,7 @@ continuation), Scheme's most powerful control operator.  The point of putting
 it here is how *little* it takes.
 
 In the CEK machine the continuation is not hidden inside Python's call stack;
-it is a plain Python list sitting in the register K.  So "capture the current
+it is a stack of frames sitting in the register K.  So "capture the current
 continuation" -- the thing that sounds exotic -- is literally "copy K", and
 "invoke a captured continuation" is "throw away the current K and put the saved
 one back".  That is the whole idea.  Everything below is bookkeeping around
@@ -51,8 +51,8 @@ FRAME_OR  = 5   # an or with operands still to run
 # call/cc support
 # ---------------------------------------------------------------------------
 # A captured continuation is nothing but a saved copy of the K stack.  Because
-# K is an ordinary list, "reify the continuation" = "copy the list", and
-# "resume the continuation" = "make that list be K again".
+# K is a stack we own, "reify the continuation" = "copy the stack", and
+# "resume the continuation" = "make that stack be K again".
 
 class Continuation:
     """A reified continuation: a snapshot of the K stack, taken at the moment
@@ -135,7 +135,7 @@ def bind_params( params, args ):
 #   C : current expression  (EVAL loop)
 #   V : current value        (APPLY loop)
 #   E : current environment
-#   K : continuation stack (a Python list)
+#   K : continuation stack (Python spells a stack as a list)
 #
 # Value forms: a number; a boolean (#t / #f); a primitive (a Python callable);
 #              a closure (VAL_CLOSURE, params, body, captured_env);

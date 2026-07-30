@@ -25,6 +25,7 @@ Run with: python IB_Base.py
 """
 
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -361,7 +362,8 @@ def lisp_str( val ):
     return str( val )
 
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( '>>> ' + lisp_str( expr ) )
     result = lEval( expr, global_env )
     print( '==> ' + lisp_str( result ) )
@@ -370,65 +372,49 @@ def run( expr ):
 
 def main():
     print( '--- everything Chapter 5 had, unchanged ---\n' )
-    run( ['+', ['-', 10, 7], 2] )                          # 5
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )       # 25
-    run( ['quote', ['a', 'b', 'c']] )                      # (a b c)
+    run( '(+ (- 10 7) 2)' )                          # 5
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )       # 25
+    run( "'(a b c)" )                      # (a b c)
 
     print( "--- Chapter 1's list primitives ---\n" )
-    run( ['car', ['quote', ['a', 'b', 'c']]] )             # a
-    run( ['cdr', ['quote', ['a', 'b', 'c']]] )             # (b c)
-    run( ['cons', 1, ['quote', [2, 3]]] )                  # (1 2 3)
-    run( ['list', 1, 2, 3] )                               # (1 2 3)
-    run( ['null?', ['quote', []]] )                        # #t
+    run( "(car '(a b c))" )             # a
+    run( "(cdr '(a b c))" )             # (b c)
+    run( "(cons 1 '(2 3))" )                  # (1 2 3)
+    run( '(list 1 2 3)' )                               # (1 2 3)
+    run( "(null? '())" )                        # #t
 
     print( "--- Chapter 1's cond, and, or, not ---\n" )
-    run( ['set!', 'sign',
-          ['lambda', ['n'],
-           ['cond', [['=', 'n', 0], ['quote', 'zero']],
-                    [['<', 'n', 0], ['quote', 'negative']],
-                    ['else',        ['quote', 'positive']]]]] )
-    run( ['sign', 0] )                                     # zero
-    run( ['sign', -5] )                                    # negative
-    run( ['sign', 5] )                                     # positive
+    run( "(set! sign (lambda (n) (cond ((= n 0) 'zero) ((< n 0) 'negative) (else 'positive))))" )
+    run( '(sign 0)' )                                     # zero
+    run( '(sign -5)' )                                    # negative
+    run( '(sign 5)' )                                     # positive
 
-    run( ['and', 1, 2, 3] )                                # 3   (last value)
-    run( ['and', 1, lFalse, 3] )                           # #f
-    run( ['or', lFalse, 2, 3] )                            # 2   (first true value)
-    run( ['or', lFalse, lFalse] )                          # #f
-    run( ['not', lFalse] )                                 # #t
+    run( '(and 1 2 3)' )                                # 3   (last value)
+    run( '(and 1 #f 3)' )                           # #f
+    run( '(or #f 2 3)' )                            # 2   (first true value)
+    run( '(or #f #f)' )                          # #f
+    run( '(not #f)' )                                 # #t
 
     # Short-circuiting is the reason these cannot be primitives: if `and` ran
     # like `+`, this would print 99 before deciding anything.
-    run( ['and', lFalse, ['print', 99]] )                  # #f, and 99 never prints
+    run( '(and #f (print 99))' )                  # #f, and 99 never prints
 
     print( "--- Chapter 2's rest parameters ---\n" )
-    run( ['set!', 'tally', ['lambda', ['first', '.', 'rest'],
-                            ['list', 'first', 'rest']]] )
-    run( ['tally', 1] )                                    # (1 ())
-    run( ['tally', 1, 2, 3] )                              # (1 (2 3))
+    run( '(set! tally (lambda (first . rest) (list first rest)))' )
+    run( '(tally 1)' )                                    # (1 ())
+    run( '(tally 1 2 3)' )                              # (1 (2 3))
 
     print( '--- the second interlude: call/cc ---\n' )
-    run( ['+', 1, ['call/cc', ['lambda', ['k'], ['+', 10, ['k', 5]]]]] )   # 6
+    run( '(+ 1 (call/cc (lambda (k) (+ 10 (k 5)))))' )   # 6
 
     # An escape, which is what mini-Python's `return` will need.
-    run( ['set!', 'first-negative',
-          ['lambda', ['xs'],
-           ['call/cc', ['lambda', ['return'],
-             ['begin',
-              ['set!', 'walk', ['lambda', ['ys'],
-                ['cond', [['null?', 'ys'], lFalse],
-                         [['<', ['car', 'ys'], 0], ['return', ['car', 'ys']]],
-                         ['else', ['walk', ['cdr', 'ys']]]]]],
-              ['walk', 'xs']]]]]] )
-    run( ['first-negative', ['quote', [3, 7, -2, 9]]] )    # -2
-    run( ['first-negative', ['quote', [3, 7, 9]]] )        # #f
+    run( '(set! first-negative (lambda (xs) (call/cc (lambda (return) (begin (set! walk (lambda (ys) (cond ((null? ys) #f) ((< (car ys) 0) (return (car ys))) (else (walk (cdr ys)))))) (walk xs))))))' )
+    run( "(first-negative '(3 7 -2 9))" )    # -2
+    run( "(first-negative '(3 7 9))" )        # #f
 
     print( '--- and the machine is still the machine ---\n' )
-    run( ['set!', 'countdown',
-          ['lambda', ['n'],
-           ['if', ['=', 'n', 0], 0, ['countdown', ['-', 'n', 1]]]]] )
-    run( ['countdown', 100000] )                           # 0, in constant K
+    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
+    run( '(countdown 100000)' )                           # 0, in constant K
 
 
 if __name__ == '__main__':

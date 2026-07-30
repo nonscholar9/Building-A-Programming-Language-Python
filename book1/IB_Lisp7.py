@@ -36,6 +36,7 @@ Run with: python IB_Lisp7.py
 """
 
 from IB_AST import LBoolean, lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Values: an int, with the low bit saying what it is
@@ -871,12 +872,13 @@ def run_vm( prog, heap_size=None, full=False ):
     return _run( prog )
 
 
-def run_fresh( expr, heap_size=None, full=False ):
+def run_fresh( source, heap_size=None, full=False ):
     """Evaluate in a machine of its own, which is what a measurement wants.
 
     The expression is compiled before the machine is booted, so the names in it
     are interned before the primitives are.
     """
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     return run_vm( compile_program( expr ), heap_size, full=full )
 
 
@@ -926,7 +928,8 @@ def disassemble( prog ):
         print( f'  {i:3}  {_OP_NAMES[instr[0]]:10} {args}' )
 
 
-def run( expr, stats=False, full=False ):
+def run( source, stats=False, full=False ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( '>>> ' + source_str( expr ) )
     result = run_fresh( expr, full=full )
     print( '==> ' + show( result ) )
@@ -968,12 +971,12 @@ def main():
     disassemble( prog )
     print()
 
-    run( 42 )
-    run( [['lambda', ['x'], 'x'], 7] )
-    run( ['+', ['*', 6, 6], 6] )
-    run( ['if', lFalse, 100, 200] )
-    run( [['lambda', ['n', 'm'], ['+', 'n', 'm']], 3, 4] )
-    run( ['let', [['a', 3], ['b', 4]], ['*', 'a', 'b']] )
+    run( '42' )
+    run( '((lambda (x) x) 7)' )
+    run( '(+ (* 6 6) 6)' )
+    run( '(if #f 100 200)' )
+    run( '((lambda (n m) (+ n m)) 3 4)' )
+    run( '(let ((a 3) (b 4)) (* a b))' )
 
     # A local recursive helper.  The let environment binds f; the closure captures
     # it; set! makes the environment point back at the closure.  Those two
@@ -1031,7 +1034,7 @@ def main():
         print( f'    {e}' )
     print()
 
-    run_fresh( [['lambda', ['x'], ['+', 'x', 1]], 41], heap_size=120 )
+    run_fresh( '((lambda (x) (+ x 1)) 41)', heap_size=120 )
     gc()
     heap_dump( 'a small heap after one collection:' )
     print()
@@ -1042,21 +1045,21 @@ def main():
     # these illustrate the language, they do not measure it.
     heap_reset( 2000 )
     print( 'the full language, at parity with Chapter 5:' )
-    run( ['cond', [['<', 2, 1], 10], [['=', 2, 2], 20], ['else', 30]], full=True )  # 20
-    run( ['and', 1, 2, 3], full=True )                                    # 3
-    run( ['or', lFalse, 7], full=True )                                   # 7
-    run( ['not', ['=', 1, 2]], full=True )                               # #t
-    run( ['%', 17, 5], full=True )                                       # 2
-    run( ['car', ['list', 1, 2, 3]], full=True )                         # 1
-    run( ['cdr', ['list', 1, 2, 3]], full=True )                         # (2 3)
-    run( ['quote', [1, [2, 3], 4]], full=True )                          # (1 (2 3) 4)
-    run( ['quote', 'hello'], full=True )                                 # hello (a symbol)
-    run( ['=', ['quote', 'a'], ['quote', 'a']], full=True )              # #t
-    run( ['null?', ['quote', []]], full=True )                           # #t
-    run( ['apply', '+', 1, 2, ['list', 3, 4]], full=True )               # 10
-    run( ['apply', ['lambda', ['x', 'y'], ['*', 'x', 'y']], ['list', 6, 7]],
+    run( '(cond ((< 2 1) 10) ((= 2 2) 20) (else 30))', full=True )  # 20
+    run( '(and 1 2 3)', full=True )                                    # 3
+    run( '(or #f 7)', full=True )                                   # 7
+    run( '(not (= 1 2))', full=True )                               # #t
+    run( '(% 17 5)', full=True )                                       # 2
+    run( '(car (list 1 2 3))', full=True )                         # 1
+    run( '(cdr (list 1 2 3))', full=True )                         # (2 3)
+    run( "'(1 (2 3) 4)", full=True )                          # (1 (2 3) 4)
+    run( "'hello", full=True )                                 # hello (a symbol)
+    run( "(= 'a 'a)", full=True )              # #t
+    run( "(null? '())", full=True )                           # #t
+    run( '(apply + 1 2 (list 3 4))', full=True )               # 10
+    run( '(apply (lambda (x y) (* x y)) (list 6 7))',
          full=True )                                                     # 42
-    run( ['apply', 'apply', ['list', '+', ['list', 3, 4]]], full=True )  # 7 (apply of apply)
+    run( '(apply apply (list + (list 3 4)))', full=True )  # 7 (apply of apply)
 
 
 if __name__ == '__main__':

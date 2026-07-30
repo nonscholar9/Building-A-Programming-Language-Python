@@ -31,6 +31,7 @@ Run with: python IB_Lisp5b_callcc.py
 """
 
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -367,7 +368,8 @@ def lisp_str( val ):
     return str( val )
 
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( '>>> ' + lisp_str( expr ) )
     result = lEval( expr, global_env )
     print( '==> ' + lisp_str( result ) )
@@ -376,9 +378,8 @@ def run( expr ):
 
 def main():
     # --- the full IB_Lisp5 language still works, unchanged ---
-    run( ['+', ['-', 10, 7], 2] )                      # 5
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )    # 25
+    run( '(+ (- 10 7) 2)' )                      # 5
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )    # 25
 
     # --- call/cc ---
 
@@ -386,27 +387,22 @@ def main():
     #    Calling `(k 5)` abandons the pending `(+ 10 ...)` entirely and jumps
     #    straight back to the `(+ 1 _)` that was waiting outside call/cc.
     #    So the (+ 10 ...) never happens: the answer is (+ 1 5) = 6.
-    run( ['+', 1,
-          ['call/cc', ['lambda', ['k'],
-                       ['+', 10, ['k', 5]]]]] )          # 6
+    run( '(+ 1 (call/cc (lambda (k) (+ 10 (k 5)))))' )          # 6
 
     # 2) Transparent.  If the function never invokes k, call/cc is invisible:
     #    the function's ordinary return value (42) is call/cc's value, so this
     #    is just (+ 1 42) = 43.
-    run( ['+', 1,
-          ['call/cc', ['lambda', ['k'], 42]]] )          # 43
+    run( '(+ 1 (call/cc (lambda (k) 42)))' )          # 43
 
     # 3) First-class and resumable.  Stash the continuation in a global, let the
     #    call/cc return normally (value 1, so 100 + 1 = 101).  THEN, from a later
     #    top-level expression, call the saved continuation: it reinstates the old
     #    "(+ 100 _)" context and runs it with a new value.  It can be resumed as
     #    many times as you like -- these are full, multi-shot continuations.
-    run( ['set!', 'saved', 0] )
-    run( ['+', 100,
-          ['call/cc', ['lambda', ['k'],
-                       ['begin', ['set!', 'saved', 'k'], 1]]]] )   # 101
-    run( ['saved', 10] )                                 # 110  (resumes (+ 100 10))
-    run( ['saved', 55] )                                 # 155  (resumes again)
+    run( '(set! saved 0)' )
+    run( '(+ 100 (call/cc (lambda (k) (begin (set! saved k) 1))))' )   # 101
+    run( '(saved 10)' )                                 # 110  (resumes (+ 100 10))
+    run( '(saved 55)' )                                 # 155  (resumes again)
 
 
 if __name__ == '__main__':

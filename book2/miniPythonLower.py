@@ -31,6 +31,7 @@ from miniPythonParser import Parser
 from IB_Expander import expand, gensym
 from IB_Core import lEval, global_env, lisp_str
 from IB_AST      import lFalse
+from IB_Reader   import parse
 
 
 # ---------------------------------------------------------------------------
@@ -173,13 +174,13 @@ def main():
               "        i = i + 1\n"
               "    return i\n" )
     run_python( count )
-    print( 'count(200000) =>', lisp_str( lEval( ['count', 200000], global_env ) ) )
+    print( 'count(200000) =>', lisp_str( lEval( parse( '(count 200000)' ), global_env ) ) )
 
     print( '\n--- the assigned-names scan keeps a local local ---\n' )
-    lEval( ['set!', 'x', 999], global_env )        # a global x
+    lEval( parse( '(set! x 999)' ), global_env )        # a global x
     run_python( "def setx():\n    x = 5\n    return x\n" )
-    print( 'setx() =>', lisp_str( lEval( ['setx'], global_env ) ),
-           '   global x =>', lisp_str( lEval( 'x', global_env ) ), '(must be 999)' )
+    print( 'setx() =>', lisp_str( lEval( parse( '(setx)' ), global_env ) ),
+           '   global x =>', lisp_str( lEval( parse( 'x' ), global_env ) ), '(must be 999)' )
 
     print( '\n--- EARLY return: factorial cannot lower yet ---\n' )
     fac = ( "def factorial(n):\n"

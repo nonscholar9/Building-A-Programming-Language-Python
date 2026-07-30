@@ -44,6 +44,7 @@ Run with: python IB_Lisp4.py
 """
 
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -169,7 +170,8 @@ def lisp_str( val ):
     return str( val )                        # a number or a symbol
 
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( f'>>> {lisp_str( expr )}' )
     result = lEval( expr, Environment() )
     print( f'==> {lisp_str( result )}' )
@@ -178,22 +180,22 @@ def run( expr ):
 
 def main():
     # A literal evaluates to itself.
-    run( 42 )
+    run( '42' )
 
     # ((lambda (x) x) 7) -- identity applied to 7.
-    run( [['lambda', 'x', 'x'], 7] )
+    run( '((lambda x x) 7)' )
 
     # (((lambda (x) (lambda (y) x)) 3) 9) -- a curried constant function.
-    run( [[['lambda', 'x', ['lambda', 'y', 'x']], 3], 9] )
+    run( '(((lambda x (lambda y x)) 3) 9)' )
 
     # (if #t 100 200) -- a true test takes the then branch.
-    run( ['if', lTrue, 100, 200] )
+    run( '(if #t 100 200)' )
 
     # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
-    run( ['if', lFalse, 100, 200] )
+    run( '(if #f 100 200)' )
 
     # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
-    run( [['lambda', 'f', ['f', 3]], ['lambda', 'x', 'x']] )
+    run( '((lambda f (f 3)) (lambda x x))' )
 
 
 if __name__ == '__main__':

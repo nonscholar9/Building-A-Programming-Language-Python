@@ -31,6 +31,7 @@ from miniPythonParser import Parser
 from IB_Expander import expand, gensym
 from IB_Core import lEval, global_env, lisp_str
 from IB_AST      import lFalse
+from IB_Reader   import parse
 
 
 # ---------------------------------------------------------------------------
@@ -163,15 +164,15 @@ def main():
             "        return 1\n"          # an EARLY return
             "    return n * factorial(n - 1)\n" )
     run_python( fac )
-    print( 'factorial(5) =>', lisp_str( lEval( ['factorial', 5], global_env ) ) )   # 120
+    print( 'factorial(5) =>', lisp_str( lEval( parse( '(factorial 5)' ), global_env ) ) )   # 120
 
     print( '\n--- an early return in the middle of a body ---\n' )
     run_python( "def clamp0(x):\n"
                 "    if x < 0:\n"
                 "        return 0\n"
                 "    return x\n" )
-    print( 'clamp0(-5) =>', lisp_str( lEval(['clamp0',-5], global_env) ),
-           '  clamp0(7) =>', lisp_str( lEval(['clamp0',7], global_env) ) )
+    print( 'clamp0(-5) =>', lisp_str( lEval( parse( '(clamp0 -5)' ), global_env ) ),
+           '  clamp0(7) =>', lisp_str( lEval( parse( '(clamp0 7)' ), global_env ) ) )
 
     print( '\n--- return jumping straight out of a loop ---\n' )
     run_python( "def first_ge(n, threshold):\n"
@@ -181,7 +182,7 @@ def main():
                 "            return i\n"     # leaves the loop AND the function
                 "        i = i + 1\n"
                 "    return -1\n" )
-    print( 'first_ge(100, 7) =>', lisp_str( lEval(['first_ge',100,7], global_env) ) )  # 7
+    print( 'first_ge(100, 7) =>', lisp_str( lEval( parse( '(first_ge 100 7)' ), global_env ) ) )  # 7
 
     print( '\n--- Chapter 13 still holds: tail return + while ---\n' )
     run_python( "def gcd(a, b):\n"
@@ -190,7 +191,7 @@ def main():
                 "        b = a % b\n"
                 "        a = t\n"
                 "    return a\n" )
-    print( 'gcd(48, 36) =>', lisp_str( lEval(['gcd',48,36], global_env) ) )      # 12
+    print( 'gcd(48, 36) =>', lisp_str( lEval( parse( '(gcd 48 36)' ), global_env ) ) )      # 12
 
     print( '\n--- a while still loops in constant space, call/cc and all ---\n' )
     run_python( "def count(n):\n"
@@ -198,7 +199,7 @@ def main():
                 "    while i < n:\n"
                 "        i = i + 1\n"
                 "    return i\n" )
-    print( 'count(200000) =>', lisp_str( lEval(['count',200000], global_env) ) )
+    print( 'count(200000) =>', lisp_str( lEval( parse( '(count 200000)' ), global_env ) ) )
 
 
 if __name__ == '__main__':

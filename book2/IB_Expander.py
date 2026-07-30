@@ -50,6 +50,7 @@ Run with: python IB_Expander.py
 from IB_Core import (
     VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 
 # ---------------------------------------------------------------------------
@@ -218,11 +219,12 @@ global_env.set( 'gensym', lambda args: gensym() )
 # The pipeline, and the demo
 # ---------------------------------------------------------------------------
 
-def run( expr ):
+def run( source ):
     """The pipeline, and it is two lines long.
 
     Every phase this book adds from here shows up in this function.
     """
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( '>>> ' + lisp_str( expr ) )
     core = expand( expr )
     if core != expr:
@@ -234,67 +236,47 @@ def run( expr ):
 
 def main():
     print( '--- the language still has everything the machine gave up ---\n' )
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )           # 25
-    run( ['cond', [['=', 1, 2], ['quote', 'no']],
-                  [['<', 1, 2], ['quote', 'yes']],
-                  ['else',      ['quote', 'fallback']]] )      # yes
-    run( ['and', 1, 2] )                                       # 2
-    run( ['and', lFalse, 99] )                                 # #f
-    run( ['or', lFalse, 7] )                                   # 7
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )           # 25
+    run( "(cond ((= 1 2) 'no) ((< 1 2) 'yes) (else 'fallback))" )      # yes
+    run( '(and 1 2)' )                                       # 2
+    run( '(and #f 99)' )                                 # #f
+    run( '(or #f 7)' )                                   # 7
 
     print( "--- `and` short-circuits, and so the rewrite must too ---\n" )
-    run( ['and', lFalse, ['print', 99]] )                      # #f, 99 unprinted
+    run( '(and #f (print 99))' )                      # #f, 99 unprinted
 
     print( "--- why `or`'s rule needs a name you cannot type ---\n" )
-    run( ['or', ['print', 7], 99] )                            # prints 7 ONCE
+    run( '(or (print 7) 99)' )                            # prints 7 ONCE
 
     print( '--- the table is data, so a program can add to it ---\n' )
-    run( ['define-macro', ['when', 'test', '.', 'body'],
-          ['list', ['quote', 'if'], 'test',
-                   ['cons', ['quote', 'begin'], 'body'],
-                   ['quote', lFalse]]] )
-    run( ['when', ['<', 1, 2], ['print', ['quote', 'yes']]] )  # yes
-    run( ['when', ['>', 1, 2], ['print', ['quote', 'no']]] )   # #f, nothing printed
+    run( "(define-macro (when test . body) (list 'if test (cons 'begin body) '#f))" )
+    run( "(when (< 1 2) (print 'yes))" )  # yes
+    run( "(when (> 1 2) (print 'no))" )   # #f, nothing printed
 
     print( '--- a macro that expands into a macro ---\n' )
-    run( ['define-macro', ['my-if', 'test', 'a', 'b'],
-          ['list', ['quote', 'cond'], ['list', 'test', 'a'],
-                   ['list', ['quote', 'else'], 'b']]] )
-    run( ['my-if', ['<', 1, 2], ['quote', 'first'], ['quote', 'second']] )
+    run( "(define-macro (my-if test a b) (list 'cond (list test a) (list 'else b)))" )
+    run( "(my-if (< 1 2) 'first 'second)" )
 
     print( '--- capture: the macro works until the caller picks the wrong name ---\n' )
-    run( ['define-macro', ['swap!', 'a', 'b'],
-          ['list', ['quote', 'let'],
-                   ['list', ['list', ['quote', 'tmp'], 'a']],
-                   ['list', ['quote', 'set!'], 'a', 'b'],
-                   ['list', ['quote', 'set!'], 'b', ['quote', 'tmp']]]] )
-    run( ['set!', 'x', 1] )
-    run( ['set!', 'tmp', 2] )
-    run( ['begin', ['swap!', 'x', 'tmp'], ['list', 'x', 'tmp']] )   # wanted (2 1)
+    run( "(define-macro (swap! a b) (list 'let (list (list 'tmp a)) (list 'set! a b) (list 'set! b 'tmp)))" )
+    run( '(set! x 1)' )
+    run( '(set! tmp 2)' )
+    run( '(begin (swap! x tmp) (list x tmp))' )   # wanted (2 1)
 
     print( '--- gensym fixes it ---\n' )
-    run( ['define-macro', ['swap2!', 'a', 'b'],
-          ['let', [['g', ['gensym']]],
-           ['list', ['quote', 'let'],
-                    ['list', ['list', 'g', 'a']],
-                    ['list', ['quote', 'set!'], 'a', 'b'],
-                    ['list', ['quote', 'set!'], 'b', 'g']]]] )
-    run( ['set!', 'x', 1] )
-    run( ['set!', 'tmp', 2] )
-    run( ['begin', ['swap2!', 'x', 'tmp'], ['list', 'x', 'tmp']] )  # (2 1)
+    run( "(define-macro (swap2! a b) (let ((g (gensym))) (list 'let (list (list g a)) (list 'set! a b) (list 'set! b g))))" )
+    run( '(set! x 1)' )
+    run( '(set! tmp 2)' )
+    run( '(begin (swap2! x tmp) (list x tmp))' )  # (2 1)
 
     print( '--- the half gensym cannot fix ---\n' )
-    run( ['define-macro', ['add1', 'n'],
-          ['list', ['quote', '+'], 'n', 1]] )
-    run( ['add1', 5] )                                         # 6
-    run( ['let', [['+', '-']], ['add1', 5]] )                  # 4, every name fresh
+    run( "(define-macro (add1 n) (list '+ n 1))" )
+    run( '(add1 5)' )                                         # 6
+    run( '(let ((+ -)) (add1 5))' )                  # 4, every name fresh
 
     print( '--- and the machine is still the machine ---\n' )
-    run( ['set!', 'countdown',
-          ['lambda', ['n'], ['if', ['=', 'n', 0], 0,
-                             ['countdown', ['-', 'n', 1]]]]] )
-    run( ['countdown', 100000] )                               # 0, constant K
+    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
+    run( '(countdown 100000)' )                               # 0, constant K
 
 
 if __name__ == '__main__':

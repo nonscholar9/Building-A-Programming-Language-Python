@@ -32,6 +32,7 @@ Run with: python IB_Core.py   (a short check that the machine is alive)
 """
 
 from IB_AST import lTrue, lFalse, lisp_str
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -302,24 +303,23 @@ global_env = Environment( bindings=globalBindings )
 
 def main():
     checks = [
-        ( ['+', ['-', 10, 7], 2],                                  5 ),
-        ( ['if', ['<', 1, 2], ['quote', 'yes'], ['quote', 'no']],  'yes' ),
-        ( [['lambda', ['x'], ['*', 'x', 'x']], 7],                 49 ),
-        ( ['quote', ['a', 'b']],                                   '(a b)' ),
+        ( '(+ (- 10 7) 2)',              5 ),
+        ( "(if (< 1 2) 'yes 'no)",       'yes' ),
+        ( '((lambda (x) (* x x)) 7)',    49 ),
+        ( "'(a b)",                      '(a b)' ),
     ]
-    for expr, want in checks:
+    for source, want in checks:
+        expr = parse( source )
         got = lisp_str( lEval( expr, global_env ) )
         print( f'{"ok " if got == str(want) else "FAIL"} {lisp_str(expr)}  ==>  {got}' )
 
     # Tail calls still loop, and call/cc still escapes.
-    lEval( ['set!', 'countdown',
-            ['lambda', ['n'], ['if', ['=', 'n', 0], 0,
-                               ['countdown', ['-', 'n', 1]]]]], global_env )
-    got = lEval( ['countdown', 100000], global_env )
+    lEval( parse( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' ),
+           global_env )
+    got = lEval( parse( '(countdown 100000)' ), global_env )
     print( f'{"ok " if got == 0 else "FAIL"} (countdown 100000)  ==>  {got}   [constant K]' )
 
-    got = lEval( ['call/cc', ['lambda', ['k'],
-                              ['+', 1, ['k', 42]]]], global_env )
+    got = lEval( parse( '(call/cc (lambda (k) (+ 1 (k 42))))' ), global_env )
     print( f'{"ok " if got == 42 else "FAIL"} (call/cc (lambda (k) (+ 1 (k 42))))  ==>  {got}' )
 
 

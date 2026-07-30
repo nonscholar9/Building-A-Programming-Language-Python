@@ -35,6 +35,7 @@ Run with: python IB_Lisp6.py
 """
 
 from IB_AST import LBoolean, lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Tags
@@ -422,7 +423,8 @@ def disassemble( prog ):
         print( f'  {pc:3}  {_OP_NAMES[instr[0]]:10} {args}' )
 
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( '>>> ' + lisp_str( expr ) )
     print( '==> ' + lisp_str( lEval( expr ) ) )
     print()
@@ -435,52 +437,43 @@ def main():
     disassemble( prog )
     print()
 
-    run( ['+', ['-', 10, 7], 2] )                       # 5
-    run( ['+', ['print', 10], 5] )                      # prints 10, ==> 15
+    run( '(+ (- 10 7) 2)' )                       # 5
+    run( '(+ (print 10) 5)' )                      # prints 10, ==> 15
 
-    run( ['set!', 'x', ['*', 6, 7]] )                   # 42
+    run( '(set! x (* 6 7))' )                   # 42
     run( 'x' )                                          # 42
 
-    run( ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]] )
-    run( ['square', 5] )                                # 25
+    run( '(set! square (lambda (n) (* n n)))' )
+    run( '(square 5)' )                                # 25
 
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )    # 25
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )    # 25
 
-    run( ['begin', ['set!', 'y', 1], ['set!', 'y', ['+', 'y', 9]], 'y'] )   # 10
+    run( '(begin (set! y 1) (set! y (+ y 9)) y)' )   # 10
 
-    run( ['if', 0, 100, 200] )                          # 100  (0 is TRUE in Scheme)
-    run( ['quote', ['a', 'b', 'c']] )                   # (a b c)
+    run( '(if 0 100 200)' )                          # 100  (0 is TRUE in Scheme)
+    run( "'(a b c)" )                   # (a b c)
 
     # Tail-recursive countdown: TCO keeps K bounded, so 100,000 iterations run
     # without growing the continuation stack.
-    run( ['set!', 'countdown',
-          ['lambda', ['n'],
-           ['if', ['=', 'n', 0], 0, ['countdown', ['-', 'n', 1]]]]] )
-    run( ['countdown', 100000] )                        # 0
+    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
+    run( '(countdown 100000)' )                        # 0
 
     # Chapter 1's forms, on the compiled machine.
-    run( ['car', ['quote', ['a', 'b', 'c']]] )          # a
-    run( ['cons', 1, ['quote', [2, 3]]] )               # (1 2 3)
-    run( ['cond', [['<', 2, 1], ['quote', 'no']],
-                  ['else', ['quote', 'yes']]] )         # yes
-    run( ['and', lFalse, ['print', 'unreached']] )      # #f, and nothing prints
-    run( ['or', lFalse, ['quote', 'fallback']] )        # fallback
+    run( "(car '(a b c))" )          # a
+    run( "(cons 1 '(2 3))" )               # (1 2 3)
+    run( "(cond ((< 2 1) 'no) (else 'yes))" )         # yes
+    run( '(and #f (print unreached))' )      # #f, and nothing prints
+    run( "(or #f 'fallback)" )        # fallback
 
     # Chapter 2's: a rest parameter, and apply spreading a list back out.
-    run( ['set!', 'tally',
-          ['lambda', ['label', '.', 'nums'],
-           ['list', 'label', ['apply', '+', 'nums']]]] )
-    run( ['tally', ['quote', 'total']] )                # (total 0)
-    run( ['tally', ['quote', 'total'], 1, 2, 3] )       # (total 6)
-    run( ['apply', '+', 10, 20, ['quote', [1, 2, 3]]] ) # 36
+    run( '(set! tally (lambda (label . nums) (list label (apply + nums))))' )
+    run( "(tally 'total)" )                # (total 0)
+    run( "(tally 'total 1 2 3)" )       # (total 6)
+    run( "(apply + 10 20 '(1 2 3))" ) # 36
 
     # A tail apply is still a tail call: K stays bounded here too.
-    run( ['set!', 'countdown2',
-          ['lambda', ['n', '.', 'rest'],
-           ['cond', [['=', 'n', 0], 0],
-                    ['else', ['apply', 'countdown2', ['list', ['-', 'n', 1]]]]]]] )
-    run( ['countdown2', 100000] )                       # 0
+    run( '(set! countdown2 (lambda (n . rest) (cond ((= n 0) 0) (else (apply countdown2 (list (- n 1)))))))' )
+    run( '(countdown2 100000)' )                       # 0
 
 
 if __name__ == '__main__':

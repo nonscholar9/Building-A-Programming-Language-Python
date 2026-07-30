@@ -30,6 +30,7 @@ Run with: python IB_Lisp3.py
 """
 
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Environment: a scope at run time, linked into a stack
@@ -274,7 +275,8 @@ def lisp_str( val ):
         return '#<primitive>'
     return str( val )
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( f'>>> {lisp_str( expr )}' )    # the expression, in Lisp syntax
     result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )  # its value, in Lisp syntax
@@ -283,51 +285,42 @@ def run( expr ):
 
 def main():
     # Basic arithmetic
-    run( ['+', ['-', 10, 7], 2] )
+    run( '(+ (- 10 7) 2)' )
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
     # composes inside a larger expression.  run() echoes the form first, so the
     # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
-    run( ['+', ['print', 10], 5] )
+    run( '(+ (print 10) 5)' )
 
     # set! and variable lookup
-    run( ['set!', 'x', ['*', 6, 7]] )
+    run( '(set! x (* 6 7))' )
     run( 'x' )
 
     # lambda creates a closure
-    run( ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]] )
-    run( ['square', 5] )
+    run( '(set! square (lambda (n) (* n n)))' )
+    run( '(square 5)' )
 
     # let creates a local scope
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )
 
     # Tail-recursive countdown.
     # The naive recursive evaluator in IB_Lisp1.py would hit Python's
     # ~1000-frame stack limit and crash.  With TCO each tail call reuses
     # the same Python frame, so 100,000 iterations need only a handful of
     # stack frames.
-    run( ['set!', 'countdown',
-          ['lambda', ['n'],
-           ['if', ['=', 'n', 0],
-            0,
-            ['countdown', ['-', 'n', 1]]]]] )
+    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
 
-    run( ['countdown', 100000] )
+    run( '(countdown 100000)' )
 
     # Rest parameters and apply, and the tail call survives both: a tail apply
     # loops rather than recursing, so this runs in constant stack.
-    run( ['set!', 'countdown2',
-          ['lambda', ['n', '.', 'ignored'],
-           ['cond', [['=', 'n', 0], 0],
-                    ['else', ['apply', 'countdown2',
-                              ['list', ['-', 'n', 1]]]]]]] )
-    run( ['countdown2', 100000] )
+    run( '(set! countdown2 (lambda (n . ignored) (cond ((= n 0) 0) (else (apply countdown2 (list (- n 1)))))))' )
+    run( '(countdown2 100000)' )
 
     # and/or keep their last form in tail position too.
-    run( ['and', ['<', 1, 2], ['or', lFalse, ['quote', 'reached']]] )
+    run( "(and (< 1 2) (or #f 'reached))" )
 
 
 if __name__ == '__main__':

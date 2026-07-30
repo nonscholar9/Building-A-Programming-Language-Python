@@ -21,6 +21,7 @@ Run with: python IB_Lisp2.py
 """
 
 from IB_AST import lTrue, lFalse
+from IB_Reader import parse
 
 # ---------------------------------------------------------------------------
 # Environment: a scope at run time, linked into a stack
@@ -245,7 +246,8 @@ def lisp_str( val ):
     return str( val )
 
 
-def run( expr ):
+def run( source ):
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
     print( f'>>> {lisp_str( expr )}' )
     result = lEval( expr, global_env )
     print( f'==> {lisp_str( result )}' )
@@ -254,68 +256,56 @@ def run( expr ):
 
 def main():
     # Basic arithmetic (same as Part 1)
-    run( ['+', ['-', 10, 7], 2] )
+    run( '(+ (- 10 7) 2)' )
 
     # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
     # reaches outside the evaluator -- and it *returns* its argument, so it
     # composes inside a larger expression.  run() echoes the form first, so the
     # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
     # returned 10, flowed on into +) is the value.
-    run( ['+', ['print', 10], 5] )
+    run( '(+ (print 10) 5)' )
 
     # set! and variable lookup
-    run( ['set!', 'x', ['*', 6, 7]] )
+    run( '(set! x (* 6 7))' )
     run( 'x' )
 
     # lambda creates a closure
-    run( ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]] )
-    run( ['square', 5] )
+    run( '(set! square (lambda (n) (* n n)))' )
+    run( '(square 5)' )
 
     # Higher-order function: make-adder returns a closure
-    run( ['set!', 'make-adder',
-          ['lambda', ['n'],
-           ['lambda', ['x'], ['+', 'n', 'x']]]] )
-    run( ['set!', 'add5', ['make-adder', 5]] )
-    run( ['add5', 3] )
+    run( '(set! make-adder (lambda (n) (lambda (x) (+ n x))))' )
+    run( '(set! add5 (make-adder 5))' )
+    run( '(add5 3)' )
 
     # let creates a local scope
-    run( ['let', [['a', 3], ['b', 4]],
-          ['+', ['*', 'a', 'a'], ['*', 'b', 'b']]] )
+    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )
 
     # Recursive factorial.
     # NOTE: each call pushes a Python stack frame.  This works for moderate n
     # but will crash with RecursionError for very large n (no TCO).
-    run( ['set!', 'factorial',
-          ['lambda', ['n'],
-           ['if', ['=', 'n', 0],
-            1,
-            ['*', 'n', ['factorial', ['-', 'n', 1]]]]]] )
-    run( ['factorial', 10] )
+    run( '(set! factorial (lambda (n) (if (= n 0) 1 (* n (factorial (- n 1))))))' )
+    run( '(factorial 10)' )
 
     # quote
-    run( ['quote', ['a', 'b', 'c']] )
+    run( "'(a b c)" )
 
     # Rest parameters: a dotted parameter list gathers the leftover arguments
     # into a list, so one function serves callers of any arity.
-    run( ['set!', 'tally',
-          ['lambda', ['label', '.', 'nums'],
-           ['list', 'label', ['apply', '+', 'nums']]]] )
-    run( ['tally', ['quote', 'total']] )
-    run( ['tally', ['quote', 'total'], 1, 2, 3] )
+    run( '(set! tally (lambda (label . nums) (list label (apply + nums))))' )
+    run( "(tally 'total)" )
+    run( "(tally 'total 1 2 3)" )
 
     # apply spreads a list into a call's argument positions.  Leading arguments
     # come first, then the elements of the final list.
-    run( ['apply', '+', ['quote', [1, 2, 3]]] )
-    run( ['apply', '+', 10, 20, ['quote', [1, 2, 3]]] )
+    run( "(apply + '(1 2 3))" )
+    run( "(apply + 10 20 '(1 2 3))" )
 
     # The pair together: a wrapper that forwards whatever it was handed, without
     # knowing how many arguments that is.
-    run( ['set!', 'logged',
-          ['lambda', ['f', '.', 'args'],
-           ['begin', ['print', ['quote', 'calling']],
-                     ['apply', 'f', 'args']]]] )
-    run( ['logged', 'square', 7] )
-    run( ['logged', '+', 1, 2, 3] )
+    run( "(set! logged (lambda (f . args) (begin (print 'calling) (apply f args))))" )
+    run( '(logged square 7)' )
+    run( '(logged + 1 2 3)' )
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 """
 IB_Repl -- a read-eval-print loop for the IttyBitty Lisp evaluators.
 
-Wires the parser (IB_Lisp8_parser.parse) to an evaluator so you can type Lisp
+Wires the reader (IB_Reader.parse) to an evaluator so you can type Lisp
 at a prompt instead of hand-writing nested Python lists:
 
     $ python IB_Repl.py
@@ -25,7 +25,7 @@ Windows).
 Run with: python IB_Repl.py
 """
 
-from IB_Lisp8_parser import parse
+from IB_Reader import parse
 from IB_Lisp1  import lEval, global_env, lisp_str   # <- swap for IB_Lisp2 / 3 / 5 / 7
 
 

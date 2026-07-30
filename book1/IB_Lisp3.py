@@ -211,7 +211,7 @@ def lEval( expr, env ):
 # ---------------------------------------------------------------------------
 
 def lisp_print( args ):
-    print( args[0] )
+    print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
     return args[0]       # returned, so print composes inside a larger expression
 
 def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identity

@@ -245,7 +245,7 @@ def lEval( expr, env ):
 # that needs one more is welcome to add it.
 
 def lisp_print( args ):
-    print( args[0] )
+    print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
     return args[0]
 
 def lisp_mul( args ):

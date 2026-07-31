@@ -252,7 +252,8 @@ def lEval( expr, env ):
                     # right now *is* the continuation of the whole (call/cc f)
                     # expression.  Snapshot it, and redirect to "call f on it".
                     cont = Continuation( list(K) )
-                    fn, args = args[0], [cont]
+                    fn   = args[0]
+                    args = [cont]
 
                 if isinstance( fn, Continuation ):   # invoking a captured continuation
                     K = list( fn.stack )       # discard current K, reinstate the saved one

@@ -219,7 +219,8 @@ def lEval( expr, env ):
 
                 if fn is CALLCC:               # (call/cc f): reify K, then call f with it
                     cont = Continuation( list(K) )
-                    fn, args = args[0], [cont]
+                    fn   = args[0]
+                    args = [cont]
 
                 if isinstance( fn, Continuation ):   # invoking a captured continuation
                     K = list( fn.stack )

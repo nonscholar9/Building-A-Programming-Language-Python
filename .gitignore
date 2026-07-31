@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# Wing per-user state: holds a file history pointing outside this repo
+*.wpu

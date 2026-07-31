@@ -139,7 +139,7 @@ def lEval( expr, env ):
 
     while True:
 
-        # ----- state EVAL: descend into C (pushing frames) until a leaf -> V -----
+        # ----- Begin state EVAL -----
         while True:
             if isinstance( C, str ):           # variable -> look it up
                 V = E.lookup( C )
@@ -203,7 +203,7 @@ def lEval( expr, env ):
                 K.append( (FRAME_ARG, [], argExprs, E) )
                 C = fnExpr                       # evaluate the operator first
 
-        # ----- state APPLY: feed V to the top frame -----
+        # ----- Begin state APPLY -----
         while True:
             if not K:
                 return V

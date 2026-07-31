@@ -89,7 +89,7 @@ def bind_params( params, args ):
 
 def lEval( expr, env ):
 
-    # ---- State = EVAL (dispatch on expression syntax) ----
+    # ----- Begin state EVAL -----
     if isinstance(expr, str):          # a symbol -> look it up
         return env.lookup(expr)
     elif not isinstance(expr, list):   # a number or boolean -> itself
@@ -163,7 +163,7 @@ def lEval( expr, env ):
         while fn is applyFn:
             fn, args = args[0], args[1:-1] + list( args[-1] )
 
-        # ---- State = APPLY (invoke a procedure on evaluated args) ----
+        # ----- Begin state APPLY -----
         if callable(fn):                   # primitive implemented in Python
             return fn(args)
         else:

@@ -44,7 +44,7 @@ from IB_AST import lTrue, lFalse
 # ---------------------------------------------------------------------------
 
 def lEval( expr, env ):
-    # ---- State = EVAL (dispatch on expression syntax) ----
+    # ----- Begin state EVAL -----
     if isinstance(expr, str):          # symbol -> look it up
         return env[expr]
     elif not isinstance(expr, list):   # number or boolean -> return unchanged
@@ -102,7 +102,7 @@ def lEval( expr, env ):
         # Call a primitive
         fn, *args = [ lEval(elt, env) for elt in expr ]   # eval operator + operands
 
-        # ---- State = APPLY (invoke a procedure on evaluated args) ----
+        # ----- Begin state APPLY -----
         # This minimal Lisp has only primitives (no lambda yet), so every callable
         # is a plain Python function.
         return fn( args )

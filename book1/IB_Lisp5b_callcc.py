@@ -76,7 +76,7 @@ class _Apply:
     body, which no primitive can do, so the evaluator recognizes it at the call
     site (see the splice in FRAME_ARG), the same way it recognizes call/cc."""
 
-APPLY = _Apply()
+applyFn = _Apply()
 
 # ---------------------------------------------------------------------------
 # Environment: a scope at run time, linked into a stack (same class as IB_Lisp2/3/4)
@@ -252,7 +252,7 @@ def lEval( expr, env ):
                 # operator + all operands evaluated -> apply doneList[0] to doneList[1:]
                 fn, *args = doneList
 
-                while fn is APPLY:             # apply is a value: splice its final
+                while fn is applyFn:             # apply is a value: splice its final
                     # list into the argument positions and call the real function,
                     # here at the call site, just as call/cc reaches in below.
                     fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
@@ -344,7 +344,7 @@ globalBindings = {
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
     'call/cc':                       CALLCC,                    # the star of this file
     'call-with-current-continuation': CALLCC,                  # its full Scheme name
-    'apply':                         APPLY,                     # a value, spliced at the call site
+    'apply':                         applyFn,                     # a value, spliced at the call site
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -359,7 +359,7 @@ def lisp_str( val ):
         return '#<continuation>'
     if val is CALLCC:
         return '#<primitive call/cc>'
-    if val is APPLY:
+    if val is applyFn:
         return '#<primitive apply>'
     if isinstance( val, tuple ):             # a closure: (VAL_CLOSURE, params, body, env)
         return '#<procedure (' + ' '.join( val[1] ) + ')>'

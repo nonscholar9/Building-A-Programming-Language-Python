@@ -71,7 +71,7 @@ class _Apply:
     def __repr__( self ):
         return '#<primitive apply>'
 
-APPLY = _Apply()
+applyFn = _Apply()
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ def lEval( expr, env ):
                     break
                 fn, *args = doneList
 
-                while fn is APPLY:             # apply is a value: splice its final
+                while fn is applyFn:             # apply is a value: splice its final
                     # list into the argument positions and call the real function,
                     # here at the call site, just as call/cc reaches in below.
                     fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
@@ -280,7 +280,7 @@ globalBindings = {
 
     'call/cc':                        CALLCC,
     'call-with-current-continuation': CALLCC,
-    'apply':                          APPLY,   # a value, spliced at the call site
+    'apply':                          applyFn,   # a value, spliced at the call site
 }
 global_env = Environment( bindings=globalBindings )
 

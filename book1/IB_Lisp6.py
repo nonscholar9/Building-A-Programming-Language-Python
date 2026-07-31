@@ -300,7 +300,7 @@ def run_vm( prog, pc=0, env=None ):
             # apply is a value: (apply g x ... lst) is a call of g on x ... plus
             # the elements of lst.  Splice here, at the call site, the same way
             # IB_Lisp5 does; the loop lets (apply apply ...) resolve.
-            while fn is APPLY:
+            while fn is applyFn:
                 fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
 
             if callable( fn ):              # primitive: compute it, flow it on
@@ -368,7 +368,7 @@ def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identi
 class _Apply:
     pass
 
-APPLY = _Apply()
+applyFn = _Apply()
 
 globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
@@ -395,7 +395,7 @@ globalBindings = {
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
     # apply, above, is bound to the sentinel the machine watches for.
-    'apply': APPLY,
+    'apply': applyFn,
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -409,7 +409,7 @@ def lisp_str( val ):
         return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
     if isinstance( val, tuple ):            # (VAL_CLOSURE, params, body_pc, env)
         return '#<procedure (' + ' '.join( val[1] ) + ')>'
-    if val is APPLY:
+    if val is applyFn:
         return '#<primitive apply>'
     if callable( val ):
         return '#<primitive>'

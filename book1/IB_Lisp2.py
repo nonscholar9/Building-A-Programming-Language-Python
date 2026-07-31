@@ -160,7 +160,7 @@ def lEval( expr, env ):
         # g on x ... plus the elements of lst.  Splice it here, at the call site;
         # a primitive could not, because it has to open a scope and run g's body.
         # The loop lets (apply apply ...) resolve.
-        while fn is APPLY:
+        while fn is applyFn:
             fn, args = args[0], args[1:-1] + list( args[-1] )
 
         # ---- State = APPLY (invoke a procedure on evaluated args) ----
@@ -196,7 +196,7 @@ def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identi
 class _Apply:
     pass
 
-APPLY = _Apply()
+applyFn = _Apply()
 
 globalBindings = {
     '+':     lambda args: sum( args ),                          # variadic; (+) is 0
@@ -223,7 +223,7 @@ globalBindings = {
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
     # apply, above, is bound to the sentinel the evaluator watches for.
-    'apply': APPLY,
+    'apply': applyFn,
 }
 global_env = Environment( bindings=globalBindings )
 
@@ -239,7 +239,7 @@ def lisp_str( val ):
         return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
     if isinstance( val, Function ):
         return '#<procedure (' + ' '.join( val.params ) + ')>'
-    if val is APPLY:
+    if val is applyFn:
         return '#<primitive apply>'
     if callable( val ):
         return '#<primitive>'

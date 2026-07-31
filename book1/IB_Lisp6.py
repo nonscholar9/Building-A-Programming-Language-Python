@@ -301,8 +301,7 @@ def run_vm( prog, pc=0, env=None ):
             # the elements of lst.  Splice here, at the call site, the same way
             # IB_Lisp5 does; the loop lets (apply apply ...) resolve.
             while fn is applyFn:
-                fn   = args[0]
-                args = list( args[1:-1] ) + list( args[-1] )
+                fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
 
             if callable( fn ):              # primitive: compute it, flow it on
                 V = fn( args )

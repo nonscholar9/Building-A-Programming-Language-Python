@@ -222,8 +222,7 @@ def lEval( expr, env ):
                 # positions and call the real function, here at the call site.
                 # The loop lets (apply apply ...) resolve.
                 while fn is applyFn:
-                    fn   = args[0]
-                    args = list( args[1:-1] ) + list( args[-1] )
+                    fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
 
                 if callable( fn ):             # primitive: compute the value, flow it on
                     V = fn( args )

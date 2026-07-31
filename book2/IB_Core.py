@@ -215,7 +215,8 @@ def lEval( expr, env ):
                 while fn is applyFn:             # apply is a value: splice its final
                     # list into the argument positions and call the real function,
                     # here at the call site, just as call/cc reaches in below.
-                    fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+                    fn   = args[0]
+                    args = list( args[1:-1] ) + list( args[-1] )
 
                 if fn is CALLCC:               # (call/cc f): reify K, then call f with it
                     cont = Continuation( list(K) )

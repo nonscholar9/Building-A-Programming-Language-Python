@@ -190,6 +190,7 @@ def lEval( expr, env ):
             # site.  A tail apply stays a tail call because nothing is pushed; the
             # loop lets (apply apply ...) resolve.
             while fn is applyFn:
+                # Both sides read the OLD args; do not split this in two.
                 fn, args = args[0], args[1:-1] + list( args[-1] )
 
             # ----- Begin state APPLY -----

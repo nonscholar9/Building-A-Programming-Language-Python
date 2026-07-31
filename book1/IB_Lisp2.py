@@ -161,6 +161,7 @@ def lEval( expr, env ):
         # a primitive could not, because it has to open a scope and run g's body.
         # The loop lets (apply apply ...) resolve.
         while fn is applyFn:
+            # Both sides read the OLD args; do not split this in two.
             fn, args = args[0], args[1:-1] + list( args[-1] )
 
         # ----- Begin state APPLY -----

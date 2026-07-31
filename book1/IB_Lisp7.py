@@ -798,6 +798,7 @@ def _run( prog ):
             # The ARG frame is still on K, so g, the leading args and lst all stay
             # reachable while the closure's env is allocated below.
             while heap[f] == TAG_PRIM and PRIMS[heap[f + 2]][0] == 'apply':
+                # Both sides read the OLD args; do not split this in two.
                 fn, args = args[0], list( args[1:-1] ) + _list_to_args( args[-1] )
                 f    = addr_of( fn )
 

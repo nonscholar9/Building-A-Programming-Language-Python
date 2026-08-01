@@ -148,9 +148,12 @@ def lEval( expr, env ):
       elif C[0] == 'let':                # ['let', ((name init)...), *body]
         # Desugar to ((lambda (name...) body...) init...) and re-dispatch.
         _, bindingPairs, *body = C
-        names = [ pair[0] for pair in bindingPairs ]
-        inits = [ pair[1] for pair in bindingPairs ]
-        C = [ ['lambda', names] + list(body) ] + inits
+        names = [ pair[0]
+                  for pair in bindingPairs ]
+        inits = [ pair[1]
+                  for pair in bindingPairs ]
+        C = ( [ ['lambda', names] + list(body) ]
+              + inits )
       elif C[0] == 'cond':               # ['cond', (test result)...]
         # Really a chain of ifs, so say so: peel one clause and re-dispatch.
         clauses = list( C[1:] )
@@ -213,8 +216,8 @@ def lEval( expr, env ):
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:                       # more operands to evaluate
-          K.append( (FRAME_ARG, doneList, todoList[1:],
-                     env) )
+          K.append( (FRAME_ARG, doneList,
+                         todoList[1:], env) )
           C = todoList[0]
           E = env
           break
@@ -234,9 +237,10 @@ def lEval( expr, env ):
           V = fn( args )
           continue                   # stay in APPLY
         _, params, body, clo_env = fn  # closure: bind params, run the body
-        initialBindings = bind_params( params, args )
+        initialBindings = bind_params(
+            params, args )
         E = Environment( outer=clo_env,
-                        bindings=initialBindings )
+            bindings=initialBindings )
         if len(body) > 1:
           K.append( (FRAME_SEQ, body[1:], E) )
         C = body[0]

@@ -176,10 +176,10 @@ def lEval( expr, env ):
       # Eval every init expr in the OUTER env E (parallel `let`, not `let*`),
       # then open a new environment that holds them all.
       initialBindings = {
-                         name: lEval(initExpr, E) for name,
-                         initExpr in bindingPairs }
+          name: lEval(initExpr, E)
+          for name, initExpr in bindingPairs }
       E = Environment( outer=E,
-                      bindings=initialBindings )
+          bindings=initialBindings )
         
       # Execute body in the new E
       for subExpr in body[:-1]:            # non-tail body forms: recurse
@@ -196,7 +196,8 @@ def lEval( expr, env ):
       # loop lets (apply apply ...) resolve.
       while fn is applyFn:
         # Both sides read the OLD args; do not split this in two.
-        fn, args = args[0], args[1:-1] + list( args[-1] )
+        fn, args = ( args[0],
+            args[1:-1] + list( args[-1] ) )
 
       # ----- Begin state APPLY -----
       if callable(fn):                        # primitive implemented in Python
@@ -204,9 +205,10 @@ def lEval( expr, env ):
       else:
         # user-defined function: TCO -- reassign the registers and loop.  The
         # new environment is opened on the *captured* (lexical) env, not the caller's.
-        initialBindings = bind_params(fn.params, args)
+        initialBindings = bind_params(
+            fn.params, args)
         E = Environment( outer=fn.definingEnv,
-                        bindings=initialBindings )
+            bindings=initialBindings )
 
         # Execute the body in the new E
         for subExpr in fn.body[:-1]:            # non-tail body forms: recurse

@@ -635,7 +635,8 @@ def compile_expr( expr, out, tail ):
     compile_expr( elseExpr, out, tail=tail )
     if not tail:
       out[then_jump] = (OP_JUMP, len( out ))
-    out[if_idx] = (OP_IF_START, then_pc, else_pc)
+    out[if_idx] = (OP_IF_START,
+                   then_pc, else_pc)
 
   elif expr[0] == 'set!':                     # ['set!', name, valueExpr]
     _, name, valExpr = expr
@@ -649,11 +650,13 @@ def compile_expr( expr, out, tail ):
 
   elif expr[0] == 'let':                      # ['let', ((name init)...), *body]
     _, bindingPairs, *body = expr
-    names = [ pair[0] for pair in bindingPairs ]
-    inits = [ pair[1] for pair in bindingPairs ]
+    names = [ pair[0]
+              for pair in bindingPairs ]
+    inits = [ pair[1]
+              for pair in bindingPairs ]
     compile_expr(
-                 [['lambda', names] + list( body )] + inits,
-                 out, tail )
+        [['lambda', names] + list( body )]
+        + inits, out, tail )
 
   elif expr[0] == 'quote':                    # ['quote', datum]
     _compile_quoted( expr[1], out )

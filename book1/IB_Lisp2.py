@@ -151,8 +151,8 @@ def lEval( expr, env ):
     _, bindingPairs, *body = expr
     # Each init is evaluated in the OUTER env -- that is what makes this let, not let*.
     initialBindings = {
-                       name: lEval(initExpr, env) for name,
-                       initExpr in bindingPairs }
+        name: lEval(initExpr, env)
+        for name, initExpr in bindingPairs }
     new_env = Environment( outer=env,
                           bindings=initialBindings )
         
@@ -169,7 +169,8 @@ def lEval( expr, env ):
     # The loop lets (apply apply ...) resolve.
     while fn is applyFn:
       # Both sides read the OLD args; do not split this in two.
-      fn, args = args[0], args[1:-1] + list( args[-1] )
+      fn, args = ( args[0],
+          args[1:-1] + list( args[-1] ) )
 
     # ----- Begin state APPLY -----
     if callable(fn):                   # primitive implemented in Python
@@ -177,7 +178,8 @@ def lEval( expr, env ):
     else:
       # user-defined function: evaluate its body in a fresh local environment stacked
       # off the *captured* (lexical) environment, not the caller's.
-      initialBindings = bind_params(fn.params, args)
+      initialBindings = bind_params(
+          fn.params, args)
       new_env = Environment(outer=fn.definingEnv,
                             bindings=initialBindings)
 

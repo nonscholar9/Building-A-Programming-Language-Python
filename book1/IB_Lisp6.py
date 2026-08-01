@@ -187,7 +187,8 @@ def compile_expr( expr, out, tail ):
     compile_expr( elseExpr, out, tail=tail )  # else inherits our tail context
     if not tail:
       out[then_jump_idx] = (OP_JUMP, len(out))
-    out[if_idx] = (OP_IF_START, then_pc, else_pc)
+    out[if_idx] = (OP_IF_START,
+                   then_pc, else_pc)
 
   elif expr[0] == 'set!':                 # ['set!', name, valueExpr]
     _, name, valExpr = expr
@@ -201,11 +202,13 @@ def compile_expr( expr, out, tail ):
 
   elif expr[0] == 'let':                  # ['let', ((name init)...), *body]
     _, bindingPairs, *body = expr
-    names = [ pair[0] for pair in bindingPairs ]
-    inits = [ pair[1] for pair in bindingPairs ]
+    names = [ pair[0]
+              for pair in bindingPairs ]
+    inits = [ pair[1]
+              for pair in bindingPairs ]
     compile_expr(
-                 [['lambda', names] + list( body )] + inits,
-                 out, tail )
+        [['lambda', names] + list( body )]
+        + inits, out, tail )
 
   elif expr[0] == 'cond':                 # ['cond', (test result)...]
     clauses = expr[1:]
@@ -301,7 +304,8 @@ def run_vm( prog, pc=0, env=None ):
 
     elif op == OP_APPLY_ARG:            # stash V, restore E for the next one
       _, doneList, env = K.pop()
-      K.append( (FRAME_ARG, doneList + [V], env) )
+      K.append( (FRAME_ARG, doneList + [V],
+                     env) )
       E  = env
       pc += 1
 
@@ -331,19 +335,23 @@ def run_vm( prog, pc=0, env=None ):
         if op == OP_CALL:
           K.append( (FRAME_RET, pc + 1,
                          callerEnv) )
-        E  = Environment( outer=clo_env,
-                          bindings=bind_params( params, args ) )
+        E  = Environment(
+            outer=clo_env,
+            bindings=bind_params(
+                params, args ) )
         pc = body_pc
 
     elif op == OP_IF_START:             # remember both branch pcs and E
       _, then_pc, else_pc = instr
-      K.append( (FRAME_IF, then_pc, else_pc, E) )
+      K.append( (FRAME_IF, then_pc,
+                     else_pc, E) )
       pc += 1
 
     elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
       _, then_pc, else_pc, env = K.pop()
       E  = env
-      pc = then_pc if V is not lFalse else else_pc
+      pc = (then_pc if V is not lFalse
+            else else_pc)
 
     elif op == OP_RET:                  # end of a body
       if not K:

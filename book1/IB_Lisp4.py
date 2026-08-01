@@ -151,7 +151,8 @@ def lEval( expr, env ):
         # No frame is pushed here -- a tail call reuses this K depth (TCO).
         _, closure = frame
         _, param, body, clo_env = closure
-        E = Environment( outer=clo_env, bindings={ param: V } )
+        E = Environment( outer=clo_env,
+                        bindings={ param: V } )
         C = body
         break
 

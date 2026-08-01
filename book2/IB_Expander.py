@@ -79,7 +79,8 @@ def rule_let( form ):
   # (let ((name init)...) body...)  ->  ((lambda (name...) body...) init...)
   names = [ pair[0] for pair in form[1] ]
   inits = [ pair[1] for pair in form[1] ]
-  return [ ['lambda', names] + list(form[2:]) ] + inits
+  return [ ['lambda',
+            names] + list(form[2:]) ] + inits
 
 
 def rule_cond( form ):
@@ -91,7 +92,8 @@ def rule_cond( form ):
   test, result = clauses[0][0], clauses[0][1]
   if test == 'else':
     return result
-  return [ 'if', test, result, ['cond'] + clauses[1:] ]
+  return [ 'if', test, result,
+          ['cond'] + clauses[1:] ]
 
 
 def rule_and( form ):
@@ -103,7 +105,8 @@ def rule_and( form ):
     return lTrue
   if len(forms) == 1:
     return forms[0]
-  return [ 'if', forms[0], ['and'] + forms[1:], lFalse ]
+  return [ 'if', forms[0], ['and'] + forms[1:],
+          lFalse ]
 
 
 def rule_or( form ):
@@ -147,7 +150,8 @@ def apply_macro( macro, form ):
     """
   _, params, body, env = macro
   args  = list( form[1:] )
-  local = Environment( outer=env, bindings=bind_params( params, args ) )
+  local = Environment( outer=env,
+                      bindings=bind_params( params, args ) )
   return lEval( ['begin'] + body, local )
 
 
@@ -167,7 +171,8 @@ def define_macro( form ):
   name   = spec[0]
   params = list( spec[1:] )
   body   = [ expand(f) for f in form[2:] ]
-  RULES[name] = ( VAL_CLOSURE, params, body, global_env )
+  RULES[name] = ( VAL_CLOSURE, params, body,
+                 global_env )
   return lFalse
 
 
@@ -201,7 +206,8 @@ def expand( form ):
   if head == 'quote':                      # (quote datum): the datum is data
     return form
   if head == 'lambda':                     # the parameters are names, not code
-    return [ 'lambda', form[1] ] + [ expand(f) for f in form[2:] ]
+    return [ 'lambda',
+            form[1] ] + [ expand(f) for f in form[2:] ]
   if head == 'set!':                       # the name is a name, not code
     return [ 'set!', form[1], expand( form[2] ) ]
   return [ expand(f) for f in form ]       # if / begin / application

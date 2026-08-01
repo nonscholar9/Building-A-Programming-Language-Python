@@ -130,7 +130,8 @@ def lEval( expr, env ):
       if test == 'else':
         C = result
       else:
-        C = [ 'if', test, result, ['cond'] + list(clauses[1:]) ]
+        C = [ 'if', test, result,
+             ['cond'] + list(clauses[1:]) ]
       continue
 
     elif C[0] == 'and':                     # short-circuits at the first #f
@@ -173,8 +174,11 @@ def lEval( expr, env ):
             
       # Eval every init expr in the OUTER env E (parallel `let`, not `let*`),
       # then open a new environment that holds them all.
-      initialBindings = { name: lEval(initExpr, E) for name, initExpr in bindingPairs }
-      E = Environment( outer=E, bindings=initialBindings )
+      initialBindings = {
+                         name: lEval(initExpr, E) for name,
+                         initExpr in bindingPairs }
+      E = Environment( outer=E,
+                      bindings=initialBindings )
         
       # Execute body in the new E
       for subExpr in body[:-1]:            # non-tail body forms: recurse
@@ -200,7 +204,8 @@ def lEval( expr, env ):
         # user-defined function: TCO -- reassign the registers and loop.  The
         # new environment is opened on the *captured* (lexical) env, not the caller's.
         initialBindings = bind_params(fn.params, args)
-        E = Environment( outer=fn.definingEnv, bindings=initialBindings )
+        E = Environment( outer=fn.definingEnv,
+                        bindings=initialBindings )
 
         # Execute the body in the new E
         for subExpr in fn.body[:-1]:            # non-tail body forms: recurse

@@ -102,7 +102,9 @@ def lEval( expr, env ):
   elif expr[0] == 'if':
     _, condExpr, thenExpr, elseExpr = expr
     condVal = lEval(condExpr, env)
-    return lEval(elseExpr if condVal is lFalse else thenExpr, env)
+    return lEval(
+                 elseExpr if condVal is lFalse else thenExpr,
+                 env)
 
   elif expr[0] == 'cond':
     # Really a chain of ifs, so say so: peel one clause and re-evaluate the
@@ -113,7 +115,9 @@ def lEval( expr, env ):
     test, result = clauses[0]
     if test == 'else':
       return lEval(result, env)
-    return lEval( ['if', test, result, ['cond'] + list(clauses[1:])], env )
+    return lEval(
+                 ['if', test, result, ['cond'] + list(clauses[1:])],
+                 env )
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -146,8 +150,11 @@ def lEval( expr, env ):
   elif expr[0] == 'let':
     _, bindingPairs, *body = expr
     # Each init is evaluated in the OUTER env -- that is what makes this let, not let*.
-    initialBindings = { name: lEval(initExpr, env) for name, initExpr in bindingPairs }
-    new_env = Environment( outer=env, bindings=initialBindings )
+    initialBindings = {
+                       name: lEval(initExpr, env) for name,
+                       initExpr in bindingPairs }
+    new_env = Environment( outer=env,
+                          bindings=initialBindings )
         
     for subExpr in body[:-1]:             # non-tail body forms
       lEval(subExpr, new_env)
@@ -171,7 +178,8 @@ def lEval( expr, env ):
       # user-defined function: evaluate its body in a fresh local environment stacked
       # off the *captured* (lexical) environment, not the caller's.
       initialBindings = bind_params(fn.params, args)
-      new_env = Environment(outer=fn.definingEnv, bindings=initialBindings)
+      new_env = Environment(outer=fn.definingEnv,
+                            bindings=initialBindings)
 
       for subExpr in fn.body[:-1]:       # non-tail body forms
         lEval(subExpr, new_env)

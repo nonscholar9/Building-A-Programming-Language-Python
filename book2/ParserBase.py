@@ -95,7 +95,8 @@ class LexerBuffer:
 
   def scanLinePos( self ):
     """Index of the first character of the current line."""
-    return self._source.rfind( '\n', 0, self._point ) + 1
+    return self._source.rfind( '\n', 0,
+                              self._point ) + 1
 
   def scanColNum( self ):
     return self._point - self.scanLinePos() + 1
@@ -147,7 +148,8 @@ class ParseError( Exception ):
         buf.scanLineTxt(), message ) )
 
   @staticmethod
-  def _format( filename, line, col, sourceLine, message ):
+  def _format( filename, line, col, sourceLine,
+              message ):
     caret = ' ' * ( col - 1 ) + '^'
     return ( f'Syntax Error: "{filename}" ({line},{col})\n'
              f'{sourceLine}\n{caret}\n{message}' )

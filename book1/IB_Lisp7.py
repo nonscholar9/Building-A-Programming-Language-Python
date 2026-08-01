@@ -649,7 +649,9 @@ def compile_expr( expr, out, tail ):
     _, bindingPairs, *body = expr
     names = [ pair[0] for pair in bindingPairs ]
     inits = [ pair[1] for pair in bindingPairs ]
-    compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
+    compile_expr(
+                 [['lambda', names] + list( body )] + inits,
+                 out, tail )
 
   elif expr[0] == 'quote':                    # ['quote', datum]
     _compile_quoted( expr[1], out )
@@ -692,7 +694,8 @@ def compile_expr( expr, out, tail ):
     for sub in expr:
       compile_expr( sub, out, tail=False )
       out.append( (OP_APPLY_ARG,) )
-    out.append( (OP_TCALL,) if tail else (OP_CALL,) )
+    out.append( (OP_TCALL,
+                 ) if tail else (OP_CALL,) )
 
 
 def compile_program( expr ):

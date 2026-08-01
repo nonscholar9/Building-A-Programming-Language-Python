@@ -160,7 +160,8 @@ def lEval( expr, env ):
         if test == 'else':
           C = result
         else:
-          C = [ 'if', test, result, ['cond'] + clauses[1:] ]
+          C = [ 'if', test, result,
+               ['cond'] + clauses[1:] ]
       elif C[0] == 'and':                # ['and', *forms] -- short-circuits
         forms = list( C[1:] )
         if not forms:
@@ -211,7 +212,8 @@ def lEval( expr, env ):
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:                       # more operands to evaluate
-          K.append( (FRAME_ARG, doneList, todoList[1:], env) )
+          K.append( (FRAME_ARG, doneList, todoList[1:],
+                     env) )
           C = todoList[0]
           E = env
           break
@@ -230,7 +232,8 @@ def lEval( expr, env ):
           continue                   # stay in APPLY
         _, params, body, clo_env = fn  # closure: bind params, run the body
         initialBindings = bind_params( params, args )
-        E = Environment( outer=clo_env, bindings=initialBindings )
+        E = Environment( outer=clo_env,
+                        bindings=initialBindings )
         if len(body) > 1:
           K.append( (FRAME_SEQ, body[1:], E) )
         C = body[0]

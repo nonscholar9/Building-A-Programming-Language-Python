@@ -61,7 +61,9 @@ def lEval( expr, env ):
   elif expr[0] == 'if':
     _, condExpr, thenExpr, elseExpr = expr
     condVal = lEval(condExpr, env)
-    return lEval(elseExpr if condVal is lFalse else thenExpr, env)
+    return lEval(
+                 elseExpr if condVal is lFalse else thenExpr,
+                 env)
 
   elif expr[0] == 'cond':
     # Really a chain of ifs, so say so: peel one clause and re-evaluate the
@@ -72,7 +74,9 @@ def lEval( expr, env ):
     test, result = clauses[0]
     if test == 'else':
       return lEval(result, env)
-    return lEval( ['if', test, result, ['cond'] + list(clauses[1:])], env )
+    return lEval(
+                 ['if', test, result, ['cond'] + list(clauses[1:])],
+                 env )
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -192,7 +196,8 @@ def main() -> None:
   run( ['<', 5, 2] )
 
   # if: evaluate condition, then pick the matching branch.
-  run( ['if', ['=', 'a', 2], ['+', 'a', 1], ['-', 'a', 1]] )
+  run( ['if', ['=', 'a', 2], ['+', 'a', 1],
+        ['-', 'a', 1]] )
 
   # begin: evaluate a sequence of forms; return the value of the last one.
   run( ['begin', ['set!', 'b', 10], ['+', 'b', 5]] )

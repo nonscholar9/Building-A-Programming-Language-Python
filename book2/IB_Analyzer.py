@@ -119,7 +119,8 @@ def check_arity( form, known ):
     name, value = form[1], form[2]
     check_arity( value, known )
     # We learn an arity only when the value is a lambda sitting right here.
-    if isinstance( value, list ) and value and value[0] == 'lambda':
+    if isinstance( value,
+                  list ) and value and value[0] == 'lambda':
       known[name] = value[1]
     return
 
@@ -141,7 +142,8 @@ def check_arity( form, known ):
 # instant either side of it is a name.  There is nothing to check against.
 # ---------------------------------------------------------------------------
 
-_NUMERIC = { '+', '-', '*', '%', '<', '>', '<=', '>=', '=' }
+_NUMERIC = { '+', '-', '*', '%', '<', '>', '<=',
+            '>=', '=' }
 
 def check_types( form ):
   if not isinstance( form, list ) or not form:
@@ -153,7 +155,8 @@ def check_types( form ):
     for arg in form[1:]:
       # We can judge only what is written out in full.  A quoted symbol
       # is a non-number we can see; a variable or a call, we cannot.
-      if isinstance( arg, list ) and arg and arg[0] == 'quote':
+      if isinstance( arg,
+                    list ) and arg and arg[0] == 'quote':
         raise LispError( f"{head}: argument is not a number: '{arg[1]}" )
   for sub in form[1:]:
     check_types( sub )

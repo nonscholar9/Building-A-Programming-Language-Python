@@ -94,7 +94,8 @@ class Lexer( LexerBase ):
         self._indents.pop()
         self._pending.append( Lexer.DEDENT_TOK )
       if self._indents[-1] != col:
-        raise ParseError( self, 'unindent does not match any outer level' )
+        raise ParseError( self,
+                         'unindent does not match any outer level' )
       return self._pending.pop( 0 )
     return None                      # col == top: no layout token, scan on
 
@@ -134,7 +135,8 @@ class Lexer( LexerBase ):
 
     if ch in _NAME_START:
       buf.consumePast( _NAME_REST )
-      return Lexer.KEYWORDS.get( self.getLexeme(), Lexer.NAME_TOK )
+      return Lexer.KEYWORDS.get( self.getLexeme(),
+                                Lexer.NAME_TOK )
     if ch in _DIGITS:
       buf.consumePast( _DIGITS )
       return Lexer.INTEGER_TOK
@@ -268,7 +270,8 @@ class Parser( ParserBase ):
       self._next()
       right = self._parse_expression()
       if left[0] != 'name':
-        raise ParseError( self._scanner, 'cannot assign to this expression' )
+        raise ParseError( self._scanner,
+                         'cannot assign to this expression' )
       return ( 'assign', left[1], right )
     return ( 'expr', left )
 
@@ -368,7 +371,8 @@ class Parser( ParserBase ):
 
   def _parse_sum( self ):       # sum ::= term (("+" | "-") term)*
     node = self._parse_term()
-    while self._peek() in ( Lexer.PLUS_TOK, Lexer.MINUS_TOK ):
+    while self._peek() in ( Lexer.PLUS_TOK,
+                           Lexer.MINUS_TOK ):
       op = _BINOP_NAME[ self._peek() ]
       self._next()
       node = ( 'binop', op, node, self._parse_term() )

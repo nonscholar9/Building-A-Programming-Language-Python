@@ -206,7 +206,8 @@ def lEval( expr, env ):
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:
-          K.append( (FRAME_ARG, doneList, todoList[1:], env) )
+          K.append( (FRAME_ARG, doneList, todoList[1:],
+                     env) )
           C = todoList[0]
           E = env
           break

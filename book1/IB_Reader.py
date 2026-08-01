@@ -64,11 +64,14 @@ class Scanner:
         if ch == '':
             self._tok = EOF
         elif ch == '(':
-            self._pos += 1;  self._tok = LPAREN
+            self._pos += 1
+            self._tok = LPAREN
         elif ch == ')':
-            self._pos += 1;  self._tok = RPAREN
+            self._pos += 1
+            self._tok = RPAREN
         elif ch == "'":
-            self._pos += 1;  self._tok = QUOTE
+            self._pos += 1
+            self._tok = QUOTE
         else:                                  # anything else begins an atom
             self._consumeUpTo( DELIMITERS )    # scan the run up to a delimiter
             self._tok = ATOM
@@ -119,8 +122,12 @@ def atom( text ):
     try:
         return int( text )
     except ValueError:
-        if text == '#t': return lTrue           # the two booleans, minted here at the
-        if text == '#f': return lFalse          # parse boundary (a name stays a string)
+        # the two booleans, minted here at the parse boundary (a name stays a
+        # string)
+        if text == '#t':
+            return lTrue
+        if text == '#f':
+            return lFalse
         return text                             # a symbol -- a plain string
 
 

@@ -36,7 +36,8 @@ _STOP = [ 'quote', 'stop-iteration' ]     # a value mini-Python source cannot ma
 
 def assigned_names( body ):
     found = set()
-    for s in body: _assigned( s, found )
+    for s in body:
+        _assigned( s, found )
     return found
 
 def _assigned( s, found ):
@@ -44,13 +45,17 @@ def _assigned( s, found ):
     if tag == 'assign':
         found.add( s[1] )
     elif tag == 'if':
-        for st in s[2]: _assigned( st, found )
+        for st in s[2]:
+            _assigned( st, found )
         for _, blk in s[3]:
-            for st in blk: _assigned( st, found )
+            for st in blk:
+                _assigned( st, found )
         if s[4]:
-            for st in s[4]: _assigned( st, found )
+            for st in s[4]:
+                _assigned( st, found )
     elif tag == 'while':
-        for st in s[2]: _assigned( st, found )
+        for st in s[2]:
+            _assigned( st, found )
     elif tag == 'def':
         found.add( s[1] )
 
@@ -168,16 +173,24 @@ def lower_expr( e ):
         return [ lower_expr( e[1] ) ] + [ lower_expr( a ) for a in e[2] ]
     if tag == 'unary':
         op, x = e[1], lower_expr( e[2] )
-        if op == '-':   return [ '-', 0, x ]
-        if op == '+':   return x
-        if op == 'not': return [ 'not', x ]
+        if op == '-':
+            return [ '-', 0, x ]
+        if op == '+':
+            return x
+        if op == 'not':
+            return [ 'not', x ]
     if tag == 'binop':
         op, l, r = e[1], lower_expr( e[2] ), lower_expr( e[3] )
-        if op in _ARITH:            return [ op, l, r ]
-        if op == '==':              return [ '=', l, r ]
-        if op == '!=':              return [ 'not', [ '=', l, r ] ]
-        if op == 'and':             return [ 'and', l, r ]
-        if op == 'or':              return [ 'or', l, r ]
+        if op in _ARITH:
+            return [ op, l, r ]
+        if op == '==':
+            return [ '=', l, r ]
+        if op == '!=':
+            return [ 'not', [ '=', l, r ] ]
+        if op == 'and':
+            return [ 'and', l, r ]
+        if op == 'or':
+            return [ 'or', l, r ]
     raise ValueError( f'unknown expression {e!r}' )
 
 

@@ -177,8 +177,10 @@ def _take( size ):
                 repl, given = mk_ptr( b ), size
             else:                               # hand over the whole block
                 repl, given = nxt, bsize
-            if prev == NIL: free_list = repl
-            else:           heap[addr_of( prev ) + 2] = repl
+            if prev == NIL:
+                free_list = repl
+            else:
+                heap[addr_of( prev ) + 2] = repl
             return a, given
         prev, cur = cur, nxt
 
@@ -356,16 +358,22 @@ def pointers_in( a ):
         out = [heap[a + 2]]
         out += [heap[a + 5 + 2 * i] for i in range( heap[a + 3] )]
         return out
-    if tag == TAG_CLOSURE: return [heap[a + 3]]
-    if tag == TAG_PRIM:    return []
-    if tag == TAG_RET:     return [heap[a + 2], heap[a + 4]]
-    if tag == TAG_IF:      return [heap[a + 2], heap[a + 5]]
+    if tag == TAG_CLOSURE:
+        return [heap[a + 3]]
+    if tag == TAG_PRIM:
+        return []
+    if tag == TAG_RET:
+        return [heap[a + 2], heap[a + 4]]
+    if tag == TAG_IF:
+        return [heap[a + 2], heap[a + 5]]
     if tag == TAG_ARG:
         out = [heap[a + 2], heap[a + 3]]
         out += [heap[a + 6 + i] for i in range( heap[a + 4] )]
         return out
-    if tag == TAG_PAIR:    return [heap[a + 2], heap[a + 3]]
-    if tag == TAG_SYMBOL:  return []
+    if tag == TAG_PAIR:
+        return [heap[a + 2], heap[a + 3]]
+    if tag == TAG_SYMBOL:
+        return []
     return []
 
 
@@ -459,12 +467,14 @@ def _is_sym( v ):
 
 def _add( a ):                                  # variadic, like Chapter 5; (+) is 0
     total = 0
-    for x in a: total += num_of( x )
+    for x in a:
+        total += num_of( x )
     return mk_num( total )
 def _sub( a ): return mk_num( num_of( a[0] ) - num_of( a[1] ) )
 def _mul( a ):                                  # variadic; (*) is 1
     total = 1
-    for x in a: total *= num_of( x )
+    for x in a:
+        total *= num_of( x )
     return mk_num( total )
 def _mod( a ): return mk_num( num_of( a[0] ) %  num_of( a[1] ) )
 def _eq(  a ):
@@ -582,35 +592,43 @@ def compile_body( forms, out, tail ):
 def compile_expr( expr, out, tail ):
     if isinstance( expr, LBoolean ):
         out.append( (OP_BOOL, expr) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif isinstance( expr, str ):
         out.append( (OP_VAR, intern( expr )) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif isinstance( expr, int ):
         out.append( (OP_INT, expr) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'lambda':                   # ['lambda', [params], *body]
-        lam_idx  = len( out ); out.append( None )
-        jump_idx = len( out ); out.append( None )
+        lam_idx  = len( out )
+        out.append( None )
+        jump_idx = len( out )
+        out.append( None )
         body_pc  = len( out )
         _, params, *body = expr
         compile_body( body, out, tail=True )
         out[lam_idx]  = (OP_LAM, [intern( p ) for p in params], body_pc)
         out[jump_idx] = (OP_JUMP, len( out ))
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'if':                       # ['if', test, then, else]
         _, condExpr, thenExpr, elseExpr = expr
-        if_idx = len( out ); out.append( None )
+        if_idx = len( out )
+        out.append( None )
         compile_expr( condExpr, out, tail=False )
         out.append( (OP_APPLY_IF,) )
         then_pc = len( out )
         compile_expr( thenExpr, out, tail=tail )
         if not tail:
-            then_jump = len( out ); out.append( None )
+            then_jump = len( out )
+            out.append( None )
         else_pc = len( out )
         compile_expr( elseExpr, out, tail=tail )
         if not tail:
@@ -621,7 +639,8 @@ def compile_expr( expr, out, tail ):
         _, name, valExpr = expr
         compile_expr( valExpr, out, tail=False )
         out.append( (OP_SET, intern( name )) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'begin':                    # ['begin', *forms]
         compile_body( expr[1:], out, tail )
@@ -634,7 +653,8 @@ def compile_expr( expr, out, tail ):
 
     elif expr[0] == 'quote':                    # ['quote', datum]
         _compile_quoted( expr[1], out )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'cond':                     # ['cond', (test result)...]
         clauses = expr[1:]
@@ -752,31 +772,39 @@ def _run( prog ):
         op = prog[pc][0]
 
         if op == OP_INT:
-            V = mk_num( prog[pc][1] ); pc += 1
+            V = mk_num( prog[pc][1] )
+            pc += 1
 
         elif op == OP_BOOL:
-            V = TRUE if prog[pc][1] is lTrue else FALSE; pc += 1
+            V = TRUE if prog[pc][1] is lTrue else FALSE
+            pc += 1
 
         elif op == OP_SYM:
-            V = mk_symbol( prog[pc][1] ); pc += 1
+            V = mk_symbol( prog[pc][1] )
+            pc += 1
 
         elif op == OP_NIL:
-            V = NIL; pc += 1
+            V = NIL
+            pc += 1
 
         elif op == OP_VAR:
-            V = env_lookup( E, prog[pc][1] ); pc += 1
+            V = env_lookup( E, prog[pc][1] )
+            pc += 1
 
         elif op == OP_LAM:
-            V = mk_closure( pc, E ); pc += 1     # the closure remembers its own OP_LAM
+            V = mk_closure( pc, E )     # the closure remembers its own OP_LAM
+            pc += 1
 
         elif op == OP_JUMP:
             pc = prog[pc][1]
 
         elif op == OP_SET:
-            env_set( E, prog[pc][1], V ); pc += 1
+            env_set( E, prog[pc][1], V )
+            pc += 1
 
         elif op == OP_APP_START:
-            K = mk_arg( K, E, prog[pc][1] ); pc += 1
+            K = mk_arg( K, E, prog[pc][1] )
+            pc += 1
 
         elif op == OP_APPLY_ARG:                 # stash V in the frame's next slot
             a = addr_of( K )
@@ -822,7 +850,8 @@ def _run( prog ):
                 pc   = lam[2]
 
         elif op == OP_IF_START:
-            K = mk_if( K, prog[pc][1], prog[pc][2], E ); pc += 1
+            K = mk_if( K, prog[pc][1], prog[pc][2], E )
+            pc += 1
 
         elif op == OP_APPLY_IF:                  # #f is the only false value
             a  = addr_of( K )
@@ -893,15 +922,22 @@ def source_str( val ):
 
 
 def show( val ):
-    if val == TRUE:  return '#t'
-    if val == FALSE: return '#f'
-    if val == NIL:   return '()'
+    if val == TRUE:
+        return '#t'
+    if val == FALSE:
+        return '#f'
+    if val == NIL:
+        return '()'
     if is_ptr( val ) and addr_of( val ) >= 0:
         a = addr_of( val )
-        if heap[a] == TAG_CLOSURE: return '#<procedure>'
-        if heap[a] == TAG_PRIM:    return f'#<{PRIMS[heap[a + 2]][0]}>'
-        if heap[a] == TAG_SYMBOL:  return name_of( heap[a + 2] )
-        if heap[a] == TAG_PAIR:    return _show_list( val )
+        if heap[a] == TAG_CLOSURE:
+            return '#<procedure>'
+        if heap[a] == TAG_PRIM:
+            return f'#<{PRIMS[heap[a + 2]][0]}>'
+        if heap[a] == TAG_SYMBOL:
+            return name_of( heap[a + 2] )
+        if heap[a] == TAG_PAIR:
+            return _show_list( val )
     return str( num_of( val ) )
 
 

@@ -146,35 +146,43 @@ def compile_body( forms, out, tail ):
 def compile_expr( expr, out, tail ):
     if isinstance( expr, (int, LBoolean) ):  # a number or boolean -> a constant
         out.append( (OP_INT, expr) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif isinstance( expr, str ):           # a variable
         out.append( (OP_VAR, expr) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'quote':                # ['quote', datum] -> the datum itself
         out.append( (OP_QUOTE, expr[1]) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'lambda':               # ['lambda', [params], *body]
-        lam_idx  = len(out); out.append( None )   # reserve OP_LAM
-        jump_idx = len(out); out.append( None )   # reserve OP_JUMP (skip the body)
+        lam_idx  = len(out)                 # reserve OP_LAM
+        out.append( None )
+        jump_idx = len(out)                 # reserve OP_JUMP (skip the body)
+        out.append( None )
         body_pc  = len(out)
         _, params, *body = expr
         compile_body( body, out, tail=True )      # a body is always in tail position
         out[lam_idx]  = (OP_LAM, params, body_pc)
         out[jump_idx] = (OP_JUMP, len(out))
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'if':                   # ['if', test, then, else]
         _, condExpr, thenExpr, elseExpr = expr
-        if_idx = len(out); out.append( None )     # reserve OP_IF_START
+        if_idx = len(out)                   # reserve OP_IF_START
+        out.append( None )
         compile_expr( condExpr, out, tail=False ) # the test is never in tail position
         out.append( (OP_APPLY_IF,) )
         then_pc = len(out)
         compile_expr( thenExpr, out, tail=tail )  # then inherits our tail context
         if not tail:
-            then_jump_idx = len(out); out.append( None )   # skip the else branch
+            then_jump_idx = len(out)        # skip the else branch
+            out.append( None )
         else_pc = len(out)
         compile_expr( elseExpr, out, tail=tail )  # else inherits our tail context
         if not tail:
@@ -185,7 +193,8 @@ def compile_expr( expr, out, tail ):
         _, name, valExpr = expr
         compile_expr( valExpr, out, tail=False )
         out.append( (OP_SET, name) )
-        if tail: out.append( (OP_RET,) )
+        if tail:
+            out.append( (OP_RET,) )
 
     elif expr[0] == 'begin':                # ['begin', *forms]
         compile_body( expr[1:], out, tail )

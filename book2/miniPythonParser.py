@@ -103,7 +103,8 @@ class Lexer( LexerBase ):
         while True:
             n = 0
             while buf.peekNextChar() == ' ':
-                buf.consume(); n += 1
+                buf.consume()
+                n += 1
             ch = buf.peekNextChar()
             if ch == '#':
                 buf.consumeUpTo( '\n' )
@@ -140,22 +141,26 @@ class Lexer( LexerBase ):
         if ch == '=':
             buf.consume()
             if buf.peekNextChar() == '=':
-                buf.consume(); return Lexer.EQEQ_TOK
+                buf.consume()
+                return Lexer.EQEQ_TOK
             return Lexer.ASSIGN_TOK
         if ch == '!':
             buf.consume()
             if buf.peekNextChar() == '=':
-                buf.consume(); return Lexer.NOTEQ_TOK
+                buf.consume()
+                return Lexer.NOTEQ_TOK
             raise ParseError( self, "'=' expected after '!'" )
         if ch == '<':
             buf.consume()
             if buf.peekNextChar() == '=':
-                buf.consume(); return Lexer.LE_TOK
+                buf.consume()
+                return Lexer.LE_TOK
             return Lexer.LT_TOK
         if ch == '>':
             buf.consume()
             if buf.peekNextChar() == '=':
-                buf.consume(); return Lexer.GE_TOK
+                buf.consume()
+                return Lexer.GE_TOK
             return Lexer.GT_TOK
         if ch in Lexer._SINGLE:
             buf.consume()

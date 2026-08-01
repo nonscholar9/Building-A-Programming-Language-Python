@@ -38,11 +38,11 @@ from IB_Core         import lEval, global_env, lisp_str
 
 
 def run( source ):
-    """Run a whole mini-Python program through every stage of the tower."""
-    tree = Parser().parse( source )       # text  -> tree
-    core = expand( lower_module( tree ) ) # tree  -> Lisp -> core
-    core = analyze( core )                # core  -> core, or a refusal
-    return lEval( core, global_env )      # core  -> behaviour
+  """Run a whole mini-Python program through every stage of the tower."""
+  tree = Parser().parse( source )       # text  -> tree
+  core = expand( lower_module( tree ) ) # tree  -> Lisp -> core
+  core = analyze( core )                # core  -> core, or a refusal
+  return lEval( core, global_env )      # core  -> behaviour
 
 
 # ---------------------------------------------------------------------------
@@ -93,12 +93,12 @@ print(next(g))
 
 
 def main():
-    print( '--- a mini-Python program, run end to end ---\n' )
-    print( 'source:' )
-    print( PROGRAM )
-    print( 'output:' )
-    run( PROGRAM )
+  print( '--- a mini-Python program, run end to end ---\n' )
+  print( 'source:' )
+  print( PROGRAM )
+  print( 'output:' )
+  run( PROGRAM )
 
 
 if __name__ == '__main__':
-    main()
+  main()

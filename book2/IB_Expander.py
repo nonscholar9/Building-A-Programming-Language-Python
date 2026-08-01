@@ -64,67 +64,70 @@ from IB_Reader import parse
 _gensym_counter = 0
 
 def gensym():
-    """Return a name that no source text can contain.
+  """Return a name that no source text can contain.
 
     A symbol in this Lisp is a plain Python string, and the reader splits the
     source on whitespace.  So a leading space is the whole trick: it makes a
     name the machine is perfectly happy with and the reader can never produce.
     """
-    global _gensym_counter
-    _gensym_counter += 1
-    return ' t' + str( _gensym_counter )
+  global _gensym_counter
+  _gensym_counter += 1
+  return ' t' + str( _gensym_counter )
 
 
 def rule_let( form ):
-    # (let ((name init)...) body...)  ->  ((lambda (name...) body...) init...)
-    names = [ pair[0] for pair in form[1] ]
-    inits = [ pair[1] for pair in form[1] ]
-    return [ ['lambda', names] + list(form[2:]) ] + inits
+  # (let ((name init)...) body...)  ->  ((lambda (name...) body...) init...)
+  names = [ pair[0] for pair in form[1] ]
+  inits = [ pair[1] for pair in form[1] ]
+  return [ ['lambda',
+            names] + list(form[2:]) ] + inits
 
 
 def rule_cond( form ):
-    # (cond (test result)...)  ->  (if test result (cond ...))
-    # `else` is the clause whose test always holds.
-    clauses = list( form[1:] )
-    if not clauses:
-        return lFalse
-    test, result = clauses[0][0], clauses[0][1]
-    if test == 'else':
-        return result
-    return [ 'if', test, result, ['cond'] + clauses[1:] ]
+  # (cond (test result)...)  ->  (if test result (cond ...))
+  # `else` is the clause whose test always holds.
+  clauses = list( form[1:] )
+  if not clauses:
+    return lFalse
+  test, result = clauses[0][0], clauses[0][1]
+  if test == 'else':
+    return result
+  return [ 'if', test, result,
+          ['cond'] + clauses[1:] ]
 
 
 def rule_and( form ):
-    # (and)            ->  #t
-    # (and x)          ->  x
-    # (and x rest...)  ->  (if x (and rest...) #f)
-    forms = list( form[1:] )
-    if not forms:
-        return lTrue
-    if len(forms) == 1:
-        return forms[0]
-    return [ 'if', forms[0], ['and'] + forms[1:], lFalse ]
+  # (and)            ->  #t
+  # (and x)          ->  x
+  # (and x rest...)  ->  (if x (and rest...) #f)
+  forms = list( form[1:] )
+  if not forms:
+    return lTrue
+  if len(forms) == 1:
+    return forms[0]
+  return [ 'if', forms[0], ['and'] + forms[1:],
+          lFalse ]
 
 
 def rule_or( form ):
-    # (or)            ->  #f
-    # (or x)          ->  x
-    # (or x rest...)  ->  (let ((tmp x)) (if tmp tmp (or rest...)))
-    #
-    # The temporary is the entire difficulty.  Without it the rule reads
-    # (if x x (or rest...)), which evaluates x twice, and `or` is not allowed
-    # to do that: (or (print 7) 99) must print 7 exactly once.  So the rule
-    # needs a name to hold the value in, and that name must be one the caller's
-    # own code cannot collide with.  gensym is here for the rule writer's sake,
-    # before any reader of this file has asked for a macro.
-    forms = list( form[1:] )
-    if not forms:
-        return lFalse
-    if len(forms) == 1:
-        return forms[0]
-    tmp = gensym()
-    return [ 'let', [[tmp, forms[0]]],
-             ['if', tmp, tmp, ['or'] + forms[1:]] ]
+  # (or)            ->  #f
+  # (or x)          ->  x
+  # (or x rest...)  ->  (let ((tmp x)) (if tmp tmp (or rest...)))
+  #
+  # The temporary is the entire difficulty.  Without it the rule reads
+  # (if x x (or rest...)), which evaluates x twice, and `or` is not allowed
+  # to do that: (or (print 7) 99) must print 7 exactly once.  So the rule
+  # needs a name to hold the value in, and that name must be one the caller's
+  # own code cannot collide with.  gensym is here for the rule writer's sake,
+  # before any reader of this file has asked for a macro.
+  forms = list( form[1:] )
+  if not forms:
+    return lFalse
+  if len(forms) == 1:
+    return forms[0]
+  tmp = gensym()
+  return [ 'let', [[tmp, forms[0]]],
+           ['if', tmp, tmp, ['or'] + forms[1:]] ]
 
 
 # The rule table.  It is an ordinary dict, which is the whole of the chapter:
@@ -138,73 +141,76 @@ RULES = {
 
 
 def apply_macro( macro, form ):
-    """Run a rule that is written in Lisp rather than in Python.
+  """Run a rule that is written in Lisp rather than in Python.
 
     The arguments handed over are the argument *trees*, unevaluated.  That is
     the only thing separating a macro from a procedure.  Binding parameters and
     running a body is what the machine does for every call it makes, so rather
     than reimplement it here, we ask the machine.
     """
-    _, params, body, env = macro
-    args  = list( form[1:] )
-    local = Environment( outer=env, bindings=bind_params( params, args ) )
-    return lEval( ['begin'] + body, local )
+  _, params, body, env = macro
+  args  = list( form[1:] )
+  local = Environment( outer=env,
+                      bindings=bind_params( params, args ) )
+  return lEval( ['begin'] + body, local )
 
 
 def apply_rule( rule, form ):
-    if callable( rule ):                # a rule written in Python
-        return rule( form )
-    return apply_macro( rule, form )    # a rule written in Lisp
+  if callable( rule ):                # a rule written in Python
+    return rule( form )
+  return apply_macro( rule, form )    # a rule written in Lisp
 
 
 def define_macro( form ):
-    # (define-macro (name . params) body...)
-    #
-    # The body is expanded before it is stored.  It has to be: a macro body is
-    # ordinary Lisp, an author will reach for `let` inside one, and the machine
-    # that will run it no longer knows what `let` is.
-    spec   = form[1]
-    name   = spec[0]
-    params = list( spec[1:] )
-    body   = [ expand(f) for f in form[2:] ]
-    RULES[name] = ( VAL_CLOSURE, params, body, global_env )
-    return lFalse
+  # (define-macro (name . params) body...)
+  #
+  # The body is expanded before it is stored.  It has to be: a macro body is
+  # ordinary Lisp, an author will reach for `let` inside one, and the machine
+  # that will run it no longer knows what `let` is.
+  spec   = form[1]
+  name   = spec[0]
+  params = list( spec[1:] )
+  body   = [ expand(f) for f in form[2:] ]
+  RULES[name] = ( VAL_CLOSURE, params, body,
+                 global_env )
+  return lFalse
 
 
 def is_rule_use( form ):
-    return ( isinstance( form, list ) and form
-             and isinstance( form[0], str ) and form[0] in RULES )
+  return ( isinstance( form, list ) and form
+           and isinstance( form[0], str ) and form[0] in RULES )
 
 
 def expand( form ):
-    """Rewrite a program until nothing but core forms is left.
+  """Rewrite a program until nothing but core forms is left.
 
     The core forms are the ones lEval knows: quote, lambda, if, set!, begin,
     and application.  Everything else is a rule in RULES.
     """
+  if not isinstance( form, list ) or not form:
+    return form                          # an atom rewrites to itself
+
+  if form[0] == 'define-macro':
+    return define_macro( form )
+
+  # Rewrite this node until its head is no longer a rule.  This is a loop and
+  # not an `if`, because a rule may expand into another rule's form: `or`
+  # expands into a `let`, and `let` expands into a lambda applied to its
+  # inits.  Keep going until the head is something the machine can run.
+  while is_rule_use( form ):
+    form = apply_rule( RULES[ form[0] ], form )
     if not isinstance( form, list ) or not form:
-        return form                          # an atom rewrites to itself
+      return form
 
-    if form[0] == 'define-macro':
-        return define_macro( form )
-
-    # Rewrite this node until its head is no longer a rule.  This is a loop and
-    # not an `if`, because a rule may expand into another rule's form: `or`
-    # expands into a `let`, and `let` expands into a lambda applied to its
-    # inits.  Keep going until the head is something the machine can run.
-    while is_rule_use( form ):
-        form = apply_rule( RULES[ form[0] ], form )
-        if not isinstance( form, list ) or not form:
-            return form
-
-    head = form[0]
-    if head == 'quote':                      # (quote datum): the datum is data
-        return form
-    if head == 'lambda':                     # the parameters are names, not code
-        return [ 'lambda', form[1] ] + [ expand(f) for f in form[2:] ]
-    if head == 'set!':                       # the name is a name, not code
-        return [ 'set!', form[1], expand( form[2] ) ]
-    return [ expand(f) for f in form ]       # if / begin / application
+  head = form[0]
+  if head == 'quote':                      # (quote datum): the datum is data
+    return form
+  if head == 'lambda':                     # the parameters are names, not code
+    return [ 'lambda',
+            form[1] ] + [ expand(f) for f in form[2:] ]
+  if head == 'set!':                       # the name is a name, not code
+    return [ 'set!', form[1], expand( form[2] ) ]
+  return [ expand(f) for f in form ]       # if / begin / application
 
 
 # gensym is a rule writer's tool above, and a macro writer's tool here.  Same
@@ -220,64 +226,64 @@ global_env.set( 'gensym', lambda args: gensym() )
 # ---------------------------------------------------------------------------
 
 def run( source ):
-    """The pipeline, and it is two lines long.
+  """The pipeline, and it is two lines long.
 
     Every phase this book adds from here shows up in this function.
     """
-    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-    print( '>>> ' + lisp_str( expr ) )
-    core = expand( expr )
-    if core != expr:
-        print( '  = ' + lisp_str( core ) )
-    result = lEval( core, global_env )
-    print( '==> ' + lisp_str( result ) )
-    print()
+  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
+  print( '>>> ' + lisp_str( expr ) )
+  core = expand( expr )
+  if core != expr:
+    print( '  = ' + lisp_str( core ) )
+  result = lEval( core, global_env )
+  print( '==> ' + lisp_str( result ) )
+  print()
 
 
 def main():
-    print( '--- the language still has everything the machine gave up ---\n' )
-    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )           # 25
-    run( "(cond ((= 1 2) 'no) ((< 1 2) 'yes) (else 'fallback))" )      # yes
-    run( '(and 1 2)' )                                       # 2
-    run( '(and #f 99)' )                                 # #f
-    run( '(or #f 7)' )                                   # 7
+  print( '--- the language still has everything the machine gave up ---\n' )
+  run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )           # 25
+  run( "(cond ((= 1 2) 'no) ((< 1 2) 'yes) (else 'fallback))" )      # yes
+  run( '(and 1 2)' )                                       # 2
+  run( '(and #f 99)' )                                 # #f
+  run( '(or #f 7)' )                                   # 7
 
-    print( "--- `and` short-circuits, and so the rewrite must too ---\n" )
-    run( '(and #f (print 99))' )                      # #f, 99 unprinted
+  print( "--- `and` short-circuits, and so the rewrite must too ---\n" )
+  run( '(and #f (print 99))' )                      # #f, 99 unprinted
 
-    print( "--- why `or`'s rule needs a name you cannot type ---\n" )
-    run( '(or (print 7) 99)' )                            # prints 7 ONCE
+  print( "--- why `or`'s rule needs a name you cannot type ---\n" )
+  run( '(or (print 7) 99)' )                            # prints 7 ONCE
 
-    print( '--- the table is data, so a program can add to it ---\n' )
-    run( "(define-macro (when test . body) (list 'if test (cons 'begin body) '#f))" )
-    run( "(when (< 1 2) (print 'yes))" )  # yes
-    run( "(when (> 1 2) (print 'no))" )   # #f, nothing printed
+  print( '--- the table is data, so a program can add to it ---\n' )
+  run( "(define-macro (when test . body) (list 'if test (cons 'begin body) '#f))" )
+  run( "(when (< 1 2) (print 'yes))" )  # yes
+  run( "(when (> 1 2) (print 'no))" )   # #f, nothing printed
 
-    print( '--- a macro that expands into a macro ---\n' )
-    run( "(define-macro (my-if test a b) (list 'cond (list test a) (list 'else b)))" )
-    run( "(my-if (< 1 2) 'first 'second)" )
+  print( '--- a macro that expands into a macro ---\n' )
+  run( "(define-macro (my-if test a b) (list 'cond (list test a) (list 'else b)))" )
+  run( "(my-if (< 1 2) 'first 'second)" )
 
-    print( '--- capture: the macro works until the caller picks the wrong name ---\n' )
-    run( "(define-macro (swap! a b) (list 'let (list (list 'tmp a)) (list 'set! a b) (list 'set! b 'tmp)))" )
-    run( '(set! x 1)' )
-    run( '(set! tmp 2)' )
-    run( '(begin (swap! x tmp) (list x tmp))' )   # wanted (2 1)
+  print( '--- capture: the macro works until the caller picks the wrong name ---\n' )
+  run( "(define-macro (swap! a b) (list 'let (list (list 'tmp a)) (list 'set! a b) (list 'set! b 'tmp)))" )
+  run( '(set! x 1)' )
+  run( '(set! tmp 2)' )
+  run( '(begin (swap! x tmp) (list x tmp))' )   # wanted (2 1)
 
-    print( '--- gensym fixes it ---\n' )
-    run( "(define-macro (swap2! a b) (let ((g (gensym))) (list 'let (list (list g a)) (list 'set! a b) (list 'set! b g))))" )
-    run( '(set! x 1)' )
-    run( '(set! tmp 2)' )
-    run( '(begin (swap2! x tmp) (list x tmp))' )  # (2 1)
+  print( '--- gensym fixes it ---\n' )
+  run( "(define-macro (swap2! a b) (let ((g (gensym))) (list 'let (list (list g a)) (list 'set! a b) (list 'set! b g))))" )
+  run( '(set! x 1)' )
+  run( '(set! tmp 2)' )
+  run( '(begin (swap2! x tmp) (list x tmp))' )  # (2 1)
 
-    print( '--- the half gensym cannot fix ---\n' )
-    run( "(define-macro (add1 n) (list '+ n 1))" )
-    run( '(add1 5)' )                                         # 6
-    run( '(let ((+ -)) (add1 5))' )                  # 4, every name fresh
+  print( '--- the half gensym cannot fix ---\n' )
+  run( "(define-macro (add1 n) (list '+ n 1))" )
+  run( '(add1 5)' )                                         # 6
+  run( '(let ((+ -)) (add1 5))' )                  # 4, every name fresh
 
-    print( '--- and the machine is still the machine ---\n' )
-    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
-    run( '(countdown 100000)' )                               # 0, constant K
+  print( '--- and the machine is still the machine ---\n' )
+  run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
+  run( '(countdown 100000)' )                               # 0, constant K
 
 
 if __name__ == '__main__':
-    main()
+  main()

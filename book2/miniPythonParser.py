@@ -274,7 +274,7 @@ class Parser( ParserBase ):
       right = self._parse_expression()
       if left[0] != 'name':
         raise ParseError( self._scanner,
-                         'cannot assign to this expression' )
+            'cannot assign to this expression' )
       return ( 'assign', left[1], right )
     return ( 'expr', left )
 
@@ -369,7 +369,8 @@ class Parser( ParserBase ):
     if self._peek() in _COMP_NAME:
       op = _COMP_NAME[ self._peek() ]
       self._next()
-      node = ( 'binop', op, node, self._parse_sum() )
+      node = ( 'binop', op, node,
+               self._parse_sum() )
     return node
 
   def _parse_sum( self ):       # sum ::= term (("+" | "-") term)*
@@ -378,7 +379,8 @@ class Parser( ParserBase ):
                            Lexer.MINUS_TOK ):
       op = _BINOP_NAME[ self._peek() ]
       self._next()
-      node = ( 'binop', op, node, self._parse_term() )
+      node = ( 'binop', op, node,
+               self._parse_term() )
     return node
 
   def _parse_term( self ):      # term ::= factor (("*" | "%") factor)*
@@ -386,7 +388,8 @@ class Parser( ParserBase ):
     while self._peek() in ( Lexer.STAR_TOK, Lexer.PERCENT_TOK ):
       op = _BINOP_NAME[ self._peek() ]
       self._next()
-      node = ( 'binop', op, node, self._parse_factor() )
+      node = ( 'binop', op, node,
+               self._parse_factor() )
     return node
 
   def _parse_factor( self ):    # factor ::= ("+" | "-") factor | call

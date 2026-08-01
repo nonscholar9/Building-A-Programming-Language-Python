@@ -48,7 +48,8 @@ Run with: python IB_Expander.py
 """
 
 from IB_Core import (
-    VAL_CLOSURE, Environment, bind_params, lEval, global_env, lisp_str )
+    VAL_CLOSURE, Environment, bind_params,
+    lEval, global_env, lisp_str )
 from IB_AST import lTrue, lFalse
 from IB_Reader import parse
 
@@ -127,7 +128,8 @@ def rule_or( form ):
     return forms[0]
   tmp = gensym()
   return [ 'let', [[tmp, forms[0]]],
-           ['if', tmp, tmp, ['or'] + forms[1:]] ]
+           ['if', tmp, tmp,
+            ['or'] + forms[1:]] ]
 
 
 # The rule table.  It is an ordinary dict, which is the whole of the chapter:
@@ -151,7 +153,7 @@ def apply_macro( macro, form ):
   _, params, body, env = macro
   args  = list( form[1:] )
   local = Environment( outer=env,
-                      bindings=bind_params( params, args ) )
+      bindings=bind_params( params, args ) )
   return lEval( ['begin'] + body, local )
 
 
@@ -206,10 +208,11 @@ def expand( form ):
   if head == 'quote':                      # (quote datum): the datum is data
     return form
   if head == 'lambda':                     # the parameters are names, not code
-    return [ 'lambda',
-            form[1] ] + [ expand(f) for f in form[2:] ]
+    return ( [ 'lambda', form[1] ]
+             + [ expand(f) for f in form[2:] ] )
   if head == 'set!':                       # the name is a name, not code
-    return [ 'set!', form[1], expand( form[2] ) ]
+    return [ 'set!', form[1],
+             expand( form[2] ) ]
   return [ expand(f) for f in form ]       # if / begin / application
 
 

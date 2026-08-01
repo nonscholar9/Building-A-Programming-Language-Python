@@ -367,7 +367,8 @@ global_env = Environment(
 
 def lisp_str(val):
   if isinstance(val, list):
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if isinstance(val, Continuation):      # a reified continuation
     return '#<continuation>'
   if val is CALLCC:

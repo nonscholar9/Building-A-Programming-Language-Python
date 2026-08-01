@@ -162,7 +162,8 @@ def lisp_str(val):
   # Render a value (or AST node) in Lisp surface syntax, so the demo speaks
   # the language being interpreted instead of printing Python's repr.
   if isinstance(val, list):
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if callable(val):
     return '#<primitive>'
   return str(val)

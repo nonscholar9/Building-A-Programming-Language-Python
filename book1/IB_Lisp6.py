@@ -432,7 +432,8 @@ global_env = Environment(
 
 def lisp_str(val):
   if isinstance(val, list):
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if isinstance(val, tuple):            # (VAL_CLOSURE, params, body_pc, env)
     return '#<procedure (' + ' '.join(val[1]) + ')>'
   if val is applyFn:

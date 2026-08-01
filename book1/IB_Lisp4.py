@@ -167,7 +167,8 @@ def lEval(expr, env):
 def lisp_str(val):
   # Render an expression or a value in Lisp surface syntax.
   if isinstance(val, list):              # an expression (code)
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if isinstance(val, tuple):             # a closure value: (VAL_CLOSURE, param, body, env)
     return '#<procedure (' + val[1] + ')>'
   return str(val)                        # a number or a symbol

@@ -96,7 +96,8 @@ def lisp_str(val):
   # Render a value in Lisp surface syntax (the `ast` line below is left as a
   # Python list on purpose, to show the reader's output structure).
   if isinstance(val, list):
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if callable(val):
     return '#<primitive>'
   return str(val)

@@ -31,7 +31,8 @@ def lisp_str(val):
   # continuation, a primitive sentinel.  The two shapes that are bare Python
   # containers, a list and a closure tuple, are spelled out here.
   if isinstance(val, list):
-    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+    parts = ' '.join(lisp_str(x) for x in val)
+    return '(' + parts + ')'
   if isinstance(val, tuple):                 # a closure: (VAL_CLOSURE, params, body, env)
     return '#<procedure (' + ' '.join(val[1]) + ')>'
   if callable(val):

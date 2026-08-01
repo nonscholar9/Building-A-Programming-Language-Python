@@ -28,20 +28,20 @@ from IB_Reader import parse
 # ---------------------------------------------------------------------------
 
 class Environment:
-  def __init__( self, outer=None, bindings=None ):
+  def __init__(self, outer=None, bindings=None):
     self._bindings = dict(bindings or {})
     self._outer   = outer
     self._global   = outer._global if outer else self   # direct handle to the root
 
-  def lookup( self, name ):
+  def lookup(self, name):
     env = self
     while env:
       if name in env._bindings:
         return env._bindings[name]
       env = env._outer
-    raise NameError( f'Unbound variable: {name}' )
+    raise NameError(f'Unbound variable: {name}')
 
-  def set( self, name, value ):
+  def set(self, name, value):
     # Walk to the innermost environment that already owns the name.
     env = self
     while env:
@@ -59,7 +59,7 @@ class Environment:
 # ---------------------------------------------------------------------------
 
 class Function:
-  def __init__( self, params, body, definingEnv ):
+  def __init__(self, params, body, definingEnv):
     self.params: list[str]   = params
     self.body:   list        = body    # last expression is in tail position
     self.definingEnv: Environment = definingEnv   # this is what makes it a closure
@@ -73,21 +73,21 @@ class Function:
 # named parameters one to one, and gather whatever is left over into a list
 # bound to the name after the dot.
 
-def bind_params( params, args ):
+def bind_params(params, args):
   if '.' in params:
-    dot   = params.index( '.' )
+    dot   = params.index('.')
     named = params[:dot]
     rest  = params[dot + 1]
-    bindings = dict( zip( named, args ) )
-    bindings[rest] = list( args[len(named):] )
+    bindings = dict(zip(named, args))
+    bindings[rest] = list(args[len(named):])
     return bindings
-  return dict( zip( params, args ) )
+  return dict(zip(params, args))
 
 # ---------------------------------------------------------------------------
 # The recursive evaluator
 # ---------------------------------------------------------------------------
 
-def lEval( expr, env ):
+def lEval(expr, env):
 
   # ----- Begin state EVAL -----
   if isinstance(expr, str):          # a symbol -> look it up
@@ -117,7 +117,7 @@ def lEval( expr, env ):
       return lEval(result, env)
     return lEval(
                  ['if', test, result, ['cond'] + list(clauses[1:])],
-                 env )
+                 env)
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -152,16 +152,16 @@ def lEval( expr, env ):
     # Each init is evaluated in the OUTER env -- that is what makes this let, not let*.
     initialBindings = {
         name: lEval(initExpr, env)
-        for name, initExpr in bindingPairs }
-    new_env = Environment( outer=env,
-                          bindings=initialBindings )
+        for name, initExpr in bindingPairs}
+    new_env = Environment(outer=env,
+                          bindings=initialBindings)
         
     for subExpr in body[:-1]:             # non-tail body forms
       lEval(subExpr, new_env)
     return lEval(body[-1], new_env)       # tail body form
 
   else:
-    fn, *args = [ lEval(elt, env) for elt in expr ]   # eval operator + operands
+    fn, *args = [lEval(elt, env) for elt in expr]   # eval operator + operands
 
     # apply is a value, not a special form: (apply g x ... lst) is a call of
     # g on x ... plus the elements of lst.  Splice it here, at the call site;
@@ -169,8 +169,8 @@ def lEval( expr, env ):
     # The loop lets (apply apply ...) resolve.
     while fn is applyFn:
       # Both sides read the OLD args; do not split this in two.
-      fn, args = ( args[0],
-          args[1:-1] + list( args[-1] ) )
+      fn, args = (args[0],
+          args[1:-1] + list(args[-1]))
 
     # ----- Begin state APPLY -----
     if callable(fn):                   # primitive implemented in Python
@@ -191,11 +191,11 @@ def lEval( expr, env ):
 # Primitives and global environment
 # ---------------------------------------------------------------------------
 
-def lisp_print( args ):
-  print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
+def lisp_print(args):
+  print(lisp_str(args[0]))   # our printer, not Python's: a list shows as (a b)
   return args[0]       # returned, so print composes inside a larger expression
 
-def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identity
+def lisp_mul(args):    # variadic product; (*) is 1, the multiplicative identity
   result = 1
   for x in args:
     result *= x
@@ -210,7 +210,7 @@ class _Apply:
 applyFn = _Apply()
 
 globalBindings = {
-    '+':     lambda args: sum( args ),                          # variadic; (+) is 0
+    '+':     lambda args: sum(args),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
@@ -230,93 +230,93 @@ globalBindings = {
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
-    'list':  lambda args: list( args ),
+    'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': applyFn,
 }
-global_env = Environment( bindings=globalBindings )
+global_env = Environment(bindings=globalBindings)
 
 
 # ---------------------------------------------------------------------------
 # Helpers and demo
 # ---------------------------------------------------------------------------
 
-def lisp_str( val ):
+def lisp_str(val):
   # Render a value (or AST node) in Lisp surface syntax, so the demo speaks
   # the language being interpreted instead of printing Python's repr.
-  if isinstance( val, list ):
-    return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
-  if isinstance( val, Function ):
-    return '#<procedure (' + ' '.join( val.params ) + ')>'
+  if isinstance(val, list):
+    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+  if isinstance(val, Function):
+    return '#<procedure (' + ' '.join(val.params) + ')>'
   if val is applyFn:
     return '#<primitive apply>'
-  if callable( val ):
+  if callable(val):
     return '#<primitive>'
-  return str( val )
+  return str(val)
 
 
-def run( source ):
-  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-  print( f'>>> {lisp_str( expr )}' )
-  result = lEval( expr, global_env )
-  print( f'==> {lisp_str( result )}' )
+def run(source):
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  print(f'>>> {lisp_str( expr )}')
+  result = lEval(expr, global_env)
+  print(f'==> {lisp_str( result )}')
   print()
 
 
 def main():
   # Basic arithmetic (same as Part 1)
-  run( '(+ (- 10 7) 2)' )
+  run('(+ (- 10 7) 2)')
 
   # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
   # reaches outside the evaluator -- and it *returns* its argument, so it
   # composes inside a larger expression.  run() echoes the form first, so the
   # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
   # returned 10, flowed on into +) is the value.
-  run( '(+ (print 10) 5)' )
+  run('(+ (print 10) 5)')
 
   # set! and variable lookup
-  run( '(set! x (* 6 7))' )
-  run( 'x' )
+  run('(set! x (* 6 7))')
+  run('x')
 
   # lambda creates a closure
-  run( '(set! square (lambda (n) (* n n)))' )
-  run( '(square 5)' )
+  run('(set! square (lambda (n) (* n n)))')
+  run('(square 5)')
 
   # Higher-order function: make-adder returns a closure
-  run( '(set! make-adder (lambda (n) (lambda (x) (+ n x))))' )
-  run( '(set! add5 (make-adder 5))' )
-  run( '(add5 3)' )
+  run('(set! make-adder (lambda (n) (lambda (x) (+ n x))))')
+  run('(set! add5 (make-adder 5))')
+  run('(add5 3)')
 
   # let creates a local scope
-  run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )
+  run('(let ((a 3) (b 4)) (+ (* a a) (* b b)))')
 
   # Recursive factorial.
   # NOTE: each call pushes a Python stack frame.  This works for moderate n
   # but will crash with RecursionError for very large n (no TCO).
-  run( '(set! factorial (lambda (n) (if (= n 0) 1 (* n (factorial (- n 1))))))' )
-  run( '(factorial 10)' )
+  run('(set! factorial (lambda (n) (if (= n 0) 1 (* n (factorial (- n 1))))))')
+  run('(factorial 10)')
 
   # quote
-  run( "'(a b c)" )
+  run("'(a b c)")
 
   # Rest parameters: a dotted parameter list gathers the leftover arguments
   # into a list, so one function serves callers of any arity.
-  run( '(set! tally (lambda (label . nums) (list label (apply + nums))))' )
-  run( "(tally 'total)" )
-  run( "(tally 'total 1 2 3)" )
+  run('(set! tally (lambda (label . nums) (list label (apply + nums))))')
+  run("(tally 'total)")
+  run("(tally 'total 1 2 3)")
 
   # apply spreads a list into a call's argument positions.  Leading arguments
   # come first, then the elements of the final list.
-  run( "(apply + '(1 2 3))" )
-  run( "(apply + 10 20 '(1 2 3))" )
+  run("(apply + '(1 2 3))")
+  run("(apply + 10 20 '(1 2 3))")
 
   # The pair together: a wrapper that forwards whatever it was handed, without
   # knowing how many arguments that is.
-  run( "(set! logged (lambda (f . args) (begin (print 'calling) (apply f args))))" )
-  run( '(logged square 7)' )
-  run( '(logged + 1 2 3)' )
+  run("(set! logged (lambda (f . args) (begin (print 'calling) (apply f args))))")
+  run('(logged square 7)')
+  run('(logged + 1 2 3)')
 
 
 if __name__ == '__main__':

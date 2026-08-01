@@ -45,38 +45,38 @@ from IB_Reader import EOF, LPAREN, RPAREN, QUOTE, ATOM, DELIMITERS
 # The minimal evaluator (from IB_Lisp1) to complete the pipeline
 # ---------------------------------------------------------------------------
 
-def lEval( expr, env ):
-  if isinstance( expr, str ):        # symbol -> look it up
+def lEval(expr, env):
+  if isinstance(expr, str):        # symbol -> look it up
     return env[expr]
-  elif not isinstance( expr, list ):  # number or boolean -> return unchanged
+  elif not isinstance(expr, list):  # number or boolean -> return unchanged
     return expr
-  elif len( expr ) == 0:
+  elif len(expr) == 0:
     return []
 
   head = expr[0]
 
   if head == 'if':
     _, condExpr, thenExpr, elseExpr = expr
-    condVal = lEval( condExpr, env )
-    return lEval( elseExpr if condVal is lFalse else thenExpr, env )
+    condVal = lEval(condExpr, env)
+    return lEval(elseExpr if condVal is lFalse else thenExpr, env)
 
   elif head == 'begin':
     _, *forms = expr
     for sub in forms[:-1]:
-      lEval( sub, env )
-    return lEval( forms[-1], env )
+      lEval(sub, env)
+    return lEval(forms[-1], env)
 
   elif head == 'set!':
     _, name, valExpr = expr
-    val = lEval( valExpr, env )
+    val = lEval(valExpr, env)
     env[name] = val
     return val
 
   elif head == 'quote':
     return expr[1]
 
-  fn, *args = [ lEval( sub, env ) for sub in expr ]
-  return fn( args )
+  fn, *args = [lEval(sub, env) for sub in expr]
+  return fn(args)
 
 
 global_env = {
@@ -92,61 +92,61 @@ global_env = {
 # Demo
 # ---------------------------------------------------------------------------
 
-def lisp_str( val ):
+def lisp_str(val):
   # Render a value in Lisp surface syntax (the `ast` line below is left as a
   # Python list on purpose, to show the reader's output structure).
-  if isinstance( val, list ):
-    return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
-  if callable( val ):
+  if isinstance(val, list):
+    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+  if callable(val):
     return '#<primitive>'
-  return str( val )
+  return str(val)
 
 
-def scan_all( source ):
+def scan_all(source):
   # Drain a fresh scanner into a list of (kind, lexeme) pairs, so the chapter
   # can show the token stream the reader consumes.
-  scanner = Scanner( source )
+  scanner = Scanner(source)
   tokens = []
   while scanner.peek() != EOF:
-    tokens.append( ( scanner.peek(), scanner.lexeme() ) )
+    tokens.append((scanner.peek(), scanner.lexeme()))
     scanner.consume()
   return tokens
 
 
-def run( source ):
-  print( f'  source:  {source}' )
-  ast = parse( source )
-  print( f'  ast:     {ast}' )
-  print( f'  result:  {lisp_str( lEval( ast, global_env ) )}' )
+def run(source):
+  print(f'  source:  {source}')
+  ast = parse(source)
+  print(f'  ast:     {ast}')
+  print(f'  result:  {lisp_str( lEval( ast, global_env ) )}')
   print()
 
 
 def main():
   # Show the token stream for a non-trivial expression.
   src = "(if (= a 2) (+ a 1) (- a 1))"
-  print( 'Scanner output (the token stream the reader consumes):' )
-  print( f'  source:  {src}' )
-  print( f'  tokens:  {scan_all( src )}' )
+  print('Scanner output (the token stream the reader consumes):')
+  print(f'  source:  {src}')
+  print(f'  tokens:  {scan_all( src )}')
   print()
 
   # Show that the AST is identical to what the IttyBitty examples wrote by hand.
-  print( 'Reader output (this is the AST lEval operates on):' )
-  print( f'  source:  {src}' )
-  print( f'  ast:     {parse( src )}' )
+  print('Reader output (this is the AST lEval operates on):')
+  print(f'  source:  {src}')
+  print(f'  ast:     {parse( src )}')
   print()
 
   # Full pipeline: source string -> parse -> lEval -> result.
-  print( 'Full pipeline: source string -> parse -> lEval -> result' )
+  print('Full pipeline: source string -> parse -> lEval -> result')
   global_env['a'] = 2
-  run( "(+ 1 2)" )
-  run( "(if (= a 2) (+ a 1) (- a 1))" )
-  run( "(set! b (* 6 7))" )
-  run( "b" )
+  run("(+ 1 2)")
+  run("(if (= a 2) (+ a 1) (- a 1))")
+  run("(set! b (* 6 7))")
+  run("b")
 
   # Quote shorthand: 'x is reader syntax for (quote x).
-  print( "Quote shorthand: 'x is reader syntax for (quote x)" )
-  run( "'(a b c)" )
-  run( "(quote (a b c))" )
+  print("Quote shorthand: 'x is reader syntax for (quote x)")
+  run("'(a b c)")
+  run("(quote (a b c))")
 
 
 if __name__ == '__main__':

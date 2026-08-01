@@ -27,15 +27,15 @@ from IB_Lisp2 import lEval, global_env, lisp_str
 from IB_Reader import parse
 
 
-def run( source ):
-  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-  print( f'>>> {lisp_str( expr )}' )
-  result = lEval( expr, global_env )
-  print( f'==> {lisp_str( result )}' )
+def run(source):
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  print(f'>>> {lisp_str( expr )}')
+  result = lEval(expr, global_env)
+  print(f'==> {lisp_str( result )}')
   print()
 
 
-def Q( sym ):
+def Q(sym):
   # (quote sym) -- a literal symbol, used here as a message name.
   return ['quote', sym]
 
@@ -47,31 +47,31 @@ def main():
   #    make-account closes over `balance`; the returned closure dispatches
   #    on a message symbol and mutates the captured `balance` via set!.
   # -----------------------------------------------------------------------
-  run( "(set! make-account (lambda (balance) (lambda (msg . args) (cond ((= msg 'deposit) (begin (set! balance (+ balance (car args))) balance)) ((= msg 'withdraw) (begin (set! balance (- balance (car args))) balance)) ((= msg 'balance) balance) (else (print 'unknown-message))))))" )
+  run("(set! make-account (lambda (balance) (lambda (msg . args) (cond ((= msg 'deposit) (begin (set! balance (+ balance (car args))) balance)) ((= msg 'withdraw) (begin (set! balance (- balance (car args))) balance)) ((= msg 'balance) balance) (else (print 'unknown-message))))))")
 
-  run( '(set! acct (make-account 100))' )   # -> #<procedure (msg . args)>
-  run( "(acct 'deposit 50)" )    # -> 150
-  run( "(acct 'withdraw 30)" )    # -> 120
-  run( "(acct 'balance)" )         # -> 120   no argument needed
+  run('(set! acct (make-account 100))')   # -> #<procedure (msg . args)>
+  run("(acct 'deposit 50)")    # -> 150
+  run("(acct 'withdraw 30)")    # -> 120
+  run("(acct 'balance)")         # -> 120   no argument needed
 
   # A second account keeps its own books, independent of the first.
-  run( '(set! acct2 (make-account 500))' )
-  run( "(acct2 'withdraw 200)" )  # -> 300
-  run( "(acct 'balance)" )        # -> 120   (acct is unaffected)
+  run('(set! acct2 (make-account 500))')
+  run("(acct2 'withdraw 200)")  # -> 300
+  run("(acct 'balance)")        # -> 120   (acct is unaffected)
 
   # -----------------------------------------------------------------------
   # 2. Polymorphism: a different object answering the SAME messages.
   #    An overdraft account permits balance to fall to -limit.  A client
   #    that only sends messages works on either kind, blind to the type.
   # -----------------------------------------------------------------------
-  run( "(set! make-overdraft-account (lambda (balance limit) (lambda (msg . args) (cond ((= msg 'deposit) (begin (set! balance (+ balance (car args))) balance)) ((= msg 'withdraw) (if (< (- balance (car args)) (- 0 limit)) (print 'overdraft-refused) (begin (set! balance (- balance (car args))) balance))) ((= msg 'balance) balance) (else (print 'unknown-message))))))" )
+  run("(set! make-overdraft-account (lambda (balance limit) (lambda (msg . args) (cond ((= msg 'deposit) (begin (set! balance (+ balance (car args))) balance)) ((= msg 'withdraw) (if (< (- balance (car args)) (- 0 limit)) (print 'overdraft-refused) (begin (set! balance (- balance (car args))) balance))) ((= msg 'balance) balance) (else (print 'unknown-message))))))")
 
-  run( "(set! net-after-fee (lambda (account) (begin (account 'withdraw 5) (account 'balance))))" )
+  run("(set! net-after-fee (lambda (account) (begin (account 'withdraw 5) (account 'balance))))")
 
-  run( '(set! a1 (make-account 100))' )
-  run( '(set! a2 (make-overdraft-account 100 50))' )
-  run( '(net-after-fee a1)' )    # -> 95
-  run( '(net-after-fee a2)' )    # -> 95   (same client, different object)
+  run('(set! a1 (make-account 100))')
+  run('(set! a2 (make-overdraft-account 100 50))')
+  run('(net-after-fee a1)')    # -> 95
+  run('(net-after-fee a2)')    # -> 95   (same client, different object)
 
   # -----------------------------------------------------------------------
   # 3. Inheritance by delegation: a logging account closes over a plain
@@ -79,12 +79,12 @@ def main():
   #    every other message unchanged.  The captured `parent` IS the chain.
   #    apply does the forwarding, so the wrapper never counts the arguments.
   # -----------------------------------------------------------------------
-  run( "(set! make-logging-account (lambda (balance) (let ((parent (make-account balance))) (lambda (msg . args) (cond ((= msg 'deposit) (begin (print 'logging-deposit) (apply parent msg args))) (else (apply parent msg args)))))))" )   # delegate everything else
+  run("(set! make-logging-account (lambda (balance) (let ((parent (make-account balance))) (lambda (msg . args) (cond ((= msg 'deposit) (begin (print 'logging-deposit) (apply parent msg args))) (else (apply parent msg args)))))))")   # delegate everything else
 
-  run( '(set! log-acct (make-logging-account 200))' )
-  run( "(log-acct 'deposit 25)" )   # prints logging-deposit, -> 225
-  run( "(log-acct 'withdraw 25)" )   # delegated,             -> 200
-  run( "(log-acct 'balance)" )        # delegated,             -> 200
+  run('(set! log-acct (make-logging-account 200))')
+  run("(log-acct 'deposit 25)")   # prints logging-deposit, -> 225
+  run("(log-acct 'withdraw 25)")   # delegated,             -> 200
+  run("(log-acct 'balance)")        # delegated,             -> 200
 
 
 if __name__ == '__main__':

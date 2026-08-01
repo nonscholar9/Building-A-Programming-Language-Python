@@ -43,7 +43,7 @@ from IB_AST import lTrue, lFalse
 # The recursive evaluator
 # ---------------------------------------------------------------------------
 
-def lEval( expr, env ):
+def lEval(expr, env):
   # ----- Begin state EVAL -----
   if isinstance(expr, str):          # symbol -> look it up
     return env[expr]
@@ -76,7 +76,7 @@ def lEval( expr, env ):
       return lEval(result, env)
     return lEval(
                  ['if', test, result, ['cond'] + list(clauses[1:])],
-                 env )
+                 env)
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -104,29 +104,29 @@ def lEval( expr, env ):
 
   else:
     # Call a primitive
-    fn, *args = [ lEval(elt, env) for elt in expr ]   # eval operator + operands
+    fn, *args = [lEval(elt, env) for elt in expr]   # eval operator + operands
 
     # ----- Begin state APPLY -----
     # This minimal Lisp has only primitives (no lambda yet), so every callable
     # is a plain Python function.
-    return fn( args )
+    return fn(args)
 
 # ---------------------------------------------------------------------------
 # Primitives and global environment
 # ---------------------------------------------------------------------------
 
-def lisp_print( args ):
-  print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
+def lisp_print(args):
+  print(lisp_str(args[0]))   # our printer, not Python's: a list shows as (a b)
   return args[0]       # returned, so print composes inside a larger expression
 
-def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identity
+def lisp_mul(args):    # variadic product; (*) is 1, the multiplicative identity
   result = 1
   for x in args:
     result *= x
   return result
 
 global_env = {
-    '+':     lambda args: sum( args ),                          # variadic; (+) is 0
+    '+':     lambda args: sum(args),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
     '*':     lisp_mul,                                          # variadic; (*) is 1
     '%':     lambda args: args[0] % args[1],
@@ -146,7 +146,7 @@ global_env = {
     'car':   lambda args: args[0][0],
     'cdr':   lambda args: args[0][1:],
     'cons':  lambda args: [args[0]] + args[1],
-    'list':  lambda args: list( args ),
+    'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
 }
 
@@ -154,78 +154,78 @@ global_env = {
 # Helpers and demo
 # ---------------------------------------------------------------------------
 
-def lisp_str( val ):
+def lisp_str(val):
   # Render a value (or AST node) in Lisp surface syntax, so the demo speaks
   # the language being interpreted instead of printing Python's repr.
-  if isinstance( val, list ):
-    return '(' + ' '.join( lisp_str( x ) for x in val ) + ')'
-  if callable( val ):
+  if isinstance(val, list):
+    return '(' + ' '.join(lisp_str(x) for x in val) + ')'
+  if callable(val):
     return '#<primitive>'
-  return str( val )
+  return str(val)
 
-def run( expr ):
-  print( f'>>> {lisp_str( expr )}' )    # the expression, in Lisp syntax
-  result = lEval( expr, global_env )
-  print( f'==> {lisp_str( result )}' )  # its value, in Lisp syntax
+def run(expr):
+  print(f'>>> {lisp_str( expr )}')    # the expression, in Lisp syntax
+  result = lEval(expr, global_env)
+  print(f'==> {lisp_str( result )}')  # its value, in Lisp syntax
   print()
 
 def main() -> None:
   # Self-evaluating atom: a number evaluates to itself.
-  run( 42 )
+  run(42)
 
   # set!: assign a variable, return the value.
-  run( ['set!', 'a', ['+', 1, 1]] )
+  run(['set!', 'a', ['+', 1, 1]])
 
   # Symbol lookup: a bare variable evaluates to its current value.
-  run( 'a' )
+  run('a')
 
   # Arithmetic primitives.
-  run( ['+', ['-', 10, 7], 'a'] )
-  run( ['*', 3, 4] )
+  run(['+', ['-', 10, 7], 'a'])
+  run(['*', 3, 4])
 
   # A side-effecting primitive.  Unlike +, -, *, =, <, the print primitive
   # reaches outside the evaluator -- and it *returns* its argument, so it
   # composes inside a larger expression.  run() echoes the form first, so the
   # raw 10 (the effect) prints between the >>> line and the value, and 15 (the
   # returned 10, flowed on into +) is the value.
-  run( ['+', ['print', 10], 5] )
+  run(['+', ['print', 10], 5])
 
   # Comparison: = and < return #t (true) or #f (false).
-  run( ['=', 'a', 2] )
-  run( ['<', 2, 5] )
-  run( ['<', 5, 2] )
+  run(['=', 'a', 2])
+  run(['<', 2, 5])
+  run(['<', 5, 2])
 
   # if: evaluate condition, then pick the matching branch.
-  run( ['if', ['=', 'a', 2], ['+', 'a', 1],
-        ['-', 'a', 1]] )
+  run(['if', ['=', 'a', 2], ['+', 'a', 1],
+        ['-', 'a', 1]])
 
   # begin: evaluate a sequence of forms; return the value of the last one.
-  run( ['begin', ['set!', 'b', 10], ['+', 'b', 5]] )
+  run(['begin', ['set!', 'b', 10], ['+', 'b', 5]])
 
   # quote: return a datum unevaluated -- suppresses evaluation entirely.
-  run( ['quote', ['a', 'b', 'c']] )
+  run(['quote', ['a', 'b', 'c']])
 
   # The list primitives are what make quote pay off: with them a quoted list
   # can be taken apart and rebuilt, all without touching lEval.
-  run( ['car', ['quote', ['a', 'b', 'c']]] )
-  run( ['cdr', ['quote', ['a', 'b', 'c']]] )
-  run( ['cons', 1, ['quote', [2, 3]]] )
-  run( ['list', 1, ['+', 1, 1], 3] )
-  run( ['null?', ['quote', []]] )
+  run(['car', ['quote', ['a', 'b', 'c']]])
+  run(['cdr', ['quote', ['a', 'b', 'c']]])
+  run(['cons', 1, ['quote', [2, 3]]])
+  run(['list', 1, ['+', 1, 1], 3])
+  run(['null?', ['quote', []]])
 
   # cond: a chain of ifs written flat, with else as the last clause.
-  run( ['cond', [['<', 'a', 0], ['quote', 'negative']],
+  run(['cond', [['<', 'a', 0], ['quote', 'negative']],
                 [['=', 'a', 0], ['quote', 'zero']],
-                ['else',        ['quote', 'positive']]] )
+                ['else',        ['quote', 'positive']]])
 
   # not is a primitive; and/or are special forms, because they must be able
   # to leave an operand unevaluated.  Both return a value, not just #t/#f.
-  run( ['not', ['=', 'a', 2]] )
-  run( ['and', ['<', 1, 2], ['quote', 'both']] )
-  run( ['or', ['<', 2, 1], ['quote', 'fallback']] )
+  run(['not', ['=', 'a', 2]])
+  run(['and', ['<', 1, 2], ['quote', 'both']])
+  run(['or', ['<', 2, 1], ['quote', 'fallback']])
 
   # The short circuit is observable: print never runs on the skipped operand.
-  run( ['and', lFalse, ['print', 'unreached']] )
+  run(['and', lFalse, ['print', 'unreached']])
 
 if __name__ == '__main__':
   main()

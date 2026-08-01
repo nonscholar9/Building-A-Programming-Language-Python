@@ -39,7 +39,7 @@ from abc import ABC, abstractmethod
 # ---------------------------------------------------------------------------
 
 class LexerBuffer:
-  def __init__( self ):
+  def __init__(self):
     self._filename  = ''
     self._source    = ''
     self._sourceLen = 0
@@ -48,62 +48,70 @@ class LexerBuffer:
     self._mark      = 0       # index where the current lexeme began
     self._lineNum   = 1
 
-  def reset( self, source, filename='' ):
+  def reset(self, source, filename=''):
     self._filename  = filename
     self._source    = source
-    self._sourceLen = len( source )
+    self._sourceLen = len(source)
     self._nextChar  = source[0] if source else ''
     self._point     = 0
     self._mark      = 0
     self._lineNum   = 1
 
-  def peekNextChar( self ):
+  def peekNextChar(self):
     return self._nextChar
 
-  def consume( self ):
+  def consume(self):
     if self._nextChar == '':
       return
     if self._nextChar == '\n':
       self._lineNum += 1
     self._point += 1
-    self._nextChar = ( self._source[self._point]
-                       if self._point < self._sourceLen else '' )
+    self._nextChar = (
+        self._source[self._point]
+        if self._point < self._sourceLen
+        else '')
 
-  def consumePast( self, charSet ):
-    """Advance over a run of characters that ARE in charSet."""
-    while self._nextChar and self._nextChar in charSet:
+  def consumePast(self, charSet):
+    """Advance over a run of characters
+       that ARE in charSet."""
+    while (self._nextChar
+            and self._nextChar in charSet):
       self.consume()
 
-  def consumeUpTo( self, charSet ):
-    """Advance over a run of characters that are NOT in charSet."""
-    while self._nextChar and self._nextChar not in charSet:
+  def consumeUpTo(self, charSet):
+    """Advance over a run of characters
+       that are NOT in charSet."""
+    while (self._nextChar
+            and self._nextChar not in charSet):
       self.consume()
 
-  def markStartOfLexeme( self ):
+  def markStartOfLexeme(self):
     self._mark = self._point
 
-  def getLexeme( self ):
-    return self._source[ self._mark : self._point ]
+  def getLexeme(self):
+    return self._source[
+        self._mark : self._point]
 
   # --- source position, for error messages ---
 
-  def filename( self ):
+  def filename(self):
     return self._filename
 
-  def scanLineNum( self ):
+  def scanLineNum(self):
     return self._lineNum
 
-  def scanLinePos( self ):
-    """Index of the first character of the current line."""
-    return self._source.rfind( '\n', 0,
-                              self._point ) + 1
+  def scanLinePos(self):
+    """Index of the first character of
+       the current line."""
+    return self._source.rfind(
+        '\n', 0, self._point) + 1
 
-  def scanColNum( self ):
+  def scanColNum(self):
     return self._point - self.scanLinePos() + 1
 
-  def scanLineTxt( self ):
+  def scanLineTxt(self):
     start = self.scanLinePos()
-    end   = self._source.find( '\n', start )
+    end   = self._source.find('\n', start)
     return self._source[start:] if end == -1 else self._source[start:end]
 
 
@@ -111,26 +119,26 @@ class LexerBuffer:
 # LexerBase: one token of lookahead over the buffer
 # ---------------------------------------------------------------------------
 
-class LexerBase( ABC ):
-  def __init__( self ):
+class LexerBase(ABC):
+  def __init__(self):
     self.buffer = LexerBuffer()
     self._tok   = -1
 
-  def reset( self, source, filename='' ):
-    self.buffer.reset( source, filename )
+  def reset(self, source, filename=''):
+    self.buffer.reset(source, filename)
     self.consume()                        # prime the one-token lookahead
 
-  def peekToken( self ):
+  def peekToken(self):
     return self._tok
 
-  def consume( self ):
+  def consume(self):
     self._tok = self._scanNextToken()
 
-  def getLexeme( self ):
+  def getLexeme(self):
     return self.buffer.getLexeme()
 
   @abstractmethod
-  def _scanNextToken( self ):
+  def _scanNextToken(self):
     """Scan past the next token, leaving the buffer with _mark at its first
         character and _point one past its last, and return the token's kind."""
     ...
@@ -140,27 +148,29 @@ class LexerBase( ABC ):
 # ParseError: a syntax error that points at the source
 # ---------------------------------------------------------------------------
 
-class ParseError( Exception ):
-  def __init__( self, scanner, message ):
+class ParseError(Exception):
+  def __init__(self, scanner, message):
     buf = scanner.buffer
-    super().__init__( self._format(
+    super().__init__(self._format(
         buf.filename(), buf.scanLineNum(), buf.scanColNum(),
-        buf.scanLineTxt(), message ) )
+        buf.scanLineTxt(), message))
 
   @staticmethod
-  def _format( filename, line, col, sourceLine,
-              message ):
-    caret = ' ' * ( col - 1 ) + '^'
-    return ( f'Syntax Error: "{filename}" ({line},{col})\n'
-             f'{sourceLine}\n{caret}\n{message}' )
+  def _format(filename, line, col, sourceLine,
+              message):
+    caret = ' ' * (col - 1) + '^'
+    return (
+        f'Syntax Error: "{filename}" '
+        f'({line},{col})\n'
+        f'{sourceLine}\n{caret}\n{message}')
 
 
 # ---------------------------------------------------------------------------
 # ParserBase: the grammar a concrete parser implements
 # ---------------------------------------------------------------------------
 
-class ParserBase( ABC ):
+class ParserBase(ABC):
   @abstractmethod
-  def parse( self, source ):
+  def parse(self, source):
     """Parse source text and return an AST."""
     ...

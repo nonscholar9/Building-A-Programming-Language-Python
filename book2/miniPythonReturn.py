@@ -26,7 +26,7 @@ Run with: python miniPythonReturn.py
 """
 
 import sys
-sys.path.insert( 0, '.' )
+sys.path.insert(0, '.')
 from miniPythonParser import Parser
 from IB_Expander import expand, gensym
 from IB_Core import lEval, global_env, lisp_str
@@ -38,30 +38,30 @@ from IB_Reader   import parse
 # The assigned-names scan (Chapter 13): a def binds the names its body assigns.
 # ---------------------------------------------------------------------------
 
-def assigned_names( body ):
+def assigned_names(body):
   found = set()
   for stmt in body:
-    _assigned_stmt( stmt, found )
+    _assigned_stmt(stmt, found)
   return found
 
-def _assigned_stmt( s, found ):
+def _assigned_stmt(s, found):
   tag = s[0]
   if tag == 'assign':
-    found.add( s[1] )
+    found.add(s[1])
   elif tag == 'if':
     for st in s[2]:
-      _assigned_stmt( st, found )
+      _assigned_stmt(st, found)
     for _, blk in s[3]:
       for st in blk:
-        _assigned_stmt( st, found )
+        _assigned_stmt(st, found)
     if s[4]:
       for st in s[4]:
-        _assigned_stmt( st, found )
+        _assigned_stmt(st, found)
   elif tag == 'while':
     for st in s[2]:
-      _assigned_stmt( st, found )
+      _assigned_stmt(st, found)
   elif tag == 'def':
-    found.add( s[1] )
+    found.add(s[1])
 
 
 # ---------------------------------------------------------------------------
@@ -69,100 +69,100 @@ def _assigned_stmt( s, found ):
 # so a return anywhere in the body knows what to jump to.
 # ---------------------------------------------------------------------------
 
-_ARITH = { '+', '-', '*', '%', '<', '>', '<=', '>=' }
+_ARITH = {'+', '-', '*', '%', '<', '>', '<=', '>='}
 
-def lower_module( node ):
-  return [ 'begin' ] + [ lower_stmt( s, None ) for s in node[1] ]
+def lower_module(node):
+  return ['begin'] + [lower_stmt(s, None) for s in node[1]]
 
-def lower_body( stmts, ret ):
-  return [ lower_stmt( s, ret ) for s in stmts ]
+def lower_body(stmts, ret):
+  return [lower_stmt(s, ret) for s in stmts]
 
-def lower_stmt( s, ret ):
+def lower_stmt(s, ret):
   tag = s[0]
   if tag == 'assign':
-    return [ 'set!', s[1], lower_expr( s[2] ) ]
+    return ['set!', s[1], lower_expr(s[2])]
   if tag == 'expr':
-    return lower_expr( s[1] )
+    return lower_expr(s[1])
   if tag == 'return':
-    value = lower_expr( s[1] ) if s[1] is not None else lFalse
-    return [ ret, value ]                 # jump to the function's continuation
+    value = lower_expr(s[1]) if s[1] is not None else lFalse
+    return [ret, value]                 # jump to the function's continuation
   if tag == 'pass':
     return lFalse
   if tag == 'if':
-    return lower_if( s, ret )
+    return lower_if(s, ret)
   if tag == 'while':
-    return lower_while( s, ret )
+    return lower_while(s, ret)
   if tag == 'def':
-    return lower_def( s )                 # a nested def has its own continuation
-  raise ValueError( f'unknown statement {s!r}' )
+    return lower_def(s)                 # a nested def has its own continuation
+  raise ValueError(f'unknown statement {s!r}')
 
-def lower_def( s ):
+def lower_def(s):
   _, name, params, body = s
   ret     = gensym()
-  locals_ = sorted( assigned_names( body ) - set( params ) )
-  cc = [ 'call/cc', [ 'lambda', [ ret ] ] + lower_body( body, ret ) ]
+  locals_ = sorted(assigned_names(body) - set(params))
+  cc = ['call/cc', ['lambda', [ret]] + lower_body(body, ret)]
   if locals_:
-    bindings = [ [ v, lFalse ] for v in locals_ ]
-    lam_body = [ [ 'let', bindings, cc ] ]
+    bindings = [[v, lFalse] for v in locals_]
+    lam_body = [['let', bindings, cc]]
   else:
-    lam_body = [ cc ]
-  return [ 'set!', name, [ 'lambda', list( params ) ] + lam_body ]
+    lam_body = [cc]
+  return ['set!', name, ['lambda', list(params)] + lam_body]
 
-def lower_if( s, ret ):
+def lower_if(s, ret):
   _, test, body, elifs, orelse = s
-  clauses = [ [ lower_expr( test ), [ 'begin' ] + lower_body( body, ret ) ] ]
+  clauses = [[lower_expr(test), ['begin'] + lower_body(body, ret)]]
   for etest, ebody in elifs:
-    clauses.append( [ lower_expr( etest ), [ 'begin' ] + lower_body( ebody, ret ) ] )
+    clauses.append([lower_expr(etest), ['begin'] + lower_body(ebody, ret)])
   if orelse is not None:
-    clauses.append( [ 'else', [ 'begin' ] + lower_body( orelse, ret ) ] )
-  return [ 'cond' ] + clauses
+    clauses.append(['else', ['begin'] + lower_body(orelse, ret)])
+  return ['cond'] + clauses
 
-def lower_while( s, ret ):
+def lower_while(s, ret):
   _, test, body = s
   loop = gensym()
-  helper = [ 'lambda', [],
-             [ 'if', lower_expr( test ),
-               [ 'begin' ] + lower_body( body, ret ) + [ [ loop ] ],
-               lFalse ] ]
-  return [ 'let', [ [ loop, lFalse ] ],
-           [ 'set!', loop, helper ],
-           [ loop ] ]
+  helper = ['lambda', [],
+             ['if', lower_expr(test),
+               ['begin'] + lower_body(body, ret) + [[loop]],
+               lFalse]]
+  return ['let', [[loop, lFalse]],
+           ['set!', loop, helper],
+           [loop]]
 
-def lower_expr( e ):
+def lower_expr(e):
   tag = e[0]
   if tag == 'num':
     return e[1]
   if tag == 'name':
     return e[1]
   if tag == 'call':
-    return [ lower_expr( e[1] ) ] + [ lower_expr( a ) for a in e[2] ]
+    return [lower_expr(e[1])] + [lower_expr(a) for a in e[2]]
   if tag == 'unary':
-    op, x = e[1], lower_expr( e[2] )
+    op, x = e[1], lower_expr(e[2])
     if op == '-':
-      return [ '-', 0, x ]
+      return ['-', 0, x]
     if op == '+':
       return x
     if op == 'not':
-      return [ 'not', x ]
+      return ['not', x]
   if tag == 'binop':
-    op, l, r = e[1], lower_expr( e[2] ), lower_expr( e[3] )
+    op, l, r = e[1], lower_expr(e[2]), lower_expr(e[3])
     if op in _ARITH:
-      return [ op, l, r ]
+      return [op, l, r]
     if op == '==':
-      return [ '=', l, r ]
+      return ['=', l, r]
     if op == '!=':
-      return [ 'not', [ '=', l, r ] ]
+      return ['not', ['=', l, r]]
     if op == 'and':
-      return [ 'and', l, r ]
+      return ['and', l, r]
     if op == 'or':
-      return [ 'or', l, r ]
-  raise ValueError( f'unknown expression {e!r}' )
+      return ['or', l, r]
+  raise ValueError(f'unknown expression {e!r}')
 
 
-def run_python( source ):
-  ast  = Parser().parse( source )
-  core = expand( lower_module( ast ) )
-  return lEval( core, global_env )
+def run_python(source):
+  ast  = Parser().parse(source)
+  core = expand(lower_module(ast))
+  return lEval(core, global_env)
 
 
 # ---------------------------------------------------------------------------
@@ -170,48 +170,48 @@ def run_python( source ):
 # ---------------------------------------------------------------------------
 
 def main():
-  print( '--- factorial, the Chapter 13 cliffhanger, now runs ---\n' )
-  fac = ( "def factorial(n):\n"
+  print('--- factorial, the Chapter 13 cliffhanger, now runs ---\n')
+  fac = ("def factorial(n):\n"
           "    if n == 0:\n"
           "        return 1\n"          # an EARLY return
-          "    return n * factorial(n - 1)\n" )
-  run_python( fac )
-  print( 'factorial(5) =>', lisp_str( lEval( parse( '(factorial 5)' ), global_env ) ) )   # 120
+          "    return n * factorial(n - 1)\n")
+  run_python(fac)
+  print('factorial(5) =>', lisp_str(lEval(parse('(factorial 5)'), global_env)))   # 120
 
-  print( '\n--- an early return in the middle of a body ---\n' )
-  run_python( "def clamp0(x):\n"
+  print('\n--- an early return in the middle of a body ---\n')
+  run_python("def clamp0(x):\n"
               "    if x < 0:\n"
               "        return 0\n"
-              "    return x\n" )
-  print( 'clamp0(-5) =>', lisp_str( lEval( parse( '(clamp0 -5)' ), global_env ) ),
-         '  clamp0(7) =>', lisp_str( lEval( parse( '(clamp0 7)' ), global_env ) ) )
+              "    return x\n")
+  print('clamp0(-5) =>', lisp_str(lEval(parse('(clamp0 -5)'), global_env)),
+         '  clamp0(7) =>', lisp_str(lEval(parse('(clamp0 7)'), global_env)))
 
-  print( '\n--- return jumping straight out of a loop ---\n' )
-  run_python( "def first_ge(n, threshold):\n"
+  print('\n--- return jumping straight out of a loop ---\n')
+  run_python("def first_ge(n, threshold):\n"
               "    i = 0\n"
               "    while i < n:\n"
               "        if i >= threshold:\n"
               "            return i\n"     # leaves the loop AND the function
               "        i = i + 1\n"
-              "    return -1\n" )
-  print( 'first_ge(100, 7) =>', lisp_str( lEval( parse( '(first_ge 100 7)' ), global_env ) ) )  # 7
+              "    return -1\n")
+  print('first_ge(100, 7) =>', lisp_str(lEval(parse('(first_ge 100 7)'), global_env)))  # 7
 
-  print( '\n--- Chapter 13 still holds: tail return + while ---\n' )
-  run_python( "def gcd(a, b):\n"
+  print('\n--- Chapter 13 still holds: tail return + while ---\n')
+  run_python("def gcd(a, b):\n"
               "    while b != 0:\n"
               "        t = b\n"
               "        b = a % b\n"
               "        a = t\n"
-              "    return a\n" )
-  print( 'gcd(48, 36) =>', lisp_str( lEval( parse( '(gcd 48 36)' ), global_env ) ) )      # 12
+              "    return a\n")
+  print('gcd(48, 36) =>', lisp_str(lEval(parse('(gcd 48 36)'), global_env)))      # 12
 
-  print( '\n--- a while still loops in constant space, call/cc and all ---\n' )
-  run_python( "def count(n):\n"
+  print('\n--- a while still loops in constant space, call/cc and all ---\n')
+  run_python("def count(n):\n"
               "    i = 0\n"
               "    while i < n:\n"
               "        i = i + 1\n"
-              "    return i\n" )
-  print( 'count(200000) =>', lisp_str( lEval( parse( '(count 200000)' ), global_env ) ) )
+              "    return i\n")
+  print('count(200000) =>', lisp_str(lEval(parse('(count 200000)'), global_env)))
 
 
 if __name__ == '__main__':

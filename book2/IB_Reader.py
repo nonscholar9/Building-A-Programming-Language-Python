@@ -25,44 +25,44 @@ from IB_AST import lTrue, lFalse
 # Token kinds.  The structural tokens ( ) ' each stand alone; every name and
 # number arrives as one ATOM whose text the reader classifies later.
 EOF, LPAREN, RPAREN, QUOTE, ATOM = (
-    'eof', '(', ')', "'", 'atom' )
+    'eof', '(', ')', "'", 'atom')
 
 # A delimiter ends the atom currently being scanned.  Everything that is not a
 # delimiter continues it, so the scanner needs no table of "symbol characters".
-DELIMITERS = set( " \t\n\r()';" )
+DELIMITERS = set(" \t\n\r()';")
 
 
 class Scanner:
-  def __init__( self, source ):
+  def __init__(self, source):
     self._src  = source
     self._pos  = 0            # index of the next unread character
     self._mark = 0            # index where the current lexeme began
     self.consume()            # prime the one-token lookahead
 
   # ----- character level -----
-  def _peekChar( self ):
-    return ( self._src[self._pos]
-             if self._pos < len( self._src )
-             else '' )
+  def _peekChar(self):
+    return (self._src[self._pos]
+             if self._pos < len(self._src)
+             else '')
 
-  def _consumePast( self, charSet ):     # advance while IN charSet
-    while ( self._peekChar()
-        and self._peekChar() in charSet ):
+  def _consumePast(self, charSet):     # advance while IN charSet
+    while (self._peekChar()
+        and self._peekChar() in charSet):
       self._pos += 1
 
-  def _consumeUpTo( self, charSet ):     # advance while NOT in charSet
-    while ( self._peekChar()
-        and self._peekChar() not in charSet ):
+  def _consumeUpTo(self, charSet):     # advance while NOT in charSet
+    while (self._peekChar()
+        and self._peekChar() not in charSet):
       self._pos += 1
 
   # ----- token level (this is what the reader talks to) -----
-  def peek( self ):             # the current token's kind, not yet consumed
+  def peek(self):             # the current token's kind, not yet consumed
     return self._tok
 
-  def lexeme( self ):           # the current token's source text
+  def lexeme(self):           # the current token's source text
     return self._src[self._mark : self._pos]
 
-  def consume( self ):          # advance to the next token
+  def consume(self):          # advance to the next token
     self._skipSpaceAndComments()
     self._mark = self._pos
     ch = self._peekChar()
@@ -78,56 +78,56 @@ class Scanner:
       self._pos += 1
       self._tok = QUOTE
     else:                                  # anything else begins an atom
-      self._consumeUpTo( DELIMITERS )    # scan the run up to a delimiter
+      self._consumeUpTo(DELIMITERS)    # scan the run up to a delimiter
       self._tok = ATOM
 
-  def _skipSpaceAndComments( self ):
+  def _skipSpaceAndComments(self):
     while True:
-      self._consumePast( " \t\n\r" )
+      self._consumePast(" \t\n\r")
       if self._peekChar() != ';':        # a ';' comment runs to end of line
         return
-      self._consumeUpTo( "\n" )
+      self._consumeUpTo("\n")
 
 
 # ---------------------------------------------------------------------------
 # The reader: recursive descent over the token stream
 # ---------------------------------------------------------------------------
 
-def read_object( scanner ):
+def read_object(scanner):
   """Read one complete expression from the front of the token stream."""
   tok = scanner.peek()
   if tok == ATOM:
     text = scanner.lexeme()
     scanner.consume()
-    return atom( text )
+    return atom(text)
   elif tok == LPAREN:
-    return read_list( scanner )
+    return read_list(scanner)
   elif tok == QUOTE:                         # 'expr  ->  (quote expr)
     scanner.consume()
-    return [ 'quote', read_object( scanner ) ]
+    return ['quote', read_object(scanner)]
   elif tok == RPAREN:
-    raise SyntaxError( 'unexpected )' )
+    raise SyntaxError('unexpected )')
   else:                                       # EOF
     raise SyntaxError(
-        'unexpected end of input' )
+        'unexpected end of input')
 
 
-def read_list( scanner ):
+def read_list(scanner):
   scanner.consume()                           # discard the opening '('
   result = []
-  while scanner.peek() not in ( RPAREN, EOF ):
-    result.append( read_object( scanner ) )
+  while scanner.peek() not in (RPAREN, EOF):
+    result.append(read_object(scanner))
   if scanner.peek() == EOF:
     raise SyntaxError(
-        'unterminated list, expected )' )
+        'unterminated list, expected )')
   scanner.consume()                           # discard the closing ')'
   return result
 
 
-def atom( text ):
+def atom(text):
   """Classify an atom's text as an int, a boolean, or else a symbol (a string)."""
   try:
-    return int( text )
+    return int(text)
   except ValueError:
     # the two booleans, minted here at the parse boundary (a name stays a
     # string)
@@ -138,19 +138,19 @@ def atom( text ):
     return text                             # a symbol -- a plain string
 
 
-def parse( source ):
-  scanner = Scanner( source )
-  tree = read_object( scanner )
+def parse(source):
+  scanner = Scanner(source)
+  tree = read_object(scanner)
   if scanner.peek() != EOF:
     raise SyntaxError(
-        'unexpected trailing input' )
+        'unexpected trailing input')
   return tree
 
 
-def parse_all( source ):
+def parse_all(source):
   """Every expression in `source`, in order.  A file is a sequence of forms."""
-  scanner = Scanner( source )
+  scanner = Scanner(source)
   forms = []
   while scanner.peek() != EOF:
-    forms.append( read_object( scanner ) )
+    forms.append(read_object(scanner))
   return forms

@@ -16,7 +16,7 @@ recognized in the next.
 """
 
 class LBoolean:
-  def __repr__( self ):              # so print and lisp_str render #t / #f
+  def __repr__(self):              # so print and lisp_str render #t / #f
     return '#t' if self is lTrue else '#f'
 
 lTrue  = LBoolean()

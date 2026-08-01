@@ -27,7 +27,7 @@ from IB_Expander import expand
 from IB_AST import lTrue
 
 
-class LispError( Exception ):
+class LispError(Exception):
   """A complaint phrased in our language, not a Python traceback.
 
     Messages render forms with lisp_str, so a parameter list comes out as
@@ -41,49 +41,64 @@ class LispError( Exception ):
 # something or it does not.
 # ---------------------------------------------------------------------------
 
-def check_shapes( form ):
-  if not isinstance( form, list ):
+def check_shapes(form):
+  if not isinstance(form, list):
     return                                   # an atom is always well shaped
   if not form:
-    raise LispError( 'empty application: ()' )
+    raise LispError('empty application: ()')
 
   head = form[0]
 
   if head == 'quote':                          # (quote datum): datum is data
     if len(form) != 2:
-      raise LispError( f'quote: expected 1 datum, found {len(form) - 1}' )
+      raise LispError(
+          f'quote: expected 1 datum, '
+          f'found {len(form) - 1}')
     return                                   # do not walk into the datum
 
   if head == 'if':
     if len(form) != 4:
       n = len(form) - 1
-      raise LispError( 'if: expected a test and two branches, '
-                       f'found {n} part' + ('' if n == 1 else 's') )
+      raise LispError(
+          'if: expected a test and two '
+          'branches, '
+          f'found {n} part'
+          + ('' if n == 1 else 's'))
 
   elif head == 'set!':
     if len(form) != 3:
-      raise LispError( 'set!: expected a name and a value, '
-                       f'found {len(form) - 1} parts' )
-    if not isinstance( form[1], str ):
-      raise LispError( f'set!: target is not a name: {lisp_str(form[1])}' )
+      raise LispError(
+          'set!: expected a name and a '
+          'value, '
+          f'found {len(form) - 1} parts')
+    if not isinstance(form[1], str):
+      raise LispError(
+          f'set!: target is not a name: '
+          f'{lisp_str(form[1])}')
 
   elif head == 'lambda':
     if len(form) < 3:
-      raise LispError( 'lambda: expected a parameter list and a body' )
+      raise LispError(
+          'lambda: expected a parameter '
+          'list and a body')
     params = form[1]
-    if not isinstance( params, list ):
-      raise LispError( 'lambda: parameter list is not a list: '
-                       f'{lisp_str(params)}' )
-    names = [ p for p in params if p != '.' ]
+    if not isinstance(params, list):
+      raise LispError(
+          'lambda: parameter list is not '
+          'a list: '
+          f'{lisp_str(params)}')
+    names = [p for p in params if p != '.']
     if len(names) != len(set(names)):
-      raise LispError( 'lambda: a parameter is named twice in '
-                       f'{lisp_str(params)}' )
+      raise LispError(
+          'lambda: a parameter is named '
+          'twice in '
+          f'{lisp_str(params)}')
     for sub in form[2:]:                     # the body; the params are not code
-      check_shapes( sub )
+      check_shapes(sub)
     return
 
   for sub in form[1:]:
-    check_shapes( sub )
+    check_shapes(sub)
 
 
 # ---------------------------------------------------------------------------
@@ -92,20 +107,20 @@ def check_shapes( form ):
 # lambda it calls.  A closure hides the lambda, and the checker goes quiet.
 # ---------------------------------------------------------------------------
 
-def arity_of( params ):
+def arity_of(params):
   # (min, max); max is None when a rest parameter makes the call variadic.
   if '.' in params:
-    return ( params.index('.'), None )
-  return ( len(params), len(params) )
+    return (params.index('.'), None)
+  return (len(params), len(params))
 
 
-def check_arity( form, known ):
+def check_arity(form, known):
   """`known` maps a name to a parameter list, for the lambdas we can see.
 
     It is updated as we move down a body, so that a `set!` earlier in the body
     is visible to the calls that come after it.
     """
-  if not isinstance( form, list ) or not form:
+  if not isinstance(form, list) or not form:
     return
   head = form[0]
 
@@ -113,28 +128,29 @@ def check_arity( form, known ):
     return
   if head == 'lambda':
     for sub in form[2:]:
-      check_arity( sub, dict(known) )      # a body gets its own scope
+      check_arity(sub, dict(known))      # a body gets its own scope
     return
   if head == 'set!':
     name, value = form[1], form[2]
-    check_arity( value, known )
+    check_arity(value, known)
     # We learn an arity only when the value is a lambda sitting right here.
-    if isinstance( value,
-                  list ) and value and value[0] == 'lambda':
+    if (isinstance(value, list)
+         and value
+         and value[0] == 'lambda'):
       known[name] = value[1]
     return
 
-  if isinstance( head, str ) and head in known:
-    lo, hi = arity_of( known[head] )
+  if isinstance(head, str) and head in known:
+    lo, hi = arity_of(known[head])
     n = len(form) - 1
     if n < lo or (hi is not None and n > hi):
       want = str(lo) if hi == lo else f'{lo} or more' if hi is None \
              else f'{lo} to {hi}'
       noun = 'argument' if want == '1' else 'arguments'
-      raise LispError( f'{head}: expected {want} {noun}, got {n}' )
+      raise LispError(f'{head}: expected {want} {noun}, got {n}')
 
   for sub in form[1:]:
-    check_arity( sub, known )
+    check_arity(sub, known)
 
 
 # ---------------------------------------------------------------------------
@@ -142,32 +158,36 @@ def check_arity( form, known ):
 # instant either side of it is a name.  There is nothing to check against.
 # ---------------------------------------------------------------------------
 
-_NUMERIC = { '+', '-', '*', '%', '<', '>', '<=',
-            '>=', '=' }
+_NUMERIC = {'+', '-', '*', '%', '<', '>', '<=',
+            '>=', '='}
 
-def check_types( form ):
-  if not isinstance( form, list ) or not form:
+def check_types(form):
+  if not isinstance(form, list) or not form:
     return
   head = form[0]
   if head == 'quote':
     return
-  if isinstance( head, str ) and head in _NUMERIC:
+  if (isinstance(head, str)
+       and head in _NUMERIC):
     for arg in form[1:]:
       # We can judge only what is written out in full.  A quoted symbol
       # is a non-number we can see; a variable or a call, we cannot.
-      if isinstance( arg,
-                    list ) and arg and arg[0] == 'quote':
-        raise LispError( f"{head}: argument is not a number: '{arg[1]}" )
+      if (isinstance(arg, list)
+           and arg
+           and arg[0] == 'quote'):
+        raise LispError(
+            f'{head}: argument is not a '
+            f"number: '{arg[1]}")
   for sub in form[1:]:
-    check_types( sub )
+    check_types(sub)
 
 
-def analyze( form ):
+def analyze(form):
   """Run all three layers.  Returns the form unchanged; an analyzer inspects,
     it does not rewrite.  Raises LispError on the first problem it can prove."""
-  check_shapes( form )
-  check_arity( form, {} )
-  check_types( form )
+  check_shapes(form)
+  check_arity(form, {})
+  check_types(form)
   return form
 
 
@@ -176,41 +196,41 @@ def analyze( form ):
 # ---------------------------------------------------------------------------
 
 def main():
-  def check( label, source ):
+  def check(label, source):
     try:
-      analyze( expand( source ) )
-      print( f'  quiet   {label}' )
+      analyze(expand(source))
+      print(f'  quiet   {label}')
     except LispError as e:
-      print( f'  error   {label}:  {e}' )
+      print(f'  error   {label}:  {e}')
 
-  print( '--- shapes: caught, every one, with nothing but the tree ---\n' )
-  check( '(if #t)',          ['if', lTrue] )
-  check( '(set! 5 1)',       ['set!', 5, 1] )
-  check( '(lambda x x)',     ['lambda', 'x', 'x'] )
-  check( '(lambda (a a) a)', ['lambda', ['a', 'a'], 'a'] )
+  print('--- shapes: caught, every one, with nothing but the tree ---\n')
+  check('(if #t)',          ['if', lTrue])
+  check('(set! 5 1)',       ['set!', 5, 1])
+  check('(lambda x x)',     ['lambda', 'x', 'x'])
+  check('(lambda (a a) a)', ['lambda', ['a', 'a'], 'a'])
 
-  print( '\n--- arity: caught while the lambda is in view... ---\n' )
-  check( '(square 5 99)',
+  print('\n--- arity: caught while the lambda is in view... ---\n')
+  check('(square 5 99)',
          ['begin', ['set!', 'square', ['lambda', ['x'], ['*', 'x', 'x']]],
-                   ['square', 5, 99]] )
+                   ['square', 5, 99]])
 
-  print( '\n--- ...and quiet the moment a closure hides it ---\n' )
-  check( '((make-adder 3) 10)',
+  print('\n--- ...and quiet the moment a closure hides it ---\n')
+  check('((make-adder 3) 10)',
          ['begin', ['set!', 'make-adder',
                     ['lambda', ['n'], ['lambda', ['x'], ['+', 'x', 'n']]]],
-                   [['make-adder', 3], 10]] )
+                   [['make-adder', 3], 10]])
 
-  print( '\n--- types: caught when written whole, mute when a name hides it ---\n' )
-  check( "(+ 'foo 1)", ['+', ['quote', 'foo'], 1] )
-  check( '(+ x 1)',    ['begin', ['set!', 'x', 5], ['+', 'x', 1]] )
+  print('\n--- types: caught when written whole, mute when a name hides it ---\n')
+  check("(+ 'foo 1)", ['+', ['quote', 'foo'], 1])
+  check('(+ x 1)',    ['begin', ['set!', 'x', 5], ['+', 'x', 1]])
 
-  print( '\n--- and a program with nothing wrong draws no complaint ---\n' )
-  check( 'factorial',
+  print('\n--- and a program with nothing wrong draws no complaint ---\n')
+  check('factorial',
          ['begin',
           ['set!', 'fact', ['lambda', ['n'],
                             ['if', ['=', 'n', 0], 1,
                              ['*', 'n', ['fact', ['-', 'n', 1]]]]]],
-          ['fact', 5]] )
+          ['fact', 5]])
 
 
 if __name__ == '__main__':

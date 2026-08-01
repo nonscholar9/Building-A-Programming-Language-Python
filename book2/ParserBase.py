@@ -39,71 +39,71 @@ from abc import ABC, abstractmethod
 # ---------------------------------------------------------------------------
 
 class LexerBuffer:
-    def __init__( self ):
-        self._filename  = ''
-        self._source    = ''
-        self._sourceLen = 0
-        self._nextChar  = ''      # the character at _point, cached
-        self._point     = 0       # index of the next unread character
-        self._mark      = 0       # index where the current lexeme began
-        self._lineNum   = 1
+  def __init__( self ):
+    self._filename  = ''
+    self._source    = ''
+    self._sourceLen = 0
+    self._nextChar  = ''      # the character at _point, cached
+    self._point     = 0       # index of the next unread character
+    self._mark      = 0       # index where the current lexeme began
+    self._lineNum   = 1
 
-    def reset( self, source, filename='' ):
-        self._filename  = filename
-        self._source    = source
-        self._sourceLen = len( source )
-        self._nextChar  = source[0] if source else ''
-        self._point     = 0
-        self._mark      = 0
-        self._lineNum   = 1
+  def reset( self, source, filename='' ):
+    self._filename  = filename
+    self._source    = source
+    self._sourceLen = len( source )
+    self._nextChar  = source[0] if source else ''
+    self._point     = 0
+    self._mark      = 0
+    self._lineNum   = 1
 
-    def peekNextChar( self ):
-        return self._nextChar
+  def peekNextChar( self ):
+    return self._nextChar
 
-    def consume( self ):
-        if self._nextChar == '':
-            return
-        if self._nextChar == '\n':
-            self._lineNum += 1
-        self._point += 1
-        self._nextChar = ( self._source[self._point]
-                           if self._point < self._sourceLen else '' )
+  def consume( self ):
+    if self._nextChar == '':
+      return
+    if self._nextChar == '\n':
+      self._lineNum += 1
+    self._point += 1
+    self._nextChar = ( self._source[self._point]
+                       if self._point < self._sourceLen else '' )
 
-    def consumePast( self, charSet ):
-        """Advance over a run of characters that ARE in charSet."""
-        while self._nextChar and self._nextChar in charSet:
-            self.consume()
+  def consumePast( self, charSet ):
+    """Advance over a run of characters that ARE in charSet."""
+    while self._nextChar and self._nextChar in charSet:
+      self.consume()
 
-    def consumeUpTo( self, charSet ):
-        """Advance over a run of characters that are NOT in charSet."""
-        while self._nextChar and self._nextChar not in charSet:
-            self.consume()
+  def consumeUpTo( self, charSet ):
+    """Advance over a run of characters that are NOT in charSet."""
+    while self._nextChar and self._nextChar not in charSet:
+      self.consume()
 
-    def markStartOfLexeme( self ):
-        self._mark = self._point
+  def markStartOfLexeme( self ):
+    self._mark = self._point
 
-    def getLexeme( self ):
-        return self._source[ self._mark : self._point ]
+  def getLexeme( self ):
+    return self._source[ self._mark : self._point ]
 
-    # --- source position, for error messages ---
+  # --- source position, for error messages ---
 
-    def filename( self ):
-        return self._filename
+  def filename( self ):
+    return self._filename
 
-    def scanLineNum( self ):
-        return self._lineNum
+  def scanLineNum( self ):
+    return self._lineNum
 
-    def scanLinePos( self ):
-        """Index of the first character of the current line."""
-        return self._source.rfind( '\n', 0, self._point ) + 1
+  def scanLinePos( self ):
+    """Index of the first character of the current line."""
+    return self._source.rfind( '\n', 0, self._point ) + 1
 
-    def scanColNum( self ):
-        return self._point - self.scanLinePos() + 1
+  def scanColNum( self ):
+    return self._point - self.scanLinePos() + 1
 
-    def scanLineTxt( self ):
-        start = self.scanLinePos()
-        end   = self._source.find( '\n', start )
-        return self._source[start:] if end == -1 else self._source[start:end]
+  def scanLineTxt( self ):
+    start = self.scanLinePos()
+    end   = self._source.find( '\n', start )
+    return self._source[start:] if end == -1 else self._source[start:end]
 
 
 # ---------------------------------------------------------------------------
@@ -111,28 +111,28 @@ class LexerBuffer:
 # ---------------------------------------------------------------------------
 
 class LexerBase( ABC ):
-    def __init__( self ):
-        self.buffer = LexerBuffer()
-        self._tok   = -1
+  def __init__( self ):
+    self.buffer = LexerBuffer()
+    self._tok   = -1
 
-    def reset( self, source, filename='' ):
-        self.buffer.reset( source, filename )
-        self.consume()                        # prime the one-token lookahead
+  def reset( self, source, filename='' ):
+    self.buffer.reset( source, filename )
+    self.consume()                        # prime the one-token lookahead
 
-    def peekToken( self ):
-        return self._tok
+  def peekToken( self ):
+    return self._tok
 
-    def consume( self ):
-        self._tok = self._scanNextToken()
+  def consume( self ):
+    self._tok = self._scanNextToken()
 
-    def getLexeme( self ):
-        return self.buffer.getLexeme()
+  def getLexeme( self ):
+    return self.buffer.getLexeme()
 
-    @abstractmethod
-    def _scanNextToken( self ):
-        """Scan past the next token, leaving the buffer with _mark at its first
+  @abstractmethod
+  def _scanNextToken( self ):
+    """Scan past the next token, leaving the buffer with _mark at its first
         character and _point one past its last, and return the token's kind."""
-        ...
+    ...
 
 
 # ---------------------------------------------------------------------------
@@ -140,17 +140,17 @@ class LexerBase( ABC ):
 # ---------------------------------------------------------------------------
 
 class ParseError( Exception ):
-    def __init__( self, scanner, message ):
-        buf = scanner.buffer
-        super().__init__( self._format(
-            buf.filename(), buf.scanLineNum(), buf.scanColNum(),
-            buf.scanLineTxt(), message ) )
+  def __init__( self, scanner, message ):
+    buf = scanner.buffer
+    super().__init__( self._format(
+        buf.filename(), buf.scanLineNum(), buf.scanColNum(),
+        buf.scanLineTxt(), message ) )
 
-    @staticmethod
-    def _format( filename, line, col, sourceLine, message ):
-        caret = ' ' * ( col - 1 ) + '^'
-        return ( f'Syntax Error: "{filename}" ({line},{col})\n'
-                 f'{sourceLine}\n{caret}\n{message}' )
+  @staticmethod
+  def _format( filename, line, col, sourceLine, message ):
+    caret = ' ' * ( col - 1 ) + '^'
+    return ( f'Syntax Error: "{filename}" ({line},{col})\n'
+             f'{sourceLine}\n{caret}\n{message}' )
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class ParseError( Exception ):
 # ---------------------------------------------------------------------------
 
 class ParserBase( ABC ):
-    @abstractmethod
-    def parse( self, source ):
-        """Parse source text and return an AST."""
-        ...
+  @abstractmethod
+  def parse( self, source ):
+    """Parse source text and return an AST."""
+    ...

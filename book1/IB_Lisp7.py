@@ -73,12 +73,12 @@ FALSE = mk_ptr( -3 )
 _NAMES = []
 
 def intern( name ):
-    if name not in _NAMES:
-        _NAMES.append( name )
-    return _NAMES.index( name )
+  if name not in _NAMES:
+    _NAMES.append( name )
+  return _NAMES.index( name )
 
 def name_of( nid ):
-    return _NAMES[nid]
+  return _NAMES[nid]
 
 
 # ---------------------------------------------------------------------------
@@ -134,15 +134,15 @@ peak_live = 0                   # the most the machine could reach at any collec
 
 
 def heap_reset( size=None ):
-    global heap, free_ptr, heap_end, free_list, gc_runs, peak_live, HEAP_SIZE
-    if size is not None:
-        HEAP_SIZE = size
-    heap      = [0] * HEAP_SIZE
-    free_ptr  = 0
-    heap_end  = 0
-    free_list = NIL
-    gc_runs   = 0
-    peak_live = 0
+  global heap, free_ptr, heap_end, free_list, gc_runs, peak_live, HEAP_SIZE
+  if size is not None:
+    HEAP_SIZE = size
+  heap      = [0] * HEAP_SIZE
+  free_ptr  = 0
+  heap_end  = 0
+  free_list = NIL
+  gc_runs   = 0
+  peak_live = 0
 
 
 # --- allocation ------------------------------------------------------------
@@ -154,7 +154,7 @@ def heap_reset( size=None ):
 # have to be searched.
 
 def _take( size ):
-    """Find room for `size` cells: first fit on the free list, else bump.
+  """Find room for `size` cells: first fit on the free list, else bump.
 
     Returns (address, cells actually handed over), or None.  The second number
     is not always the one asked for: a block with only a cell or two to spare
@@ -163,39 +163,39 @@ def _take( size ):
     object.  Every allocator makes that trade, and the lost cells have a name:
     internal fragmentation.
     """
-    global free_ptr, heap_end, free_list
+  global free_ptr, heap_end, free_list
 
-    prev, cur = NIL, free_list
-    while cur != NIL:
-        a     = addr_of( cur )
-        bsize = heap[a + 1]
-        nxt   = heap[a + 2]
-        if bsize >= size:
-            if bsize - size >= MIN_BLOCK:       # split, and keep the remainder
-                b = a + size
-                heap[b], heap[b + 1], heap[b + 2] = TAG_FREE, bsize - size, nxt
-                repl, given = mk_ptr( b ), size
-            else:                               # hand over the whole block
-                repl, given = nxt, bsize
-            if prev == NIL:
-                free_list = repl
-            else:
-                heap[addr_of( prev ) + 2] = repl
-            return a, given
-        prev, cur = cur, nxt
+  prev, cur = NIL, free_list
+  while cur != NIL:
+    a     = addr_of( cur )
+    bsize = heap[a + 1]
+    nxt   = heap[a + 2]
+    if bsize >= size:
+      if bsize - size >= MIN_BLOCK:       # split, and keep the remainder
+        b = a + size
+        heap[b], heap[b + 1], heap[b + 2] = TAG_FREE, bsize - size, nxt
+        repl, given = mk_ptr( b ), size
+      else:                               # hand over the whole block
+        repl, given = nxt, bsize
+      if prev == NIL:
+        free_list = repl
+      else:
+        heap[addr_of( prev ) + 2] = repl
+      return a, given
+    prev, cur = cur, nxt
 
-    if free_ptr + size <= HEAP_SIZE:            # the bump allocator
-        a = free_ptr
-        free_ptr += size
-        if free_ptr > heap_end:
-            heap_end = free_ptr
-        return a, size
+  if free_ptr + size <= HEAP_SIZE:            # the bump allocator
+    a = free_ptr
+    free_ptr += size
+    if free_ptr > heap_end:
+      heap_end = free_ptr
+    return a, size
 
-    return None
+  return None
 
 
 def alloc( tag, size ):
-    """Allocate an object, collecting if we have to.
+  """Allocate an object, collecting if we have to.
 
     ! Every caller must obey one discipline: everything this new object will
     ! point at must already be reachable from V, E or K before you call, and the
@@ -204,147 +204,147 @@ def alloc( tag, size ):
     ! is merely holding in a Python local is invisible to it, and allocating
     ! while holding one is how you collect an object you are still using.
     """
+  got = _take( size )
+  if got is None:
+    gc()
     got = _take( size )
     if got is None:
-        gc()
-        got = _take( size )
-        if got is None:
-            raise MemoryError(
-                f'heap exhausted: no room for {size} cells '
-                f'({heap_free()} free, in {heap_holes()} holes)' )
-    a, given = got
-    # `given`, not `size`: the block's header must describe the block, or the
-    # sweep's walk loses its place and starts reading a header out of the middle
-    # of the next object.  This is why every object carries its own length.
-    heap[a], heap[a + 1] = tag, given
-    return a
+      raise MemoryError(
+          f'heap exhausted: no room for {size} cells '
+          f'({heap_free()} free, in {heap_holes()} holes)' )
+  a, given = got
+  # `given`, not `size`: the block's header must describe the block, or the
+  # sweep's walk loses its place and starts reading a header out of the middle
+  # of the next object.  This is why every object carries its own length.
+  heap[a], heap[a + 1] = tag, given
+  return a
 
 
 # --- constructors ----------------------------------------------------------
 
 def mk_env( outer, param_ids, args ):
-    # A dotted parameter list `(first . rest)` gathers the leftover arguments.
-    # The dot reaches us as the ordinary interned name '.', so look for it; if it
-    # is there, the name after it binds to a list of whatever arguments remain.
-    dot = next( (i for i in range( len( param_ids ) )
-                 if name_of( param_ids[i] ) == '.'), None )
-    if dot is not None:
-        # Build the rest list (a chain of pairs) and keep it in V, a root, so a
-        # collection during the env's own allocation cannot free it.  The args
-        # stay reachable through the ARG frame on K throughout.
-        global V
-        saved, V = V, NIL
-        for x in reversed( args[dot:] ):
-            V = mk_pair( x, V )
-        n = dot + 1
-        a = alloc( TAG_ENV, 4 + 2 * n )          # may collect; V roots the rest list
-        heap[a + 2], heap[a + 3] = outer, n
-        for i in range( dot ):
-            heap[a + 4 + 2 * i] = param_ids[i]
-            heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
-        heap[a + 4 + 2 * dot] = param_ids[dot + 1]
-        heap[a + 5 + 2 * dot] = V                 # the rest list, still rooted in V
-        V = saved
-        return mk_ptr( a )
-
-    n = len( param_ids )
-    a = alloc( TAG_ENV, 4 + 2 * n )
+  # A dotted parameter list `(first . rest)` gathers the leftover arguments.
+  # The dot reaches us as the ordinary interned name '.', so look for it; if it
+  # is there, the name after it binds to a list of whatever arguments remain.
+  dot = next( (i for i in range( len( param_ids ) )
+               if name_of( param_ids[i] ) == '.'), None )
+  if dot is not None:
+    # Build the rest list (a chain of pairs) and keep it in V, a root, so a
+    # collection during the env's own allocation cannot free it.  The args
+    # stay reachable through the ARG frame on K throughout.
+    global V
+    saved, V = V, NIL
+    for x in reversed( args[dot:] ):
+      V = mk_pair( x, V )
+    n = dot + 1
+    a = alloc( TAG_ENV, 4 + 2 * n )          # may collect; V roots the rest list
     heap[a + 2], heap[a + 3] = outer, n
-    for i in range( n ):
-        heap[a + 4 + 2 * i] = param_ids[i]
-        # zip's silent truncation, by hand: a missing argument is simply absent.
-        heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
+    for i in range( dot ):
+      heap[a + 4 + 2 * i] = param_ids[i]
+      heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
+    heap[a + 4 + 2 * dot] = param_ids[dot + 1]
+    heap[a + 5 + 2 * dot] = V                 # the rest list, still rooted in V
+    V = saved
     return mk_ptr( a )
+
+  n = len( param_ids )
+  a = alloc( TAG_ENV, 4 + 2 * n )
+  heap[a + 2], heap[a + 3] = outer, n
+  for i in range( n ):
+    heap[a + 4 + 2 * i] = param_ids[i]
+    # zip's silent truncation, by hand: a missing argument is simply absent.
+    heap[a + 5 + 2 * i] = args[i] if i < len( args ) else mk_num( 0 )
+  return mk_ptr( a )
 
 
 def mk_closure( lam_pc, env ):
-    a = alloc( TAG_CLOSURE, 4 )
-    heap[a + 2], heap[a + 3] = lam_pc, env
-    return mk_ptr( a )
+  a = alloc( TAG_CLOSURE, 4 )
+  heap[a + 2], heap[a + 3] = lam_pc, env
+  return mk_ptr( a )
 
 
 def mk_prim( prim_id ):
-    a = alloc( TAG_PRIM, 3 )
-    heap[a + 2] = prim_id
-    return mk_ptr( a )
+  a = alloc( TAG_PRIM, 3 )
+  heap[a + 2] = prim_id
+  return mk_ptr( a )
 
 
 def mk_ret( nxt, ret_pc, env ):
-    a = alloc( TAG_RET, 5 )
-    heap[a + 2], heap[a + 3], heap[a + 4] = nxt, ret_pc, env
-    return mk_ptr( a )
+  a = alloc( TAG_RET, 5 )
+  heap[a + 2], heap[a + 3], heap[a + 4] = nxt, ret_pc, env
+  return mk_ptr( a )
 
 
 def mk_if( nxt, then_pc, else_pc, env ):
-    a = alloc( TAG_IF, 6 )
-    heap[a + 2], heap[a + 3], heap[a + 4], heap[a + 5] = nxt, then_pc, else_pc, env
-    return mk_ptr( a )
+  a = alloc( TAG_IF, 6 )
+  heap[a + 2], heap[a + 3], heap[a + 4], heap[a + 5] = nxt, then_pc, else_pc, env
+  return mk_ptr( a )
 
 
 def mk_arg( nxt, env, nslots ):
-    a = alloc( TAG_ARG, 6 + nslots )
-    heap[a + 2], heap[a + 3], heap[a + 4], heap[a + 5] = nxt, env, nslots, 0
-    for i in range( nslots ):
-        heap[a + 6 + i] = NIL           # so the collector never reads garbage
-    return mk_ptr( a )
+  a = alloc( TAG_ARG, 6 + nslots )
+  heap[a + 2], heap[a + 3], heap[a + 4], heap[a + 5] = nxt, env, nslots, 0
+  for i in range( nslots ):
+    heap[a + 6 + i] = NIL           # so the collector never reads garbage
+  return mk_ptr( a )
 
 
 def mk_pair( car, cdr ):
-    # alloc runs first and may collect; car and cdr must already be reachable
-    # from a register before the call (for cons, they sit in the ARG frame on K).
-    a = alloc( TAG_PAIR, 4 )
-    heap[a + 2], heap[a + 3] = car, cdr
-    return mk_ptr( a )
+  # alloc runs first and may collect; car and cdr must already be reachable
+  # from a register before the call (for cons, they sit in the ARG frame on K).
+  a = alloc( TAG_PAIR, 4 )
+  heap[a + 2], heap[a + 3] = car, cdr
+  return mk_ptr( a )
 
 
 def mk_symbol( nid ):
-    a = alloc( TAG_SYMBOL, 3 )
-    heap[a + 2] = nid                   # a name id, a number: no pointer to trace
-    return mk_ptr( a )
+  a = alloc( TAG_SYMBOL, 3 )
+  heap[a + 2] = nid                   # a name id, a number: no pointer to trace
+  return mk_ptr( a )
 
 
 # --- environments ----------------------------------------------------------
 
 def env_lookup( env, nid ):
-    while env != NIL:
-        a = addr_of( env )
-        for i in range( heap[a + 3] ):
-            if heap[a + 4 + 2 * i] == nid:
-                return heap[a + 5 + 2 * i]
-        env = heap[a + 2]
-    raise NameError( f'Unbound variable: {name_of( nid )}' )
+  while env != NIL:
+    a = addr_of( env )
+    for i in range( heap[a + 3] ):
+      if heap[a + 4 + 2 * i] == nid:
+        return heap[a + 5 + 2 * i]
+    env = heap[a + 2]
+  raise NameError( f'Unbound variable: {name_of( nid )}' )
 
 
 def env_set( env, nid, value ):
-    """Assign to a name.  If nothing in the stack has it, it becomes a global,
+  """Assign to a name.  If nothing in the stack has it, it becomes a global,
     which is what toys 1-5 do and what a prompt needs to be usable."""
-    while env != NIL:
-        a = addr_of( env )
-        for i in range( heap[a + 3] ):
-            if heap[a + 4 + 2 * i] == nid:
-                heap[a + 5 + 2 * i] = value      # <-- the write that makes cycles
-                return
-        env = heap[a + 2]
-    define_global( nid, value )
+  while env != NIL:
+    a = addr_of( env )
+    for i in range( heap[a + 3] ):
+      if heap[a + 4 + 2 * i] == nid:
+        heap[a + 5 + 2 * i] = value      # <-- the write that makes cycles
+        return
+    env = heap[a + 2]
+  define_global( nid, value )
 
 
 def define_global( nid, value ):
-    """Bind a name in the global environment, claiming a spare slot if it is new.
+  """Bind a name in the global environment, claiming a spare slot if it is new.
 
     The global environment is one heap object with a fixed number of slots, so a
     session can only introduce as many names as `boot` set aside for it.
     """
-    a = addr_of( global_env )
-    for i in range( heap[a + 3] ):
-        if heap[a + 4 + 2 * i] == nid:
-            heap[a + 5 + 2 * i] = value
-            return
-    for i in range( heap[a + 3] ):
-        if heap[a + 4 + 2 * i] == EMPTY:
-            heap[a + 4 + 2 * i] = nid
-            heap[a + 5 + 2 * i] = value
-            return
-    raise MemoryError( f'no room for another global: {name_of( nid )}' )
+  a = addr_of( global_env )
+  for i in range( heap[a + 3] ):
+    if heap[a + 4 + 2 * i] == nid:
+      heap[a + 5 + 2 * i] = value
+      return
+  for i in range( heap[a + 3] ):
+    if heap[a + 4 + 2 * i] == EMPTY:
+      heap[a + 4 + 2 * i] = nid
+      heap[a + 5 + 2 * i] = value
+      return
+  raise MemoryError( f'no room for another global: {name_of( nid )}' )
 
 
 # ---------------------------------------------------------------------------
@@ -352,84 +352,84 @@ def define_global( nid, value ):
 # ---------------------------------------------------------------------------
 
 def pointers_in( a ):
-    """The cells of the object at `a` that hold addresses.  Shape, not guesswork."""
-    tag = heap[a]
-    if tag == TAG_ENV:
-        out = [heap[a + 2]]
-        out += [heap[a + 5 + 2 * i] for i in range( heap[a + 3] )]
-        return out
-    if tag == TAG_CLOSURE:
-        return [heap[a + 3]]
-    if tag == TAG_PRIM:
-        return []
-    if tag == TAG_RET:
-        return [heap[a + 2], heap[a + 4]]
-    if tag == TAG_IF:
-        return [heap[a + 2], heap[a + 5]]
-    if tag == TAG_ARG:
-        out = [heap[a + 2], heap[a + 3]]
-        out += [heap[a + 6 + i] for i in range( heap[a + 4] )]
-        return out
-    if tag == TAG_PAIR:
-        return [heap[a + 2], heap[a + 3]]
-    if tag == TAG_SYMBOL:
-        return []
+  """The cells of the object at `a` that hold addresses.  Shape, not guesswork."""
+  tag = heap[a]
+  if tag == TAG_ENV:
+    out = [heap[a + 2]]
+    out += [heap[a + 5 + 2 * i] for i in range( heap[a + 3] )]
+    return out
+  if tag == TAG_CLOSURE:
+    return [heap[a + 3]]
+  if tag == TAG_PRIM:
     return []
+  if tag == TAG_RET:
+    return [heap[a + 2], heap[a + 4]]
+  if tag == TAG_IF:
+    return [heap[a + 2], heap[a + 5]]
+  if tag == TAG_ARG:
+    out = [heap[a + 2], heap[a + 3]]
+    out += [heap[a + 6 + i] for i in range( heap[a + 4] )]
+    return out
+  if tag == TAG_PAIR:
+    return [heap[a + 2], heap[a + 3]]
+  if tag == TAG_SYMBOL:
+    return []
+  return []
 
 
 def mark():
-    """Every object the machine can still reach, starting from its registers.
+  """Every object the machine can still reach, starting from its registers.
 
     The worklist is explicit rather than recursive on purpose.  This book spent
     four chapters getting the machine off Python's call stack, and putting the
     collector back on it would be a poor joke.
     """
-    marked   = set()
-    worklist = [V, E, K]                        # the roots, and there are only three
-    while worklist:
-        v = worklist.pop()
-        if not is_ptr( v ) or addr_of( v ) < 0:   # NIL, #t and #f point nowhere
-            continue
-        a = addr_of( v )
-        if a in marked:
-            continue
-        marked.add( a )
-        worklist.extend( pointers_in( a ) )
-    return marked
+  marked   = set()
+  worklist = [V, E, K]                        # the roots, and there are only three
+  while worklist:
+    v = worklist.pop()
+    if not is_ptr( v ) or addr_of( v ) < 0:   # NIL, #t and #f point nowhere
+      continue
+    a = addr_of( v )
+    if a in marked:
+      continue
+    marked.add( a )
+    worklist.extend( pointers_in( a ) )
+  return marked
 
 
 def gc():
-    """Mark everything reachable from the machine's registers; sweep the rest."""
-    global free_list, gc_runs, peak_live
-    gc_runs += 1
+  """Mark everything reachable from the machine's registers; sweep the rest."""
+  global free_list, gc_runs, peak_live
+  gc_runs += 1
 
-    marked = mark()
+  marked = mark()
 
-    # What the mark phase just measured is the only honest number in the file:
-    # how much of the heap the machine could still reach.  Everything else was
-    # garbage, whatever it cost to produce.
-    peak_live = max( peak_live, sum( heap[a + 1] for a in marked ) )
+  # What the mark phase just measured is the only honest number in the file:
+  # how much of the heap the machine could still reach.  Everything else was
+  # garbage, whatever it cost to produce.
+  peak_live = max( peak_live, sum( heap[a + 1] for a in marked ) )
 
-    # Sweep.  Walk every block; whatever was not marked becomes a free block.
-    # Nothing is moved and nothing is merged with its neighbour, and both of
-    # those omissions come due later.
-    free_list = NIL
-    a = 0
-    while a < heap_end:
-        size = heap[a + 1]
-        if a not in marked:
-            heap[a], heap[a + 2] = TAG_FREE, free_list
-            free_list = mk_ptr( a )
-        a += size
+  # Sweep.  Walk every block; whatever was not marked becomes a free block.
+  # Nothing is moved and nothing is merged with its neighbour, and both of
+  # those omissions come due later.
+  free_list = NIL
+  a = 0
+  while a < heap_end:
+    size = heap[a + 1]
+    if a not in marked:
+      heap[a], heap[a + 2] = TAG_FREE, free_list
+      free_list = mk_ptr( a )
+    a += size
 
 
 # --- looking at the heap ---------------------------------------------------
 
 def heap_walk():
-    a = 0
-    while a < heap_end:
-        yield a, heap[a], heap[a + 1]
-        a += heap[a + 1]
+  a = 0
+  while a < heap_end:
+    yield a, heap[a], heap[a + 1]
+    a += heap[a + 1]
 
 
 def heap_live():  return sum( s for _, t, s in heap_walk() if t != TAG_FREE )
@@ -438,24 +438,24 @@ def heap_holes(): return sum( 1 for _, t, _ in heap_walk() if t == TAG_FREE )
 
 
 def census():
-    """How many of each kind of object the heap is currently holding."""
-    counts = {}
-    for _, tag, _ in heap_walk():
-        counts[_TAG_NAMES[tag]] = counts.get( _TAG_NAMES[tag], 0 ) + 1
-    return '  '.join( f'{k} {v}' for k, v in sorted( counts.items() ) )
+  """How many of each kind of object the heap is currently holding."""
+  counts = {}
+  for _, tag, _ in heap_walk():
+    counts[_TAG_NAMES[tag]] = counts.get( _TAG_NAMES[tag], 0 ) + 1
+  return '  '.join( f'{k} {v}' for k, v in sorted( counts.items() ) )
 
 
 def heap_dump( label='' ):
-    if label:
-        print( f'  {label}' )
-    for a, tag, size in heap_walk():
-        if tag == TAG_FREE:                     # a hole; its old contents are noise
-            print( f'    {a:4}  {"-- free --":10} {size:2}' )
-        else:
-            cells = ' '.join( str( heap[a + i] ) for i in range( 2, size ) )
-            print( f'    {a:4}  {_TAG_NAMES[tag]:10} {size:2}  {cells}' )
-    print( f'    live {heap_live()}, free {heap_free()} in {heap_holes()} holes,'
-           f' never touched {HEAP_SIZE - heap_end}' )
+  if label:
+    print( f'  {label}' )
+  for a, tag, size in heap_walk():
+    if tag == TAG_FREE:                     # a hole; its old contents are noise
+      print( f'    {a:4}  {"-- free --":10} {size:2}' )
+    else:
+      cells = ' '.join( str( heap[a + i] ) for i in range( 2, size ) )
+      print( f'    {a:4}  {_TAG_NAMES[tag]:10} {size:2}  {cells}' )
+  print( f'    live {heap_live()}, free {heap_free()} in {heap_holes()} holes,'
+         f' never touched {HEAP_SIZE - heap_end}' )
 
 
 # ---------------------------------------------------------------------------
@@ -463,25 +463,25 @@ def heap_dump( label='' ):
 # ---------------------------------------------------------------------------
 
 def _is_sym( v ):
-    return is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_SYMBOL
+  return is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_SYMBOL
 
 def _add( a ):                                  # variadic, like Chapter 5; (+) is 0
-    total = 0
-    for x in a:
-        total += num_of( x )
-    return mk_num( total )
+  total = 0
+  for x in a:
+    total += num_of( x )
+  return mk_num( total )
 def _sub( a ): return mk_num( num_of( a[0] ) - num_of( a[1] ) )
 def _mul( a ):                                  # variadic; (*) is 1
-    total = 1
-    for x in a:
-        total *= num_of( x )
-    return mk_num( total )
+  total = 1
+  for x in a:
+    total *= num_of( x )
+  return mk_num( total )
 def _mod( a ): return mk_num( num_of( a[0] ) %  num_of( a[1] ) )
 def _eq(  a ):
-    # numbers compare as numbers; two symbols compare by their interned name.
-    if _is_sym( a[0] ) and _is_sym( a[1] ):
-        return TRUE if heap[addr_of( a[0] ) + 2] == heap[addr_of( a[1] ) + 2] else FALSE
-    return TRUE if num_of( a[0] ) == num_of( a[1] ) else FALSE
+  # numbers compare as numbers; two symbols compare by their interned name.
+  if _is_sym( a[0] ) and _is_sym( a[1] ):
+    return TRUE if heap[addr_of( a[0] ) + 2] == heap[addr_of( a[1] ) + 2] else FALSE
+  return TRUE if num_of( a[0] ) == num_of( a[1] ) else FALSE
 def _lt(  a ): return TRUE if num_of( a[0] ) <  num_of( a[1] ) else FALSE
 def _gt(  a ): return TRUE if num_of( a[0] ) >  num_of( a[1] ) else FALSE
 def _le(  a ): return TRUE if num_of( a[0] ) <= num_of( a[1] ) else FALSE
@@ -496,7 +496,7 @@ def _cdr(  a ): return heap[ addr_of( a[0] ) + 3 ]
 def _null( a ): return TRUE if a[0] == NIL else FALSE
 
 def _list( a ):
-    """A chain of pairs from the arguments.
+  """A chain of pairs from the arguments.
 
     This one allocates more than once, and that is what makes it interesting.
     Every mk_pair below can collect, and the chain built so far would live only
@@ -504,12 +504,12 @@ def _list( a ):
     which is a root, exactly as mk_env does when it gathers a rest parameter.
     The arguments stay reachable throughout on the ARG frame, still on K.
     """
-    global V
-    saved, V = V, NIL
-    for x in reversed( a ):
-        V = mk_pair( x, V )
-    built, V = V, saved
-    return built
+  global V
+  saved, V = V, NIL
+  for x in reversed( a ):
+    V = mk_pair( x, V )
+  built, V = V, saved
+  return built
 
 def _print( a ): print( show( a[0] ) ); return a[0]
 
@@ -568,137 +568,137 @@ _OR_TMP = '%or-tmp%'
 
 
 def _compile_quoted( datum, out ):
-    """Emit code that BUILDS `datum` as a value: a boolean, a symbol, a number,
+  """Emit code that BUILDS `datum` as a value: a boolean, a symbol, a number,
     or a list -- a list becomes a chain of conses ending in the empty list."""
-    if isinstance( datum, LBoolean ):
-        out.append( (OP_BOOL, datum) )
-    elif isinstance( datum, str ):
-        out.append( (OP_SYM, intern( datum )) )
-    elif isinstance( datum, int ):
-        out.append( (OP_INT, datum) )
-    elif isinstance( datum, list ) and not datum:
-        out.append( (OP_NIL,) )
-    else:                                       # (a . rest) -> (cons 'a 'rest)
-        compile_expr( ['cons', ['quote', datum[0]], ['quote', datum[1:]]],
-                      out, tail=False )
+  if isinstance( datum, LBoolean ):
+    out.append( (OP_BOOL, datum) )
+  elif isinstance( datum, str ):
+    out.append( (OP_SYM, intern( datum )) )
+  elif isinstance( datum, int ):
+    out.append( (OP_INT, datum) )
+  elif isinstance( datum, list ) and not datum:
+    out.append( (OP_NIL,) )
+  else:                                       # (a . rest) -> (cons 'a 'rest)
+    compile_expr( ['cons', ['quote', datum[0]], ['quote', datum[1:]]],
+                  out, tail=False )
 
 
 def compile_body( forms, out, tail ):
-    for f in forms[:-1]:
-        compile_expr( f, out, tail=False )      # value computed, then overwritten
-    compile_expr( forms[-1], out, tail=tail )
+  for f in forms[:-1]:
+    compile_expr( f, out, tail=False )      # value computed, then overwritten
+  compile_expr( forms[-1], out, tail=tail )
 
 
 def compile_expr( expr, out, tail ):
-    if isinstance( expr, LBoolean ):
-        out.append( (OP_BOOL, expr) )
-        if tail:
-            out.append( (OP_RET,) )
+  if isinstance( expr, LBoolean ):
+    out.append( (OP_BOOL, expr) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif isinstance( expr, str ):
-        out.append( (OP_VAR, intern( expr )) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif isinstance( expr, str ):
+    out.append( (OP_VAR, intern( expr )) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif isinstance( expr, int ):
-        out.append( (OP_INT, expr) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif isinstance( expr, int ):
+    out.append( (OP_INT, expr) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'lambda':                   # ['lambda', [params], *body]
-        lam_idx  = len( out )
-        out.append( None )
-        jump_idx = len( out )
-        out.append( None )
-        body_pc  = len( out )
-        _, params, *body = expr
-        compile_body( body, out, tail=True )
-        out[lam_idx]  = (OP_LAM, [intern( p ) for p in params], body_pc)
-        out[jump_idx] = (OP_JUMP, len( out ))
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'lambda':                   # ['lambda', [params], *body]
+    lam_idx  = len( out )
+    out.append( None )
+    jump_idx = len( out )
+    out.append( None )
+    body_pc  = len( out )
+    _, params, *body = expr
+    compile_body( body, out, tail=True )
+    out[lam_idx]  = (OP_LAM, [intern( p ) for p in params], body_pc)
+    out[jump_idx] = (OP_JUMP, len( out ))
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'if':                       # ['if', test, then, else]
-        _, condExpr, thenExpr, elseExpr = expr
-        if_idx = len( out )
-        out.append( None )
-        compile_expr( condExpr, out, tail=False )
-        out.append( (OP_APPLY_IF,) )
-        then_pc = len( out )
-        compile_expr( thenExpr, out, tail=tail )
-        if not tail:
-            then_jump = len( out )
-            out.append( None )
-        else_pc = len( out )
-        compile_expr( elseExpr, out, tail=tail )
-        if not tail:
-            out[then_jump] = (OP_JUMP, len( out ))
-        out[if_idx] = (OP_IF_START, then_pc, else_pc)
+  elif expr[0] == 'if':                       # ['if', test, then, else]
+    _, condExpr, thenExpr, elseExpr = expr
+    if_idx = len( out )
+    out.append( None )
+    compile_expr( condExpr, out, tail=False )
+    out.append( (OP_APPLY_IF,) )
+    then_pc = len( out )
+    compile_expr( thenExpr, out, tail=tail )
+    if not tail:
+      then_jump = len( out )
+      out.append( None )
+    else_pc = len( out )
+    compile_expr( elseExpr, out, tail=tail )
+    if not tail:
+      out[then_jump] = (OP_JUMP, len( out ))
+    out[if_idx] = (OP_IF_START, then_pc, else_pc)
 
-    elif expr[0] == 'set!':                     # ['set!', name, valueExpr]
-        _, name, valExpr = expr
-        compile_expr( valExpr, out, tail=False )
-        out.append( (OP_SET, intern( name )) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'set!':                     # ['set!', name, valueExpr]
+    _, name, valExpr = expr
+    compile_expr( valExpr, out, tail=False )
+    out.append( (OP_SET, intern( name )) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'begin':                    # ['begin', *forms]
-        compile_body( expr[1:], out, tail )
+  elif expr[0] == 'begin':                    # ['begin', *forms]
+    compile_body( expr[1:], out, tail )
 
-    elif expr[0] == 'let':                      # ['let', ((name init)...), *body]
-        _, bindingPairs, *body = expr
-        names = [ pair[0] for pair in bindingPairs ]
-        inits = [ pair[1] for pair in bindingPairs ]
-        compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
+  elif expr[0] == 'let':                      # ['let', ((name init)...), *body]
+    _, bindingPairs, *body = expr
+    names = [ pair[0] for pair in bindingPairs ]
+    inits = [ pair[1] for pair in bindingPairs ]
+    compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
 
-    elif expr[0] == 'quote':                    # ['quote', datum]
-        _compile_quoted( expr[1], out )
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'quote':                    # ['quote', datum]
+    _compile_quoted( expr[1], out )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'cond':                     # ['cond', (test result)...]
-        clauses = expr[1:]
-        if not clauses:
-            compile_expr( lFalse, out, tail )
-        elif clauses[0][0] == 'else':
-            compile_expr( clauses[0][1], out, tail )
-        else:                                   # a chain of ifs, peeled one clause
-            compile_expr( ['if', clauses[0][0], clauses[0][1],
-                           ['cond'] + list( clauses[1:] )], out, tail )
+  elif expr[0] == 'cond':                     # ['cond', (test result)...]
+    clauses = expr[1:]
+    if not clauses:
+      compile_expr( lFalse, out, tail )
+    elif clauses[0][0] == 'else':
+      compile_expr( clauses[0][1], out, tail )
+    else:                                   # a chain of ifs, peeled one clause
+      compile_expr( ['if', clauses[0][0], clauses[0][1],
+                     ['cond'] + list( clauses[1:] )], out, tail )
 
-    elif expr[0] == 'and':                      # ['and', *forms] -- short-circuits
-        forms = expr[1:]
-        if not forms:
-            compile_expr( lTrue, out, tail )    # (and) is true
-        elif len( forms ) == 1:
-            compile_expr( forms[0], out, tail )
-        else:                                   # (if a (and rest...) #f)
-            compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), lFalse],
-                          out, tail )
+  elif expr[0] == 'and':                      # ['and', *forms] -- short-circuits
+    forms = expr[1:]
+    if not forms:
+      compile_expr( lTrue, out, tail )    # (and) is true
+    elif len( forms ) == 1:
+      compile_expr( forms[0], out, tail )
+    else:                                   # (if a (and rest...) #f)
+      compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), lFalse],
+                    out, tail )
 
-    elif expr[0] == 'or':                       # ['or', *forms] -- short-circuits
-        forms = expr[1:]
-        if not forms:
-            compile_expr( lFalse, out, tail )   # (or) is false
-        elif len( forms ) == 1:
-            compile_expr( forms[0], out, tail )
-        else:                                   # bind a once, return it if true
-            compile_expr( [['lambda', [_OR_TMP],
-                            ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
-                           forms[0]], out, tail )
+  elif expr[0] == 'or':                       # ['or', *forms] -- short-circuits
+    forms = expr[1:]
+    if not forms:
+      compile_expr( lFalse, out, tail )   # (or) is false
+    elif len( forms ) == 1:
+      compile_expr( forms[0], out, tail )
+    else:                                   # bind a once, return it if true
+      compile_expr( [['lambda', [_OR_TMP],
+                      ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
+                     forms[0]], out, tail )
 
-    else:                                       # [fn, *args] -- an application
-        out.append( (OP_APP_START, len( expr )) )
-        for sub in expr:
-            compile_expr( sub, out, tail=False )
-            out.append( (OP_APPLY_ARG,) )
-        out.append( (OP_TCALL,) if tail else (OP_CALL,) )
+  else:                                       # [fn, *args] -- an application
+    out.append( (OP_APP_START, len( expr )) )
+    for sub in expr:
+      compile_expr( sub, out, tail=False )
+      out.append( (OP_APPLY_ARG,) )
+    out.append( (OP_TCALL,) if tail else (OP_CALL,) )
 
 
 def compile_program( expr ):
-    out = []
-    compile_expr( expr, out, tail=True )
-    return out
+  out = []
+  compile_expr( expr, out, tail=True )
+  return out
 
 
 # ---------------------------------------------------------------------------
@@ -724,7 +724,7 @@ GLOBAL_SPARE = 64
 
 
 def make_global_env( spare=0, full=False ):
-    """The primitives.  Note the order: the env is rooted in E *before* any prim
+  """The primitives.  Note the order: the env is rooted in E *before* any prim
     is allocated, so an allocation part way through cannot collect the ones
     already made.
 
@@ -734,181 +734,181 @@ def make_global_env( spare=0, full=False ):
     defines later.  The demo asks for none, so the heap it prints holds nothing
     it did not use.
     """
-    global E, global_env
-    names = [name for name, _ in PRIMS] if full else LEAN_PRIMS
-    ids = [intern( name ) for name in names] + [EMPTY] * spare
-    E = mk_env( NIL, ids, [mk_num( 0 )] * len( ids ) )
-    global_env = E
-    for name in names:
-        env_set( E, intern( name ), mk_prim( PRIM_INDEX[name] ) )
-    return E
+  global E, global_env
+  names = [name for name, _ in PRIMS] if full else LEAN_PRIMS
+  ids = [intern( name ) for name in names] + [EMPTY] * spare
+  E = mk_env( NIL, ids, [mk_num( 0 )] * len( ids ) )
+  global_env = E
+  for name in names:
+    env_set( E, intern( name ), mk_prim( PRIM_INDEX[name] ) )
+  return E
 
 
 def boot( heap_size=None, spare=0 ):
-    """Start a machine: an empty heap, an empty program, and the primitives."""
-    global PROG, V, E, K, pc
-    heap_reset( heap_size )
-    PROG = []
-    V, K, pc = mk_num( 0 ), NIL, 0
-    make_global_env( spare, full=True )         # a session gets the whole language
-    return global_env
+  """Start a machine: an empty heap, an empty program, and the primitives."""
+  global PROG, V, E, K, pc
+  heap_reset( heap_size )
+  PROG = []
+  V, K, pc = mk_num( 0 ), NIL, 0
+  make_global_env( spare, full=True )         # a session gets the whole language
+  return global_env
 
 
 def _list_to_args( v ):
-    """The elements of a heap list, as a Python list of values, for apply."""
-    out = []
-    while v != NIL:
-        a = addr_of( v )
-        out.append( heap[a + 2] )
-        v = heap[a + 3]
-    return out
+  """The elements of a heap list, as a Python list of values, for apply."""
+  out = []
+  while v != NIL:
+    a = addr_of( v )
+    out.append( heap[a + 2] )
+    v = heap[a + 3]
+  return out
 
 
 def _run( prog ):
-    """Run from the current pc until a return with nothing left to return to."""
-    global V, E, K, pc
+  """Run from the current pc until a return with nothing left to return to."""
+  global V, E, K, pc
 
-    while True:
-        op = prog[pc][0]
+  while True:
+    op = prog[pc][0]
 
-        if op == OP_INT:
-            V = mk_num( prog[pc][1] )
-            pc += 1
+    if op == OP_INT:
+      V = mk_num( prog[pc][1] )
+      pc += 1
 
-        elif op == OP_BOOL:
-            V = TRUE if prog[pc][1] is lTrue else FALSE
-            pc += 1
+    elif op == OP_BOOL:
+      V = TRUE if prog[pc][1] is lTrue else FALSE
+      pc += 1
 
-        elif op == OP_SYM:
-            V = mk_symbol( prog[pc][1] )
-            pc += 1
+    elif op == OP_SYM:
+      V = mk_symbol( prog[pc][1] )
+      pc += 1
 
-        elif op == OP_NIL:
-            V = NIL
-            pc += 1
+    elif op == OP_NIL:
+      V = NIL
+      pc += 1
 
-        elif op == OP_VAR:
-            V = env_lookup( E, prog[pc][1] )
-            pc += 1
+    elif op == OP_VAR:
+      V = env_lookup( E, prog[pc][1] )
+      pc += 1
 
-        elif op == OP_LAM:
-            V = mk_closure( pc, E )     # the closure remembers its own OP_LAM
-            pc += 1
+    elif op == OP_LAM:
+      V = mk_closure( pc, E )     # the closure remembers its own OP_LAM
+      pc += 1
 
-        elif op == OP_JUMP:
-            pc = prog[pc][1]
+    elif op == OP_JUMP:
+      pc = prog[pc][1]
 
-        elif op == OP_SET:
-            env_set( E, prog[pc][1], V )
-            pc += 1
+    elif op == OP_SET:
+      env_set( E, prog[pc][1], V )
+      pc += 1
 
-        elif op == OP_APP_START:
-            K = mk_arg( K, E, prog[pc][1] )
-            pc += 1
+    elif op == OP_APP_START:
+      K = mk_arg( K, E, prog[pc][1] )
+      pc += 1
 
-        elif op == OP_APPLY_ARG:                 # stash V in the frame's next slot
-            a = addr_of( K )
-            heap[a + 6 + heap[a + 5]] = V
-            heap[a + 5] += 1
-            E = heap[a + 3]
-            pc += 1
+    elif op == OP_APPLY_ARG:                 # stash V in the frame's next slot
+      a = addr_of( K )
+      heap[a + 6 + heap[a + 5]] = V
+      heap[a + 5] += 1
+      E = heap[a + 3]
+      pc += 1
 
-        elif op == OP_CALL or op == OP_TCALL:
-            a     = addr_of( K )                 # the ARG frame, still on K
-            fn    = heap[a + 6]
-            nargs = heap[a + 5] - 1
-            args  = [heap[a + 7 + i] for i in range( nargs )]
-            f     = addr_of( fn )
+    elif op == OP_CALL or op == OP_TCALL:
+      a     = addr_of( K )                 # the ARG frame, still on K
+      fn    = heap[a + 6]
+      nargs = heap[a + 5] - 1
+      args  = [heap[a + 7 + i] for i in range( nargs )]
+      f     = addr_of( fn )
 
-            # apply is a value: (apply g x ... lst) is a call of g on x ... plus
-            # the elements of lst.  Splice here, at the call site, the same way
-            # call/cc reaches into the machine; loop so (apply apply ...) resolves.
-            # The ARG frame is still on K, so g, the leading args and lst all stay
-            # reachable while the closure's env is allocated below.
-            while heap[f] == TAG_PRIM and PRIMS[heap[f + 2]][0] == 'apply':
-                # Both sides read the OLD args; do not split this in two.
-                fn, args = args[0], list( args[1:-1] ) + _list_to_args( args[-1] )
-                f    = addr_of( fn )
+      # apply is a value: (apply g x ... lst) is a call of g on x ... plus
+      # the elements of lst.  Splice here, at the call site, the same way
+      # call/cc reaches into the machine; loop so (apply apply ...) resolves.
+      # The ARG frame is still on K, so g, the leading args and lst all stay
+      # reachable while the closure's env is allocated below.
+      while heap[f] == TAG_PRIM and PRIMS[heap[f + 2]][0] == 'apply':
+        # Both sides read the OLD args; do not split this in two.
+        fn, args = args[0], list( args[1:-1] ) + _list_to_args( args[-1] )
+        f    = addr_of( fn )
 
-            if heap[f] == TAG_PRIM:
-                V = PRIMS[heap[f + 2]][1]( args )
-                K = heap[a + 2]
-                if op != OP_TCALL:
-                    pc += 1
-                elif K == NIL:                   # a primitive was the whole program
-                    return V
-                else:
-                    _do_return( prog )
-            else:
-                lam  = prog[heap[f + 2]]         # (OP_LAM, param_ids, body_pc)
-                # Both allocations happen while the ARG frame is still on K, so
-                # fn, the args and the caller's E are all reachable throughout.
-                newE = mk_env( heap[f + 3], lam[1], args )
-                E    = newE                      # rooted before the next alloc
-                K    = heap[a + 2] if op == OP_TCALL \
-                       else mk_ret( heap[a + 2], pc + 1, heap[a + 3] )
-                pc   = lam[2]
+      if heap[f] == TAG_PRIM:
+        V = PRIMS[heap[f + 2]][1]( args )
+        K = heap[a + 2]
+        if op != OP_TCALL:
+          pc += 1
+        elif K == NIL:                   # a primitive was the whole program
+          return V
+        else:
+          _do_return( prog )
+      else:
+        lam  = prog[heap[f + 2]]         # (OP_LAM, param_ids, body_pc)
+        # Both allocations happen while the ARG frame is still on K, so
+        # fn, the args and the caller's E are all reachable throughout.
+        newE = mk_env( heap[f + 3], lam[1], args )
+        E    = newE                      # rooted before the next alloc
+        K    = heap[a + 2] if op == OP_TCALL \
+               else mk_ret( heap[a + 2], pc + 1, heap[a + 3] )
+        pc   = lam[2]
 
-        elif op == OP_IF_START:
-            K = mk_if( K, prog[pc][1], prog[pc][2], E )
-            pc += 1
+    elif op == OP_IF_START:
+      K = mk_if( K, prog[pc][1], prog[pc][2], E )
+      pc += 1
 
-        elif op == OP_APPLY_IF:                  # #f is the only false value
-            a  = addr_of( K )
-            E  = heap[a + 5]
-            pc = heap[a + 4] if V == FALSE else heap[a + 3]
-            K  = heap[a + 2]
+    elif op == OP_APPLY_IF:                  # #f is the only false value
+      a  = addr_of( K )
+      E  = heap[a + 5]
+      pc = heap[a + 4] if V == FALSE else heap[a + 3]
+      K  = heap[a + 2]
 
-        elif op == OP_RET:
-            if K == NIL:
-                return V
-            _do_return( prog )
+    elif op == OP_RET:
+      if K == NIL:
+        return V
+      _do_return( prog )
 
 
 def _do_return( prog ):
-    global E, K, pc
-    if K == NIL:
-        raise RuntimeError( 'return with an empty continuation' )
-    a = addr_of( K )
-    pc, E, K = heap[a + 3], heap[a + 4], heap[a + 2]
+  global E, K, pc
+  if K == NIL:
+    raise RuntimeError( 'return with an empty continuation' )
+  a = addr_of( K )
+  pc, E, K = heap[a + 3], heap[a + 4], heap[a + 2]
 
 
 def lEval( expr, env=None ):
-    """Evaluate one expression on the running machine.
+  """Evaluate one expression on the running machine.
 
     The compiled code is appended to PROG rather than replacing it, because a
     closure remembers the address of its own OP_LAM.  Throw the program away
     between expressions and every closure made by an earlier one points into
     code that is no longer there.
     """
-    global E, K, pc
-    if global_env is None:
-        boot( spare=GLOBAL_SPARE )
-    start = len( PROG )
-    compile_expr( expr, PROG, tail=True )
-    E  = global_env if env is None else env
-    K  = NIL
-    pc = start
-    return _run( PROG )
+  global E, K, pc
+  if global_env is None:
+    boot( spare=GLOBAL_SPARE )
+  start = len( PROG )
+  compile_expr( expr, PROG, tail=True )
+  E  = global_env if env is None else env
+  K  = NIL
+  pc = start
+  return _run( PROG )
 
 
 def run_vm( prog, heap_size=None, full=False ):
-    """Run a whole program in a machine of its own."""
-    global V, E, K, pc
-    heap_reset( heap_size )
-    V, K, pc = mk_num( 0 ), NIL, 0
-    make_global_env( full=full )
-    return _run( prog )
+  """Run a whole program in a machine of its own."""
+  global V, E, K, pc
+  heap_reset( heap_size )
+  V, K, pc = mk_num( 0 ), NIL, 0
+  make_global_env( full=full )
+  return _run( prog )
 
 
 def run_fresh( source, heap_size=None, full=False ):
-    """Evaluate in a machine of its own, which is what a measurement wants.
+  """Evaluate in a machine of its own, which is what a measurement wants.
 
     The expression is compiled before the machine is booted, so the names in it
     are interned before the primitives are.
     """
-    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-    return run_vm( compile_program( expr ), heap_size, full=full )
+  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
+  return run_vm( compile_program( expr ), heap_size, full=full )
 
 
 # ---------------------------------------------------------------------------
@@ -916,40 +916,40 @@ def run_fresh( source, heap_size=None, full=False ):
 # ---------------------------------------------------------------------------
 
 def source_str( val ):
-    if isinstance( val, list ):
-        return '(' + ' '.join( source_str( x ) for x in val ) + ')'
-    return str( val )
+  if isinstance( val, list ):
+    return '(' + ' '.join( source_str( x ) for x in val ) + ')'
+  return str( val )
 
 
 def show( val ):
-    if val == TRUE:
-        return '#t'
-    if val == FALSE:
-        return '#f'
-    if val == NIL:
-        return '()'
-    if is_ptr( val ) and addr_of( val ) >= 0:
-        a = addr_of( val )
-        if heap[a] == TAG_CLOSURE:
-            return '#<procedure>'
-        if heap[a] == TAG_PRIM:
-            return f'#<{PRIMS[heap[a + 2]][0]}>'
-        if heap[a] == TAG_SYMBOL:
-            return name_of( heap[a + 2] )
-        if heap[a] == TAG_PAIR:
-            return _show_list( val )
-    return str( num_of( val ) )
+  if val == TRUE:
+    return '#t'
+  if val == FALSE:
+    return '#f'
+  if val == NIL:
+    return '()'
+  if is_ptr( val ) and addr_of( val ) >= 0:
+    a = addr_of( val )
+    if heap[a] == TAG_CLOSURE:
+      return '#<procedure>'
+    if heap[a] == TAG_PRIM:
+      return f'#<{PRIMS[heap[a + 2]][0]}>'
+    if heap[a] == TAG_SYMBOL:
+      return name_of( heap[a + 2] )
+    if heap[a] == TAG_PAIR:
+      return _show_list( val )
+  return str( num_of( val ) )
 
 
 def _show_list( val ):
-    parts = []
-    v = val
-    while is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_PAIR:
-        parts.append( show( heap[addr_of( v ) + 2] ) )
-        v = heap[addr_of( v ) + 3]
-    if v == NIL:
-        return '(' + ' '.join( parts ) + ')'
-    return '(' + ' '.join( parts ) + ' . ' + show( v ) + ')'   # an improper list
+  parts = []
+  v = val
+  while is_ptr( v ) and addr_of( v ) >= 0 and heap[addr_of( v )] == TAG_PAIR:
+    parts.append( show( heap[addr_of( v ) + 2] ) )
+    v = heap[addr_of( v ) + 3]
+  if v == NIL:
+    return '(' + ' '.join( parts ) + ')'
+  return '(' + ' '.join( parts ) + ' . ' + show( v ) + ')'   # an improper list
 
 
 # The REPL prints the result of an expression, and on this machine a result is a
@@ -959,144 +959,144 @@ lisp_str = show
 
 
 def disassemble( prog ):
-    for i, instr in enumerate( prog ):
-        args = ' '.join( str( a ) for a in instr[1:] )
-        print( f'  {i:3}  {_OP_NAMES[instr[0]]:10} {args}' )
+  for i, instr in enumerate( prog ):
+    args = ' '.join( str( a ) for a in instr[1:] )
+    print( f'  {i:3}  {_OP_NAMES[instr[0]]:10} {args}' )
 
 
 def run( source, stats=False, full=False ):
-    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-    print( '>>> ' + source_str( expr ) )
-    result = run_fresh( expr, full=full )
-    print( '==> ' + show( result ) )
-    if stats:
-        print( f'    {gc_runs} collections, {peak_live} cells reachable at the busiest' )
-    print()
+  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
+  print( '>>> ' + source_str( expr ) )
+  result = run_fresh( expr, full=full )
+  print( '==> ' + show( result ) )
+  if stats:
+    print( f'    {gc_runs} collections, {peak_live} cells reachable at the busiest' )
+  print()
 
 
 def countdown( body, n ):
-    """(loop n), where `body` decides whether the recursive call is in tail position."""
-    return ['let', [['loop', 0]],
-            ['set!', 'loop', ['lambda', ['n'], body]],
-            ['loop', n]]
+  """(loop n), where `body` decides whether the recursive call is in tail position."""
+  return ['let', [['loop', 0]],
+          ['set!', 'loop', ['lambda', ['n'], body]],
+          ['loop', n]]
 
 TAIL     = ['if', ['=', 'n', 0], 0, ['loop', ['-', 'n', 1]]]
 NON_TAIL = ['if', ['=', 'n', 0], 0, ['+', 0, ['loop', ['-', 'n', 1]]]]
 
 
 def smallest_heap( expr, lo=32, hi=20000 ):
-    """The smallest heap this program will run in.
+  """The smallest heap this program will run in.
 
     No instrumentation, no counters, no trust required: just run it in a heap
     and see whether it finishes.  This is the only measure of what a program
     really costs, and it is the one the machine cannot lie about.
     """
-    while lo < hi:
-        mid = (lo + hi) // 2
-        try:
-            run_fresh( expr, heap_size=mid )
-            hi = mid
-        except MemoryError:
-            lo = mid + 1
-    return lo
+  while lo < hi:
+    mid = (lo + hi) // 2
+    try:
+      run_fresh( expr, heap_size=mid )
+      hi = mid
+    except MemoryError:
+      lo = mid + 1
+  return lo
 
 
 def main():
-    prog = compile_program( [['lambda', ['x'], 'x'], 7] )
-    print( 'bytecode for ((lambda (x) x) 7):' )
-    disassemble( prog )
-    print()
+  prog = compile_program( [['lambda', ['x'], 'x'], 7] )
+  print( 'bytecode for ((lambda (x) x) 7):' )
+  disassemble( prog )
+  print()
 
-    run( '42' )
-    run( '((lambda (x) x) 7)' )
-    run( '(+ (* 6 6) 6)' )
-    run( '(if #f 100 200)' )
-    run( '((lambda (n m) (+ n m)) 3 4)' )
-    run( '(let ((a 3) (b 4)) (* a b))' )
+  run( '42' )
+  run( '((lambda (x) x) 7)' )
+  run( '(+ (* 6 6) 6)' )
+  run( '(if #f 100 200)' )
+  run( '((lambda (n m) (+ n m)) 3 4)' )
+  run( '(let ((a 3) (b 4)) (* a b))' )
 
-    # A local recursive helper.  The let environment binds f; the closure captures
-    # it; set! makes the environment point back at the closure.  Those two
-    # objects now point at each other, so neither will ever see its reference
-    # count reach zero, and once the let returns nobody else can reach either.
-    # Reference counting would keep that pair until the process died.
-    cycle = ['let', [['f', 0]],
-             ['set!', 'f', ['lambda', ['n'],
-                            ['if', ['=', 'n', 0], 0, ['f', ['-', 'n', 1]]]]],
-             ['f', 5]]
-    print( 'a cycle: the let environment and the closure point at each other.' )
-    print( 'the begin makes it die, by moving E off it before the program ends.' )
-    run( ['begin', cycle, 42] )
-    print( f'  in the heap when it is done : {census()}' )
-    gc()
-    print( f'  after one collection        : {census()}' )
-    print( '  the env/closure pair that pointed at each other is gone; only the' )
-    print( '  global env and its five primitives are still reachable.' )
-    print()
+  # A local recursive helper.  The let environment binds f; the closure captures
+  # it; set! makes the environment point back at the closure.  Those two
+  # objects now point at each other, so neither will ever see its reference
+  # count reach zero, and once the let returns nobody else can reach either.
+  # Reference counting would keep that pair until the process died.
+  cycle = ['let', [['f', 0]],
+           ['set!', 'f', ['lambda', ['n'],
+                          ['if', ['=', 'n', 0], 0, ['f', ['-', 'n', 1]]]]],
+           ['f', 5]]
+  print( 'a cycle: the let environment and the closure point at each other.' )
+  print( 'the begin makes it die, by moving E off it before the program ends.' )
+  run( ['begin', cycle, 42] )
+  print( f'  in the heap when it is done : {census()}' )
+  gc()
+  print( f'  after one collection        : {census()}' )
+  print( '  the env/closure pair that pointed at each other is gone; only the' )
+  print( '  global env and its five primitives are still reachable.' )
+  print()
 
-    # The same countdown, once tail recursive and once not.  Same answer, the
-    # same number of calls, the same arithmetic.  The only difference is whether
-    # the recursive call has anything waiting behind it, and so whether OP_CALL
-    # pushes a return frame -- and every return frame on K pins an environment
-    # that the collector must then treat as live.
-    #
-    # Chapter 3 could only say that tail calls save stack.  Here you can watch
-    # them save memory.
-    print( 'the smallest heap (loop n) will run in:' )
-    print( f'    {"n":>4}  {"tail":>6}  {"non-tail":>9}' )
-    for n in (10, 20, 40, 80):
-        need = [smallest_heap( countdown( body, n ) ) for body in (TAIL, NON_TAIL)]
-        print( f'    {n:4}  {need[0]:6}  {need[1]:9}' )
-    print( '    the tail column is flat.  the other one is the shape of n.' )
-    print()
+  # The same countdown, once tail recursive and once not.  Same answer, the
+  # same number of calls, the same arithmetic.  The only difference is whether
+  # the recursive call has anything waiting behind it, and so whether OP_CALL
+  # pushes a return frame -- and every return frame on K pins an environment
+  # that the collector must then treat as live.
+  #
+  # Chapter 3 could only say that tail calls save stack.  Here you can watch
+  # them save memory.
+  print( 'the smallest heap (loop n) will run in:' )
+  print( f'    {"n":>4}  {"tail":>6}  {"non-tail":>9}' )
+  for n in (10, 20, 40, 80):
+    need = [smallest_heap( countdown( body, n ) ) for body in (TAIL, NON_TAIL)]
+    print( f'    {n:4}  {need[0]:6}  {need[1]:9}' )
+  print( '    the tail column is flat.  the other one is the shape of n.' )
+  print()
 
-    # Those two columns are not the same measurement, and the difference between
-    # them is the point of this section.  The first is what the program can
-    # actually reach at its busiest: what it needs.  The second is the heap it
-    # demands anyway.  Every cell of the gap is real memory that is free, and
-    # unusable, because it is not in one piece.
-    print( 'what a program needs, and what it costs:' )
-    print( f'    {"n":>4}  {"reachable":>9}  {"heap needed":>11}  {"tax":>5}' )
-    for n in (10, 20, 40, 80):
-        need = smallest_heap( countdown( NON_TAIL, n ) )
-        run_fresh( countdown( NON_TAIL, n ), heap_size=need )
-        print( f'    {n:4}  {peak_live:9}  {need:11}  {need - peak_live:5}' )
-    print( '    the tax is fragmentation: free cells too scattered to hand out.' )
-    print()
+  # Those two columns are not the same measurement, and the difference between
+  # them is the point of this section.  The first is what the program can
+  # actually reach at its busiest: what it needs.  The second is the heap it
+  # demands anyway.  Every cell of the gap is real memory that is free, and
+  # unusable, because it is not in one piece.
+  print( 'what a program needs, and what it costs:' )
+  print( f'    {"n":>4}  {"reachable":>9}  {"heap needed":>11}  {"tax":>5}' )
+  for n in (10, 20, 40, 80):
+    need = smallest_heap( countdown( NON_TAIL, n ) )
+    run_fresh( countdown( NON_TAIL, n ), heap_size=need )
+    print( f'    {n:4}  {peak_live:9}  {need:11}  {need - peak_live:5}' )
+  print( '    the tax is fragmentation: free cells too scattered to hand out.' )
+  print()
 
-    print( 'the shape of it, in a heap of 600:' )
-    try:
-        run_fresh( countdown( NON_TAIL, 80 ), heap_size=600 )
-    except MemoryError as e:
-        print( f'    {e}' )
-    print()
+  print( 'the shape of it, in a heap of 600:' )
+  try:
+    run_fresh( countdown( NON_TAIL, 80 ), heap_size=600 )
+  except MemoryError as e:
+    print( f'    {e}' )
+  print()
 
-    run_fresh( '((lambda (x) (+ x 1)) 41)', heap_size=120 )
-    gc()
-    heap_dump( 'a small heap after one collection:' )
-    print()
+  run_fresh( '((lambda (x) (+ x 1)) 41)', heap_size=120 )
+  gc()
+  heap_dump( 'a small heap after one collection:' )
+  print()
 
-    # The full language, at parity with Chapter 5's machine.  These boot with
-    # every primitive (full=True); the measurements above kept the lean set so
-    # their heaps stayed exactly as this chapter reported them.  A roomy heap:
-    # these illustrate the language, they do not measure it.
-    heap_reset( 2000 )
-    print( 'the full language, at parity with Chapter 5:' )
-    run( '(cond ((< 2 1) 10) ((= 2 2) 20) (else 30))', full=True )  # 20
-    run( '(and 1 2 3)', full=True )                                    # 3
-    run( '(or #f 7)', full=True )                                   # 7
-    run( '(not (= 1 2))', full=True )                               # #t
-    run( '(% 17 5)', full=True )                                       # 2
-    run( '(car (list 1 2 3))', full=True )                         # 1
-    run( '(cdr (list 1 2 3))', full=True )                         # (2 3)
-    run( "'(1 (2 3) 4)", full=True )                          # (1 (2 3) 4)
-    run( "'hello", full=True )                                 # hello (a symbol)
-    run( "(= 'a 'a)", full=True )              # #t
-    run( "(null? '())", full=True )                           # #t
-    run( '(apply + 1 2 (list 3 4))', full=True )               # 10
-    run( '(apply (lambda (x y) (* x y)) (list 6 7))',
-         full=True )                                                     # 42
-    run( '(apply apply (list + (list 3 4)))', full=True )  # 7 (apply of apply)
+  # The full language, at parity with Chapter 5's machine.  These boot with
+  # every primitive (full=True); the measurements above kept the lean set so
+  # their heaps stayed exactly as this chapter reported them.  A roomy heap:
+  # these illustrate the language, they do not measure it.
+  heap_reset( 2000 )
+  print( 'the full language, at parity with Chapter 5:' )
+  run( '(cond ((< 2 1) 10) ((= 2 2) 20) (else 30))', full=True )  # 20
+  run( '(and 1 2 3)', full=True )                                    # 3
+  run( '(or #f 7)', full=True )                                   # 7
+  run( '(not (= 1 2))', full=True )                               # #t
+  run( '(% 17 5)', full=True )                                       # 2
+  run( '(car (list 1 2 3))', full=True )                         # 1
+  run( '(cdr (list 1 2 3))', full=True )                         # (2 3)
+  run( "'(1 (2 3) 4)", full=True )                          # (1 (2 3) 4)
+  run( "'hello", full=True )                                 # hello (a symbol)
+  run( "(= 'a 'a)", full=True )              # #t
+  run( "(null? '())", full=True )                           # #t
+  run( '(apply + 1 2 (list 3 4))', full=True )               # 10
+  run( '(apply (lambda (x y) (* x y)) (list 6 7))',
+       full=True )                                                     # 42
+  run( '(apply apply (list + (list 3 4)))', full=True )  # 7 (apply of apply)
 
 
 if __name__ == '__main__':
-    main()
+  main()

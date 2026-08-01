@@ -73,30 +73,30 @@ _OP_NAMES = ['INT', 'VAR', 'LAM', 'JUMP', 'APP_START', 'APPLY_ARG',
 # ---------------------------------------------------------------------------
 
 class Environment:
-    def __init__( self, outer=None, bindings=None ):
-        self._bindings = dict(bindings or {})
-        self._outer   = outer
-        self._global   = outer._global if outer else self
+  def __init__( self, outer=None, bindings=None ):
+    self._bindings = dict(bindings or {})
+    self._outer   = outer
+    self._global   = outer._global if outer else self
 
-    def lookup( self, name ):
-        env = self
-        while env:
-            if name in env._bindings:
-                return env._bindings[name]
-            env = env._outer
-        raise NameError( f'Unbound variable: {name}' )
+  def lookup( self, name ):
+    env = self
+    while env:
+      if name in env._bindings:
+        return env._bindings[name]
+      env = env._outer
+    raise NameError( f'Unbound variable: {name}' )
 
-    def set( self, name, value ):
-        # Walk to the innermost environment that already owns the name.
-        env = self
-        while env:
-            if name in env._bindings:
-                env._bindings[name] = value
-                return value
-            env = env._outer
-        # Name not found anywhere -- create it in the global environment.
-        self._global._bindings[name] = value
+  def set( self, name, value ):
+    # Walk to the innermost environment that already owns the name.
+    env = self
+    while env:
+      if name in env._bindings:
+        env._bindings[name] = value
         return value
+      env = env._outer
+    # Name not found anywhere -- create it in the global environment.
+    self._global._bindings[name] = value
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -107,14 +107,14 @@ class Environment:
 # ['first', '.', 'rest'], so the dot is just an element to look for.
 
 def bind_params( params, args ):
-    if '.' in params:
-        dot   = params.index( '.' )
-        named = params[:dot]
-        rest  = params[dot + 1]
-        bindings = dict( zip( named, args ) )
-        bindings[rest] = list( args[len(named):] )
-        return bindings
-    return dict( zip( params, args ) )
+  if '.' in params:
+    dot   = params.index( '.' )
+    named = params[:dot]
+    rest  = params[dot + 1]
+    bindings = dict( zip( named, args ) )
+    bindings[rest] = list( args[len(named):] )
+    return bindings
+  return dict( zip( params, args ) )
 
 
 # ---------------------------------------------------------------------------
@@ -138,116 +138,116 @@ _OR_TMP = '%or-tmp%'
 
 
 def compile_body( forms, out, tail ):
-    for f in forms[:-1]:
-        compile_expr( f, out, tail=False )      # value computed, then overwritten
-    compile_expr( forms[-1], out, tail=tail )
+  for f in forms[:-1]:
+    compile_expr( f, out, tail=False )      # value computed, then overwritten
+  compile_expr( forms[-1], out, tail=tail )
 
 
 def compile_expr( expr, out, tail ):
-    if isinstance( expr, (int, LBoolean) ):  # a number or boolean -> a constant
-        out.append( (OP_INT, expr) )
-        if tail:
-            out.append( (OP_RET,) )
+  if isinstance( expr, (int, LBoolean) ):  # a number or boolean -> a constant
+    out.append( (OP_INT, expr) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif isinstance( expr, str ):           # a variable
-        out.append( (OP_VAR, expr) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif isinstance( expr, str ):           # a variable
+    out.append( (OP_VAR, expr) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'quote':                # ['quote', datum] -> the datum itself
-        out.append( (OP_QUOTE, expr[1]) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'quote':                # ['quote', datum] -> the datum itself
+    out.append( (OP_QUOTE, expr[1]) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'lambda':               # ['lambda', [params], *body]
-        lam_idx  = len(out)                 # reserve OP_LAM
-        out.append( None )
-        jump_idx = len(out)                 # reserve OP_JUMP (skip the body)
-        out.append( None )
-        body_pc  = len(out)
-        _, params, *body = expr
-        compile_body( body, out, tail=True )      # a body is always in tail position
-        out[lam_idx]  = (OP_LAM, params, body_pc)
-        out[jump_idx] = (OP_JUMP, len(out))
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'lambda':               # ['lambda', [params], *body]
+    lam_idx  = len(out)                 # reserve OP_LAM
+    out.append( None )
+    jump_idx = len(out)                 # reserve OP_JUMP (skip the body)
+    out.append( None )
+    body_pc  = len(out)
+    _, params, *body = expr
+    compile_body( body, out, tail=True )      # a body is always in tail position
+    out[lam_idx]  = (OP_LAM, params, body_pc)
+    out[jump_idx] = (OP_JUMP, len(out))
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'if':                   # ['if', test, then, else]
-        _, condExpr, thenExpr, elseExpr = expr
-        if_idx = len(out)                   # reserve OP_IF_START
-        out.append( None )
-        compile_expr( condExpr, out, tail=False ) # the test is never in tail position
-        out.append( (OP_APPLY_IF,) )
-        then_pc = len(out)
-        compile_expr( thenExpr, out, tail=tail )  # then inherits our tail context
-        if not tail:
-            then_jump_idx = len(out)        # skip the else branch
-            out.append( None )
-        else_pc = len(out)
-        compile_expr( elseExpr, out, tail=tail )  # else inherits our tail context
-        if not tail:
-            out[then_jump_idx] = (OP_JUMP, len(out))
-        out[if_idx] = (OP_IF_START, then_pc, else_pc)
+  elif expr[0] == 'if':                   # ['if', test, then, else]
+    _, condExpr, thenExpr, elseExpr = expr
+    if_idx = len(out)                   # reserve OP_IF_START
+    out.append( None )
+    compile_expr( condExpr, out, tail=False ) # the test is never in tail position
+    out.append( (OP_APPLY_IF,) )
+    then_pc = len(out)
+    compile_expr( thenExpr, out, tail=tail )  # then inherits our tail context
+    if not tail:
+      then_jump_idx = len(out)        # skip the else branch
+      out.append( None )
+    else_pc = len(out)
+    compile_expr( elseExpr, out, tail=tail )  # else inherits our tail context
+    if not tail:
+      out[then_jump_idx] = (OP_JUMP, len(out))
+    out[if_idx] = (OP_IF_START, then_pc, else_pc)
 
-    elif expr[0] == 'set!':                 # ['set!', name, valueExpr]
-        _, name, valExpr = expr
-        compile_expr( valExpr, out, tail=False )
-        out.append( (OP_SET, name) )
-        if tail:
-            out.append( (OP_RET,) )
+  elif expr[0] == 'set!':                 # ['set!', name, valueExpr]
+    _, name, valExpr = expr
+    compile_expr( valExpr, out, tail=False )
+    out.append( (OP_SET, name) )
+    if tail:
+      out.append( (OP_RET,) )
 
-    elif expr[0] == 'begin':                # ['begin', *forms]
-        compile_body( expr[1:], out, tail )
+  elif expr[0] == 'begin':                # ['begin', *forms]
+    compile_body( expr[1:], out, tail )
 
-    elif expr[0] == 'let':                  # ['let', ((name init)...), *body]
-        _, bindingPairs, *body = expr
-        names = [ pair[0] for pair in bindingPairs ]
-        inits = [ pair[1] for pair in bindingPairs ]
-        compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
+  elif expr[0] == 'let':                  # ['let', ((name init)...), *body]
+    _, bindingPairs, *body = expr
+    names = [ pair[0] for pair in bindingPairs ]
+    inits = [ pair[1] for pair in bindingPairs ]
+    compile_expr( [['lambda', names] + list( body )] + inits, out, tail )
 
-    elif expr[0] == 'cond':                 # ['cond', (test result)...]
-        clauses = expr[1:]
-        if not clauses:
-            compile_expr( lFalse, out, tail )
-        elif clauses[0][0] == 'else':
-            compile_expr( clauses[0][1], out, tail )
-        else:                               # a chain of ifs, peeled one clause
-            compile_expr( ['if', clauses[0][0], clauses[0][1],
-                           ['cond'] + list( clauses[1:] )], out, tail )
+  elif expr[0] == 'cond':                 # ['cond', (test result)...]
+    clauses = expr[1:]
+    if not clauses:
+      compile_expr( lFalse, out, tail )
+    elif clauses[0][0] == 'else':
+      compile_expr( clauses[0][1], out, tail )
+    else:                               # a chain of ifs, peeled one clause
+      compile_expr( ['if', clauses[0][0], clauses[0][1],
+                     ['cond'] + list( clauses[1:] )], out, tail )
 
-    elif expr[0] == 'and':                  # ['and', *forms] -- short-circuits
-        forms = expr[1:]
-        if not forms:
-            compile_expr( lTrue, out, tail )     # (and) is true
-        elif len( forms ) == 1:
-            compile_expr( forms[0], out, tail )
-        else:                               # (if a (and rest...) #f)
-            compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), lFalse],
-                          out, tail )
+  elif expr[0] == 'and':                  # ['and', *forms] -- short-circuits
+    forms = expr[1:]
+    if not forms:
+      compile_expr( lTrue, out, tail )     # (and) is true
+    elif len( forms ) == 1:
+      compile_expr( forms[0], out, tail )
+    else:                               # (if a (and rest...) #f)
+      compile_expr( ['if', forms[0], ['and'] + list( forms[1:] ), lFalse],
+                    out, tail )
 
-    elif expr[0] == 'or':                   # ['or', *forms] -- short-circuits
-        forms = expr[1:]
-        if not forms:
-            compile_expr( lFalse, out, tail )    # (or) is false
-        elif len( forms ) == 1:
-            compile_expr( forms[0], out, tail )
-        else:                               # bind a once, return it if true
-            compile_expr( [['lambda', [_OR_TMP],
-                            ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
-                           forms[0]], out, tail )
+  elif expr[0] == 'or':                   # ['or', *forms] -- short-circuits
+    forms = expr[1:]
+    if not forms:
+      compile_expr( lFalse, out, tail )    # (or) is false
+    elif len( forms ) == 1:
+      compile_expr( forms[0], out, tail )
+    else:                               # bind a once, return it if true
+      compile_expr( [['lambda', [_OR_TMP],
+                      ['if', _OR_TMP, _OR_TMP, ['or'] + list( forms[1:] )]],
+                     forms[0]], out, tail )
 
-    else:                                   # [fn, *args] -- an application
-        out.append( (OP_APP_START,) )
-        for sub in expr:
-            compile_expr( sub, out, tail=False )  # operator and operands alike
-            out.append( (OP_APPLY_ARG,) )
-        out.append( (OP_TCALL,) if tail else (OP_CALL,) )
+  else:                                   # [fn, *args] -- an application
+    out.append( (OP_APP_START,) )
+    for sub in expr:
+      compile_expr( sub, out, tail=False )  # operator and operands alike
+      out.append( (OP_APPLY_ARG,) )
+    out.append( (OP_TCALL,) if tail else (OP_CALL,) )
 
 
 def compile_program( expr ):
-    out = []
-    compile_expr( expr, out, tail=True )
-    return out
+  out = []
+  compile_expr( expr, out, tail=True )
+  return out
 
 
 # ---------------------------------------------------------------------------
@@ -260,102 +260,102 @@ PROG = []                       # the program, appended to as expressions arrive
 
 
 def run_vm( prog, pc=0, env=None ):
-    V  = None
-    E  = global_env if env is None else env
-    K  = []
+  V  = None
+  E  = global_env if env is None else env
+  K  = []
 
-    while True:
-        instr = prog[pc]
-        op    = instr[0]
+  while True:
+    instr = prog[pc]
+    op    = instr[0]
 
-        if op == OP_INT:
-            V = instr[1]
-            pc += 1
+    if op == OP_INT:
+      V = instr[1]
+      pc += 1
 
-        elif op == OP_QUOTE:                # the datum, never evaluated
-            V = instr[1]
-            pc += 1
+    elif op == OP_QUOTE:                # the datum, never evaluated
+      V = instr[1]
+      pc += 1
 
-        elif op == OP_VAR:
-            V = E.lookup( instr[1] )
-            pc += 1
+    elif op == OP_VAR:
+      V = E.lookup( instr[1] )
+      pc += 1
 
-        elif op == OP_LAM:                  # capture E inside the closure
-            _, params, body_pc = instr
-            V = (VAL_CLOSURE, params, body_pc, E)
-            pc += 1
+    elif op == OP_LAM:                  # capture E inside the closure
+      _, params, body_pc = instr
+      V = (VAL_CLOSURE, params, body_pc, E)
+      pc += 1
 
-        elif op == OP_JUMP:
-            pc = instr[1]
+    elif op == OP_JUMP:
+      pc = instr[1]
 
-        elif op == OP_SET:                  # V is set!'s result; it flows on
-            E.set( instr[1], V )
-            pc += 1
+    elif op == OP_SET:                  # V is set!'s result; it flows on
+      E.set( instr[1], V )
+      pc += 1
 
-        elif op == OP_APP_START:            # start collecting operator + operands
-            K.append( (FRAME_ARG, [], E) )
-            pc += 1
+    elif op == OP_APP_START:            # start collecting operator + operands
+      K.append( (FRAME_ARG, [], E) )
+      pc += 1
 
-        elif op == OP_APPLY_ARG:            # stash V, restore E for the next one
-            _, doneList, env = K.pop()
-            K.append( (FRAME_ARG, doneList + [V], env) )
-            E  = env
-            pc += 1
+    elif op == OP_APPLY_ARG:            # stash V, restore E for the next one
+      _, doneList, env = K.pop()
+      K.append( (FRAME_ARG, doneList + [V], env) )
+      E  = env
+      pc += 1
 
-        elif op == OP_CALL or op == OP_TCALL:
-            _, doneList, callerEnv = K.pop()
-            fn, *args = doneList
+    elif op == OP_CALL or op == OP_TCALL:
+      _, doneList, callerEnv = K.pop()
+      fn, *args = doneList
 
-            # apply is a value: (apply g x ... lst) is a call of g on x ... plus
-            # the elements of lst.  Splice here, at the call site, the same way
-            # IB_Lisp5 does; the loop lets (apply apply ...) resolve.
-            while fn is applyFn:
-                # Both sides read the OLD args; do not split this in two.
-                fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+      # apply is a value: (apply g x ... lst) is a call of g on x ... plus
+      # the elements of lst.  Splice here, at the call site, the same way
+      # IB_Lisp5 does; the loop lets (apply apply ...) resolve.
+      while fn is applyFn:
+        # Both sides read the OLD args; do not split this in two.
+        fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
 
-            if callable( fn ):              # primitive: compute it, flow it on
-                V = fn( args )
-                if op == OP_CALL:
-                    pc += 1
-                elif not K:                 # a primitive ended the program
-                    return V
-                else:                       # a tail call still returns
-                    _, pc, E = K.pop()
-            else:                           # closure: bind params, enter the body
-                _, params, body_pc, clo_env = fn
-                if op == OP_CALL:
-                    K.append( (FRAME_RET, pc + 1, callerEnv) )
-                E  = Environment( outer=clo_env,
-                                  bindings=bind_params( params, args ) )
-                pc = body_pc
+      if callable( fn ):              # primitive: compute it, flow it on
+        V = fn( args )
+        if op == OP_CALL:
+          pc += 1
+        elif not K:                 # a primitive ended the program
+          return V
+        else:                       # a tail call still returns
+          _, pc, E = K.pop()
+      else:                           # closure: bind params, enter the body
+        _, params, body_pc, clo_env = fn
+        if op == OP_CALL:
+          K.append( (FRAME_RET, pc + 1, callerEnv) )
+        E  = Environment( outer=clo_env,
+                          bindings=bind_params( params, args ) )
+        pc = body_pc
 
-        elif op == OP_IF_START:             # remember both branch pcs and E
-            _, then_pc, else_pc = instr
-            K.append( (FRAME_IF, then_pc, else_pc, E) )
-            pc += 1
+    elif op == OP_IF_START:             # remember both branch pcs and E
+      _, then_pc, else_pc = instr
+      K.append( (FRAME_IF, then_pc, else_pc, E) )
+      pc += 1
 
-        elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
-            _, then_pc, else_pc, env = K.pop()
-            E  = env
-            pc = then_pc if V is not lFalse else else_pc
+    elif op == OP_APPLY_IF:             # V is the test; #f is the only false value
+      _, then_pc, else_pc, env = K.pop()
+      E  = env
+      pc = then_pc if V is not lFalse else else_pc
 
-        elif op == OP_RET:                  # end of a body
-            if not K:
-                return V                    # top level: done
-            _, pc, E = K.pop()              # resume the caller, in the caller's environment
+    elif op == OP_RET:                  # end of a body
+      if not K:
+        return V                    # top level: done
+      _, pc, E = K.pop()              # resume the caller, in the caller's environment
 
 
 def lEval( expr, env=None ):
-    """Evaluate one expression on the running machine.
+  """Evaluate one expression on the running machine.
 
     The compiled code is appended to PROG rather than replacing it, because a
     closure remembers the address of its own body.  Throw the program away
     between expressions and every closure made by an earlier one points into
     code that is no longer there.
     """
-    start = len( PROG )
-    compile_expr( expr, PROG, tail=True )
-    return run_vm( PROG, start, env )
+  start = len( PROG )
+  compile_expr( expr, PROG, tail=True )
+  return run_vm( PROG, start, env )
 
 
 # ---------------------------------------------------------------------------
@@ -363,20 +363,20 @@ def lEval( expr, env=None ):
 # ---------------------------------------------------------------------------
 
 def lisp_print( args ):
-    print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
-    return args[0]       # returned, so print composes inside a larger expression
+  print( lisp_str( args[0] ) )   # our printer, not Python's: a list shows as (a b)
+  return args[0]       # returned, so print composes inside a larger expression
 
 def lisp_mul( args ):    # variadic product; (*) is 1, the multiplicative identity
-    result = 1
-    for x in args:
-        result *= x
-    return result
+  result = 1
+  for x in args:
+    result *= x
+  return result
 
 # apply is a value the machine recognizes at the call site, not a special form
 # and not an ordinary primitive: it must open a scope and run a body, which a
 # Python primitive cannot do.
 class _Apply:
-    pass
+  pass
 
 applyFn = _Apply()
 
@@ -415,76 +415,76 @@ global_env = Environment( bindings=globalBindings )
 # ---------------------------------------------------------------------------
 
 def lisp_str( val ):
-    if isinstance( val, list ):
-        return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-    if isinstance( val, tuple ):            # (VAL_CLOSURE, params, body_pc, env)
-        return '#<procedure (' + ' '.join( val[1] ) + ')>'
-    if val is applyFn:
-        return '#<primitive apply>'
-    if callable( val ):
-        return '#<primitive>'
-    return str( val )
+  if isinstance( val, list ):
+    return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
+  if isinstance( val, tuple ):            # (VAL_CLOSURE, params, body_pc, env)
+    return '#<procedure (' + ' '.join( val[1] ) + ')>'
+  if val is applyFn:
+    return '#<primitive apply>'
+  if callable( val ):
+    return '#<primitive>'
+  return str( val )
 
 
 def disassemble( prog ):
-    for pc, instr in enumerate( prog ):
-        args = ' '.join( lisp_str(a) if isinstance(a, list) else str(a)
-                         for a in instr[1:] )
-        print( f'  {pc:3}  {_OP_NAMES[instr[0]]:10} {args}' )
+  for pc, instr in enumerate( prog ):
+    args = ' '.join( lisp_str(a) if isinstance(a, list) else str(a)
+                     for a in instr[1:] )
+    print( f'  {pc:3}  {_OP_NAMES[instr[0]]:10} {args}' )
 
 
 def run( source ):
-    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-    print( '>>> ' + lisp_str( expr ) )
-    print( '==> ' + lisp_str( lEval( expr ) ) )
-    print()
+  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
+  print( '>>> ' + lisp_str( expr ) )
+  print( '==> ' + lisp_str( lEval( expr ) ) )
+  print()
 
 
 def main():
-    # First, show what compilation produces for a small program.
-    prog = compile_program( [['lambda', ['x'], 'x'], 7] )
-    print( 'bytecode for ((lambda (x) x) 7):' )
-    disassemble( prog )
-    print()
+  # First, show what compilation produces for a small program.
+  prog = compile_program( [['lambda', ['x'], 'x'], 7] )
+  print( 'bytecode for ((lambda (x) x) 7):' )
+  disassemble( prog )
+  print()
 
-    run( '(+ (- 10 7) 2)' )                       # 5
-    run( '(+ (print 10) 5)' )                      # prints 10, ==> 15
+  run( '(+ (- 10 7) 2)' )                       # 5
+  run( '(+ (print 10) 5)' )                      # prints 10, ==> 15
 
-    run( '(set! x (* 6 7))' )                   # 42
-    run( 'x' )                                          # 42
+  run( '(set! x (* 6 7))' )                   # 42
+  run( 'x' )                                          # 42
 
-    run( '(set! square (lambda (n) (* n n)))' )
-    run( '(square 5)' )                                # 25
+  run( '(set! square (lambda (n) (* n n)))' )
+  run( '(square 5)' )                                # 25
 
-    run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )    # 25
+  run( '(let ((a 3) (b 4)) (+ (* a a) (* b b)))' )    # 25
 
-    run( '(begin (set! y 1) (set! y (+ y 9)) y)' )   # 10
+  run( '(begin (set! y 1) (set! y (+ y 9)) y)' )   # 10
 
-    run( '(if 0 100 200)' )                          # 100  (0 is TRUE in Scheme)
-    run( "'(a b c)" )                   # (a b c)
+  run( '(if 0 100 200)' )                          # 100  (0 is TRUE in Scheme)
+  run( "'(a b c)" )                   # (a b c)
 
-    # Tail-recursive countdown: TCO keeps K bounded, so 100,000 iterations run
-    # without growing the continuation stack.
-    run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
-    run( '(countdown 100000)' )                        # 0
+  # Tail-recursive countdown: TCO keeps K bounded, so 100,000 iterations run
+  # without growing the continuation stack.
+  run( '(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))' )
+  run( '(countdown 100000)' )                        # 0
 
-    # Chapter 1's forms, on the compiled machine.
-    run( "(car '(a b c))" )          # a
-    run( "(cons 1 '(2 3))" )               # (1 2 3)
-    run( "(cond ((< 2 1) 'no) (else 'yes))" )         # yes
-    run( '(and #f (print unreached))' )      # #f, and nothing prints
-    run( "(or #f 'fallback)" )        # fallback
+  # Chapter 1's forms, on the compiled machine.
+  run( "(car '(a b c))" )          # a
+  run( "(cons 1 '(2 3))" )               # (1 2 3)
+  run( "(cond ((< 2 1) 'no) (else 'yes))" )         # yes
+  run( '(and #f (print unreached))' )      # #f, and nothing prints
+  run( "(or #f 'fallback)" )        # fallback
 
-    # Chapter 2's: a rest parameter, and apply spreading a list back out.
-    run( '(set! tally (lambda (label . nums) (list label (apply + nums))))' )
-    run( "(tally 'total)" )                # (total 0)
-    run( "(tally 'total 1 2 3)" )       # (total 6)
-    run( "(apply + 10 20 '(1 2 3))" ) # 36
+  # Chapter 2's: a rest parameter, and apply spreading a list back out.
+  run( '(set! tally (lambda (label . nums) (list label (apply + nums))))' )
+  run( "(tally 'total)" )                # (total 0)
+  run( "(tally 'total 1 2 3)" )       # (total 6)
+  run( "(apply + 10 20 '(1 2 3))" ) # 36
 
-    # A tail apply is still a tail call: K stays bounded here too.
-    run( '(set! countdown2 (lambda (n . rest) (cond ((= n 0) 0) (else (apply countdown2 (list (- n 1)))))))' )
-    run( '(countdown2 100000)' )                       # 0
+  # A tail apply is still a tail call: K stays bounded here too.
+  run( '(set! countdown2 (lambda (n . rest) (cond ((= n 0) 0) (else (apply countdown2 (list (- n 1)))))))' )
+  run( '(countdown2 100000)' )                       # 0
 
 
 if __name__ == '__main__':
-    main()
+  main()

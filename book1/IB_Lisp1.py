@@ -62,8 +62,9 @@ def lEval(expr, env):
     _, condExpr, thenExpr, elseExpr = expr
     condVal = lEval(condExpr, env)
     return lEval(
-                 elseExpr if condVal is lFalse else thenExpr,
-                 env)
+        elseExpr if condVal is lFalse
+        else thenExpr,
+        env)
 
   elif expr[0] == 'cond':
     # Really a chain of ifs, so say so: peel one clause and re-evaluate the
@@ -75,8 +76,9 @@ def lEval(expr, env):
     if test == 'else':
       return lEval(result, env)
     return lEval(
-                 ['if', test, result, ['cond'] + list(clauses[1:])],
-                 env)
+        ['if', test, result,
+         ['cond'] + list(clauses[1:])],
+        env)
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -104,7 +106,9 @@ def lEval(expr, env):
 
   else:
     # Call a primitive
-    fn, *args = [lEval(elt, env) for elt in expr]   # eval operator + operands
+    # eval operator + operands
+    fn, *args = [lEval(elt, env)
+                 for elt in expr]
 
     # ----- Begin state APPLY -----
     # This minimal Lisp has only primitives (no lambda yet), so every callable

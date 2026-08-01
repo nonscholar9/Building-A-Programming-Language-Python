@@ -699,8 +699,8 @@ def compile_expr(expr, out, tail):
     for sub in expr:
       compile_expr(sub, out, tail=False)
       out.append((OP_APPLY_ARG,))
-    out.append((OP_TCALL,
-) if tail else (OP_CALL,))
+    out.append((OP_TCALL,) if tail
+                else (OP_CALL,))
 
 
 def compile_program(expr):

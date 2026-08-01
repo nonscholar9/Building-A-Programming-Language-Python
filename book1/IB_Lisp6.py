@@ -76,7 +76,8 @@ class Environment:
   def __init__(self, outer=None, bindings=None):
     self._bindings = dict(bindings or {})
     self._outer   = outer
-    self._global   = outer._global if outer else self
+    self._global   = (outer._global if outer
+                      else self)
 
   def lookup(self, name):
     env = self
@@ -246,8 +247,8 @@ def compile_expr(expr, out, tail):
     for sub in expr:
       compile_expr(sub, out, tail=False)  # operator and operands alike
       out.append((OP_APPLY_ARG,))
-    out.append((OP_TCALL,
-) if tail else (OP_CALL,))
+    out.append((OP_TCALL,) if tail
+                else (OP_CALL,))
 
 
 def compile_program(expr):
@@ -421,7 +422,8 @@ globalBindings = {
     # apply, above, is bound to the sentinel the machine watches for.
     'apply': applyFn,
 }
-global_env = Environment(bindings=globalBindings)
+global_env = Environment(
+    bindings=globalBindings)
 
 
 # ---------------------------------------------------------------------------

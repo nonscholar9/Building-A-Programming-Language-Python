@@ -265,7 +265,8 @@ globalBindings = {
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': applyFn,
 }
-global_env = Environment(bindings=globalBindings)
+global_env = Environment(
+    bindings=globalBindings)
 
 # ---------------------------------------------------------------------------
 # Helpers and demo

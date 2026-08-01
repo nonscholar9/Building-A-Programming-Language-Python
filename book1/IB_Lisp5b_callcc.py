@@ -358,7 +358,8 @@ globalBindings = {
     'call-with-current-continuation': CALLCC,                  # its full Scheme name
     'apply':                         applyFn,                     # a value, spliced at the call site
 }
-global_env = Environment(bindings=globalBindings)
+global_env = Environment(
+    bindings=globalBindings)
 
 # ---------------------------------------------------------------------------
 # Helpers and demo

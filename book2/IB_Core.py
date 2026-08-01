@@ -84,7 +84,8 @@ class Environment:
     # to an environment that already exists means calling .set() on it.
     self._bindings = dict(bindings or {})
     self._outer   = outer
-    self._global   = outer._global if outer else self
+    self._global   = (outer._global if outer
+                      else self)
 
   def lookup(self, name):
     env = self
@@ -289,7 +290,8 @@ globalBindings = {
     'call-with-current-continuation': CALLCC,
     'apply':                          applyFn,   # a value, spliced at the call site
 }
-global_env = Environment(bindings=globalBindings)
+global_env = Environment(
+    bindings=globalBindings)
 
 
 # ---------------------------------------------------------------------------

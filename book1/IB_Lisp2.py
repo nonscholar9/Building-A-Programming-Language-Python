@@ -103,8 +103,9 @@ def lEval(expr, env):
     _, condExpr, thenExpr, elseExpr = expr
     condVal = lEval(condExpr, env)
     return lEval(
-                 elseExpr if condVal is lFalse else thenExpr,
-                 env)
+        elseExpr if condVal is lFalse
+        else thenExpr,
+        env)
 
   elif expr[0] == 'cond':
     # Really a chain of ifs, so say so: peel one clause and re-evaluate the
@@ -116,8 +117,9 @@ def lEval(expr, env):
     if test == 'else':
       return lEval(result, env)
     return lEval(
-                 ['if', test, result, ['cond'] + list(clauses[1:])],
-                 env)
+        ['if', test, result,
+         ['cond'] + list(clauses[1:])],
+        env)
 
   elif expr[0] == 'and':             # short-circuits: stops at the first #f
     val = lTrue                    # (and) with no forms is true
@@ -153,15 +155,17 @@ def lEval(expr, env):
     initialBindings = {
         name: lEval(initExpr, env)
         for name, initExpr in bindingPairs}
-    new_env = Environment(outer=env,
-                          bindings=initialBindings)
+    new_env = Environment(
+        outer=env, bindings=initialBindings)
         
     for subExpr in body[:-1]:             # non-tail body forms
       lEval(subExpr, new_env)
     return lEval(body[-1], new_env)       # tail body form
 
   else:
-    fn, *args = [lEval(elt, env) for elt in expr]   # eval operator + operands
+    # eval operator + operands
+    fn, *args = [lEval(elt, env)
+                 for elt in expr]
 
     # apply is a value, not a special form: (apply g x ... lst) is a call of
     # g on x ... plus the elements of lst.  Splice it here, at the call site;
@@ -180,8 +184,9 @@ def lEval(expr, env):
       # off the *captured* (lexical) environment, not the caller's.
       initialBindings = bind_params(
           fn.params, args)
-      new_env = Environment(outer=fn.definingEnv,
-                            bindings=initialBindings)
+      new_env = Environment(
+          outer=fn.definingEnv,
+          bindings=initialBindings)
 
       for subExpr in fn.body[:-1]:       # non-tail body forms
         lEval(subExpr, new_env)
@@ -236,7 +241,8 @@ globalBindings = {
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': applyFn,
 }
-global_env = Environment(bindings=globalBindings)
+global_env = Environment(
+    bindings=globalBindings)
 
 
 # ---------------------------------------------------------------------------

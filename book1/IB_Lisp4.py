@@ -63,141 +63,140 @@ FRAME_CALL = 2   # waiting on an argument value
 # ---------------------------------------------------------------------------
 
 class Environment:
-  def __init__( self, outer=None, bindings=None ):
-    self._bindings = dict(bindings or {})
-    self._outer   = outer
-    self._global   = outer._global if outer else self   # direct handle to the root
+    def __init__( self, outer=None, bindings=None ):
+        self._bindings = dict(bindings or {})
+        self._outer   = outer
+        self._global   = outer._global if outer else self   # direct handle to the root
 
-  def lookup( self, name ):
-    env = self
-    while env:
-      if name in env._bindings:
-        return env._bindings[name]
-      env = env._outer
-    raise NameError( f'Unbound variable: {name}' )
+    def lookup( self, name ):
+        env = self
+        while env:
+            if name in env._bindings:
+                return env._bindings[name]
+            env = env._outer
+        raise NameError( f'Unbound variable: {name}' )
 
-  def set( self, name, value ):
-    # Walk to the innermost environment that already owns the name.
-    env = self
-    while env:
-      if name in env._bindings:
-        env._bindings[name] = value
+    def set( self, name, value ):
+        # Walk to the innermost environment that already owns the name.
+        env = self
+        while env:
+            if name in env._bindings:
+                env._bindings[name] = value
+                return value
+            env = env._outer
+        # Name not found anywhere -- create it in the global environment.  The _global
+        # handle goes straight there, with no second walk down the stack.
+        self._global._bindings[name] = value
         return value
-      env = env._outer
-    # Name not found anywhere -- create it in the global environment.  The _global
-    # handle goes straight there, with no second walk down the stack.
-    self._global._bindings[name] = value
-    return value
 
 # ---------------------------------------------------------------------------
 # The CEK machine
 # ---------------------------------------------------------------------------
 
 def lEval( expr, env ):
-  C = expr                                       # Control:      expression being evaluated
-  V = None                                       # Value:        result flowing back in APPLY
-  E = env                                        # Environment:  the lexical environment (caller supplies it)
-  K = []                                         # Kontinuation: a stack of frames
+    C = expr                                       # Control:      expression being evaluated
+    V = None                                       # Value:        result flowing back in APPLY
+    E = env                                        # Environment:  the lexical environment (caller supplies it)
+    K = []                                         # Kontinuation: a stack of frames
 
-  while True:
-
-    # ----- Begin state EVAL -----
     while True:
-      if isinstance( C, str ):          # a variable -> look it up
-        V = E.lookup( C )
-        break
-      elif not isinstance( C, list ):   # a number or boolean literal -> itself
-        V = C
-        break
-      elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure
-        _, param, body = C
-        V = ( VAL_CLOSURE, param, body, E )
-        break
-      elif C[0] == 'if':                # ['if', test, then, else]
-        _, condExpr, thenExpr, elseExpr = C
-        K.append( (FRAME_IF, thenExpr, elseExpr, E) )
-        C = condExpr                  # evaluate the test first (keep descending)
-      else:                             # [fn, arg] -- an application
-        fnExpr, argExpr = C
-        K.append( (FRAME_ARG, argExpr, E) )
-        C = fnExpr                    # evaluate fn first (keep descending)
 
-    # ----- Begin state APPLY -----
-    while True:
-      if not K:
-        return V
+        # ----- Begin state EVAL -----
+        while True:
+            if isinstance( C, str ):          # a variable -> look it up
+                V = E.lookup( C )
+                break
+            elif not isinstance( C, list ):   # a number or boolean literal -> itself
+                V = C
+                break
+            elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure
+                _, param, body = C
+                V = ( VAL_CLOSURE, param, body, E )
+                break
+            elif C[0] == 'if':                # ['if', test, then, else]
+                _, condExpr, thenExpr, elseExpr = C
+                K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+                C = condExpr                  # evaluate the test first (keep descending)
+            else:                             # [fn, arg] -- an application
+                fnExpr, argExpr = C
+                K.append( (FRAME_ARG, argExpr, E) )
+                C = fnExpr                    # evaluate fn first (keep descending)
 
-      frame = K.pop()
-      ftag  = frame[0]
+        # ----- Begin state APPLY -----
+        while True:
+            if not K:
+                return V
 
-      if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
-        # V is the test value; #f is the only false value, as everywhere else.
-        _, thenExpr, elseExpr, env = frame
-        C = thenExpr if V is not lFalse else elseExpr
-        E = env
-        break
+            frame = K.pop()
+            ftag  = frame[0]
 
-      elif ftag == FRAME_ARG:           # (FRAME_ARG, arg, env)
-        # V is the function value; remember it, evaluate the argument next.
-        _, argExpr, env = frame
-        K.append( (FRAME_CALL, V) )
-        C = argExpr
-        E = env
-        break
+            if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
+                # V is the test value; #f is the only false value, as everywhere else.
+                _, thenExpr, elseExpr, env = frame
+                C = thenExpr if V is not lFalse else elseExpr
+                E = env
+                break
 
-      elif ftag == FRAME_CALL:          # (FRAME_CALL, closure)
-        # V is the argument value, and the frame carries the closure.  Bind
-        # the parameter in the closure's captured env and evaluate the body.
-        # No frame is pushed here -- a tail call reuses this K depth (TCO).
-        _, closure = frame
-        _, param, body, clo_env = closure
-        E = Environment( outer=clo_env,
-                        bindings={ param: V } )
-        C = body
-        break
+            elif ftag == FRAME_ARG:           # (FRAME_ARG, arg, env)
+                # V is the function value; remember it, evaluate the argument next.
+                _, argExpr, env = frame
+                K.append( (FRAME_CALL, V) )
+                C = argExpr
+                E = env
+                break
 
-    # fall through to the outer loop -- re-enter EVAL with the new C/E
+            elif ftag == FRAME_CALL:          # (FRAME_CALL, closure)
+                # V is the argument value, and the frame carries the closure.  Bind
+                # the parameter in the closure's captured env and evaluate the body.
+                # No frame is pushed here -- a tail call reuses this K depth (TCO).
+                _, closure = frame
+                _, param, body, clo_env = closure
+                E = Environment( outer=clo_env, bindings={ param: V } )
+                C = body
+                break
+
+        # fall through to the outer loop -- re-enter EVAL with the new C/E
 
 # ---------------------------------------------------------------------------
 # Helpers and demo
 # ---------------------------------------------------------------------------
 
 def lisp_str( val ):
-  # Render an expression or a value in Lisp surface syntax.
-  if isinstance( val, list ):              # an expression (code)
-    return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
-  if isinstance( val, tuple ):             # a closure value: (VAL_CLOSURE, param, body, env)
-    return '#<procedure (' + val[1] + ')>'
-  return str( val )                        # a number or a symbol
+    # Render an expression or a value in Lisp surface syntax.
+    if isinstance( val, list ):              # an expression (code)
+        return '(' + ' '.join( lisp_str(x) for x in val ) + ')'
+    if isinstance( val, tuple ):             # a closure value: (VAL_CLOSURE, param, body, env)
+        return '#<procedure (' + val[1] + ')>'
+    return str( val )                        # a number or a symbol
 
 
 def run( source ):
-  expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
-  print( f'>>> {lisp_str( expr )}' )
-  result = lEval( expr, Environment() )
-  print( f'==> {lisp_str( result )}' )
-  print()
+    expr = parse( source ) if isinstance( source, str ) else source   # Chapter 8 built this
+    print( f'>>> {lisp_str( expr )}' )
+    result = lEval( expr, Environment() )
+    print( f'==> {lisp_str( result )}' )
+    print()
 
 
 def main():
-  # A literal evaluates to itself.
-  run( '42' )
+    # A literal evaluates to itself.
+    run( '42' )
 
-  # ((lambda (x) x) 7) -- identity applied to 7.
-  run( '((lambda x x) 7)' )
+    # ((lambda (x) x) 7) -- identity applied to 7.
+    run( '((lambda x x) 7)' )
 
-  # (((lambda (x) (lambda (y) x)) 3) 9) -- a curried constant function.
-  run( '(((lambda x (lambda y x)) 3) 9)' )
+    # (((lambda (x) (lambda (y) x)) 3) 9) -- a curried constant function.
+    run( '(((lambda x (lambda y x)) 3) 9)' )
 
-  # (if #t 100 200) -- a true test takes the then branch.
-  run( '(if #t 100 200)' )
+    # (if #t 100 200) -- a true test takes the then branch.
+    run( '(if #t 100 200)' )
 
-  # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
-  run( '(if #f 100 200)' )
+    # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
+    run( '(if #f 100 200)' )
 
-  # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
-  run( '((lambda f (f 3)) (lambda x x))' )
+    # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
+    run( '((lambda f (f 3)) (lambda x x))' )
 
 
 if __name__ == '__main__':
-  main()
+    main()

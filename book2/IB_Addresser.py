@@ -58,16 +58,16 @@ from IB_Analyzer import analyze, LispError
 # about itself.
 
 class Addressed( str ):
-  """A variable that knows where it lives."""
+    """A variable that knows where it lives."""
 
-  def __new__( cls, name, depth, index ):
-    sym = super().__new__( cls, name )
-    sym.depth = depth
-    sym.index = index
-    return sym
+    def __new__( cls, name, depth, index ):
+        sym = super().__new__( cls, name )
+        sym.depth = depth
+        sym.index = index
+        return sym
 
-  def __repr__( self ):
-    return f'{str(self)}@{self.depth}.{self.index}'
+    def __repr__( self ):
+        return f'{str(self)}@{self.depth}.{self.index}'
 
 
 # ---------------------------------------------------------------------------
@@ -75,31 +75,31 @@ class Addressed( str ):
 # ---------------------------------------------------------------------------
 
 def frame_names( params ):
-  """The slots a parameter list declares, in order.
+    """The slots a parameter list declares, in order.
 
     A dotted list (first . rest) declares the named parameters and then the
     rest parameter, which holds whatever is left over as a list.  The dot marks
     the split; it is not itself a slot.  So the frame is the same size for
     every call, however many arguments arrive.
     """
-  if '.' in params:
-    dot = params.index( '.' )
-    return list( params[:dot] ) + [ params[dot + 1] ]
-  return list( params )
+    if '.' in params:
+        dot = params.index( '.' )
+        return list( params[:dot] ) + [ params[dot + 1] ]
+    return list( params )
 
 
 def resolve( name, scopes ):
-  """Search the COMPILE-TIME scope stack, innermost first.
+    """Search the COMPILE-TIME scope stack, innermost first.
 
     This is the same walk `lookup` does at run time, done once, here, with the
     parameter lists standing in for the frames that do not exist yet.  Innermost
     first is what makes shadowing come out right: the nearest binding wins, and
     the ones further out are never reached.
     """
-  for depth, names in enumerate( reversed( scopes ) ):
-    if name in names:
-      return depth, names.index( name )
-  return None                                  # not lexical, so global
+    for depth, names in enumerate( reversed( scopes ) ):
+        if name in names:
+            return depth, names.index( name )
+    return None                                  # not lexical, so global
 
 
 # ---------------------------------------------------------------------------
@@ -107,37 +107,37 @@ def resolve( name, scopes ):
 # ---------------------------------------------------------------------------
 
 def address( form, scopes=None ):
-  """Rewrite every lexically bound variable into an Addressed symbol.
+    """Rewrite every lexically bound variable into an Addressed symbol.
 
     Globals are left exactly as they are.  The meaning of the program does not
     change; only the amount of work the machine has to do to find things.
     """
-  if scopes is None:
-    scopes = []
+    if scopes is None:
+        scopes = []
 
-  if isinstance( form, str ):                  # a variable reference
-    slot = resolve( form, scopes )
-    if slot is None:
-      return form                          # global: leave it a plain str
-    depth, index = slot
-    return Addressed( form, depth, index )
+    if isinstance( form, str ):                  # a variable reference
+        slot = resolve( form, scopes )
+        if slot is None:
+            return form                          # global: leave it a plain str
+        depth, index = slot
+        return Addressed( form, depth, index )
 
-  if not isinstance( form, list ) or not form:
-    return form                              # a number, or ()
+    if not isinstance( form, list ) or not form:
+        return form                              # a number, or ()
 
-  head = form[0]
+    head = form[0]
 
-  if head == 'quote':                          # datum is data, do not walk in
-    return form
+    if head == 'quote':                          # datum is data, do not walk in
+        return form
 
-  if head == 'lambda':                         # ['lambda', params, *body]
-    inner = scopes + [ frame_names( form[1] ) ]
-    return [ 'lambda', form[1] ] + [ address( f, inner ) for f in form[2:] ]
+    if head == 'lambda':                         # ['lambda', params, *body]
+        inner = scopes + [ frame_names( form[1] ) ]
+        return [ 'lambda', form[1] ] + [ address( f, inner ) for f in form[2:] ]
 
-  # if, set!, begin and application all just walk their parts.  set! is not a
-  # special case here: its target is a variable reference like any other, and
-  # addressing it is exactly what lets an assignment write straight to a slot.
-  return [ address( f, scopes ) for f in form ]
+    # if, set!, begin and application all just walk their parts.  set! is not a
+    # special case here: its target is a variable reference like any other, and
+    # addressing it is exactly what lets an assignment write straight to a slot.
+    return [ address( f, scopes ) for f in form ]
 
 
 # ---------------------------------------------------------------------------
@@ -145,81 +145,81 @@ def address( form, scopes=None ):
 # ---------------------------------------------------------------------------
 
 def slots( form, found=None ):
-  """Collect every addressed variable, for showing the pass its own work."""
-  if found is None:
-    found = []
-  if isinstance( form, Addressed ):
-    found.append( form )
-  elif isinstance( form, list ) and form and form[0] != 'quote':
-    for sub in form:
-      slots( sub, found )
-  return found
+    """Collect every addressed variable, for showing the pass its own work."""
+    if found is None:
+        found = []
+    if isinstance( form, Addressed ):
+        found.append( form )
+    elif isinstance( form, list ) and form and form[0] != 'quote':
+        for sub in form:
+            slots( sub, found )
+    return found
 
 
 def globals_in( form, found=None ):
-  """Every variable the pass could NOT address."""
-  if found is None:
-    found = []
-  if isinstance( form, Addressed ):
-    pass
-  elif isinstance( form, str ):
-    found.append( form )
-  elif isinstance( form, list ) and form and form[0] != 'quote':
-    head = form[0]
-    parts = form[2:] if head == 'lambda' else form
-    for sub in parts:
-      globals_in( sub, found )
-  return found
+    """Every variable the pass could NOT address."""
+    if found is None:
+        found = []
+    if isinstance( form, Addressed ):
+        pass
+    elif isinstance( form, str ):
+        found.append( form )
+    elif isinstance( form, list ) and form and form[0] != 'quote':
+        head = form[0]
+        parts = form[2:] if head == 'lambda' else form
+        for sub in parts:
+            globals_in( sub, found )
+    return found
 
 
 def main():
-  def show( label, source ):
-    core = expand( source )
-    out  = address( core )
-    local = [ repr(s) for s in slots( out ) ]
-    print( f'  {label}' )
-    print( f'     addressed  {" ".join(local) if local else "(none)"}' )
+    def show( label, source ):
+        core = expand( source )
+        out  = address( core )
+        local = [ repr(s) for s in slots( out ) ]
+        print( f'  {label}' )
+        print( f'     addressed  {" ".join(local) if local else "(none)"}' )
 
-  print( '--- what the pass works out, once, before the machine runs ---\n' )
-  show( '(lambda (x) (lambda (y) (+ x y)))',
-        ['lambda', ['x'], ['lambda', ['y'], ['+', 'x', 'y']]] )
-  show( '(let ((a 1) (b 2)) (+ a b))',
-        ['let', [['a', 1], ['b', 2]], ['+', 'a', 'b']] )
-  show( '(lambda (first . rest) rest)',
-        ['lambda', ['first', '.', 'rest'], 'rest'] )
-  show( '(lambda (x) (lambda (x) x))            ; the inner x shadows',
-        ['lambda', ['x'], ['lambda', ['x'], 'x']] )
-  show( "(lambda (n) (set! n (+ n 1)))          ; set! writes to a slot too",
-        ['lambda', ['n'], ['set!', 'n', ['+', 'n', 1]]] )
+    print( '--- what the pass works out, once, before the machine runs ---\n' )
+    show( '(lambda (x) (lambda (y) (+ x y)))',
+          ['lambda', ['x'], ['lambda', ['y'], ['+', 'x', 'y']]] )
+    show( '(let ((a 1) (b 2)) (+ a b))',
+          ['let', [['a', 1], ['b', 2]], ['+', 'a', 'b']] )
+    show( '(lambda (first . rest) rest)',
+          ['lambda', ['first', '.', 'rest'], 'rest'] )
+    show( '(lambda (x) (lambda (x) x))            ; the inner x shadows',
+          ['lambda', ['x'], ['lambda', ['x'], 'x']] )
+    show( "(lambda (n) (set! n (+ n 1)))          ; set! writes to a slot too",
+          ['lambda', ['n'], ['set!', 'n', ['+', 'n', 1]]] )
 
-  print( '\n--- and what it leaves alone, because it cannot see their shape ---\n' )
-  prog = expand( ['lambda', ['x'], ['+', 'x', 'y']] )
-  out  = address( prog )
-  print( f'  (lambda (x) (+ x y))' )
-  print( f'     addressed  {" ".join(repr(s) for s in slots(out))}' )
-  print( f'     left free  {" ".join(globals_in(out))}' )
+    print( '\n--- and what it leaves alone, because it cannot see their shape ---\n' )
+    prog = expand( ['lambda', ['x'], ['+', 'x', 'y']] )
+    out  = address( prog )
+    print( f'  (lambda (x) (+ x y))' )
+    print( f'     addressed  {" ".join(repr(s) for s in slots(out))}' )
+    print( f'     left free  {" ".join(globals_in(out))}' )
 
-  print( '\n--- the checker still checks, and now it checks THIS ---\n' )
-  for label, source in [
-      ( '(square 5 99), addressed first',
-        ['begin', ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]],
-                  ['square', 5, 99]] ),
-      ( 'a good program, addressed first',
-        ['begin', ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]],
-                  ['square', 5]] ),
-  ]:
-    try:
-      analyze( address( expand( source ) ) )
-      print( f'  quiet   {label}' )
-    except LispError as e:
-      print( f'  error   {label}:  {e}' )
+    print( '\n--- the checker still checks, and now it checks THIS ---\n' )
+    for label, source in [
+        ( '(square 5 99), addressed first',
+          ['begin', ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]],
+                    ['square', 5, 99]] ),
+        ( 'a good program, addressed first',
+          ['begin', ['set!', 'square', ['lambda', ['n'], ['*', 'n', 'n']]],
+                    ['square', 5]] ),
+    ]:
+        try:
+            analyze( address( expand( source ) ) )
+            print( f'  quiet   {label}' )
+        except LispError as e:
+            print( f'  error   {label}:  {e}' )
 
-  print( '\n--- the meaning is untouched: printing it back gives the source ---\n' )
-  src  = ['lambda', ['x'], ['lambda', ['y'], ['+', 'x', 'y']]]
-  core = expand( src )
-  print( f'  before  {lisp_str( core )}' )
-  print( f'  after   {lisp_str( address( core ) )}' )
+    print( '\n--- the meaning is untouched: printing it back gives the source ---\n' )
+    src  = ['lambda', ['x'], ['lambda', ['y'], ['+', 'x', 'y']]]
+    core = expand( src )
+    print( f'  before  {lisp_str( core )}' )
+    print( f'  after   {lisp_str( address( core ) )}' )
 
 
 if __name__ == '__main__':
-  main()
+    main()

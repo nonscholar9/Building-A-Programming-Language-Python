@@ -30,23 +30,23 @@ from IB_Lisp1  import lEval, global_env, lisp_str   # <- swap for IB_Lisp2 / 3 /
 
 
 def repl():
-  while True:
-    try:
-      source = input( 'lisp> ' )
-    except (EOFError, KeyboardInterrupt):
-      print()
-      break
-    if source.strip() in ( 'quit', 'exit' ):
-      break
-    if not source.strip():
-      continue
-    try:
-      print( lisp_str( lEval( parse( source ), global_env ) ) )
-    except Exception as err:
-      # A bad expression prints an error and returns to the prompt,
-      # rather than crashing the loop.
-      print( f'error: {err}' )
+    while True:
+        try:
+            source = input( 'lisp> ' )
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if source.strip() in ( 'quit', 'exit' ):
+            break
+        if not source.strip():
+            continue
+        try:
+            print( lisp_str( lEval( parse( source ), global_env ) ) )
+        except Exception as err:
+            # A bad expression prints an error and returns to the prompt,
+            # rather than crashing the loop.
+            print( f'error: {err}' )
 
 
 if __name__ == '__main__':
-  repl()
+    repl()

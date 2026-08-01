@@ -356,7 +356,8 @@ def pointers_in( a ):
   tag = heap[a]
   if tag == TAG_ENV:
     out = [heap[a + 2]]
-    out += [heap[a + 5 + 2 * i] for i in range( heap[a + 3] )]
+    out += [heap[a + 5 + 2 * i]
+            for i in range( heap[a + 3] )]
     return out
   if tag == TAG_CLOSURE:
     return [heap[a + 3]]
@@ -368,7 +369,8 @@ def pointers_in( a ):
     return [heap[a + 2], heap[a + 5]]
   if tag == TAG_ARG:
     out = [heap[a + 2], heap[a + 3]]
-    out += [heap[a + 6 + i] for i in range( heap[a + 4] )]
+    out += [heap[a + 6 + i]
+            for i in range( heap[a + 4] )]
     return out
   if tag == TAG_PAIR:
     return [heap[a + 2], heap[a + 3]]
@@ -820,7 +822,8 @@ def _run( prog ):
       a     = addr_of( K )                 # the ARG frame, still on K
       fn    = heap[a + 6]
       nargs = heap[a + 5] - 1
-      args  = [heap[a + 7 + i] for i in range( nargs )]
+      args  = [heap[a + 7 + i]
+               for i in range( nargs )]
       f     = addr_of( fn )
 
       # apply is a value: (apply g x ... lst) is a call of g on x ... plus
@@ -849,7 +852,8 @@ def _run( prog ):
         newE = mk_env( heap[f + 3], lam[1], args )
         E    = newE                      # rooted before the next alloc
         K    = heap[a + 2] if op == OP_TCALL \
-               else mk_ret( heap[a + 2], pc + 1, heap[a + 3] )
+               else mk_ret( heap[a + 2], pc + 1,
+                            heap[a + 3] )
         pc   = lam[2]
 
     elif op == OP_IF_START:

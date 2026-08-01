@@ -117,7 +117,8 @@ def lEval( expr, env ):
     elif C[0] == 'if':
       _, condExpr, thenExpr, elseExpr = C
       condVal = lEval(condExpr, E)   # condition: not tail, recurse
-      C = elseExpr if condVal is lFalse else thenExpr
+      C = (elseExpr if condVal is lFalse
+           else thenExpr)
       continue                            # tail branch: loop
 
     elif C[0] == 'cond':

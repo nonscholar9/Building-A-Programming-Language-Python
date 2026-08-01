@@ -24,7 +24,8 @@ from IB_AST import lTrue, lFalse
 
 # Token kinds.  The structural tokens ( ) ' each stand alone; every name and
 # number arrives as one ATOM whose text the reader classifies later.
-EOF, LPAREN, RPAREN, QUOTE, ATOM = 'eof', '(', ')', "'", 'atom'
+EOF, LPAREN, RPAREN, QUOTE, ATOM = (
+    'eof', '(', ')', "'", 'atom' )
 
 # A delimiter ends the atom currently being scanned.  Everything that is not a
 # delimiter continues it, so the scanner needs no table of "symbol characters".
@@ -40,14 +41,18 @@ class Scanner:
 
   # ----- character level -----
   def _peekChar( self ):
-    return self._src[self._pos] if self._pos < len( self._src ) else ''
+    return ( self._src[self._pos]
+             if self._pos < len( self._src )
+             else '' )
 
   def _consumePast( self, charSet ):     # advance while IN charSet
-    while self._peekChar() and self._peekChar() in charSet:
+    while ( self._peekChar()
+        and self._peekChar() in charSet ):
       self._pos += 1
 
   def _consumeUpTo( self, charSet ):     # advance while NOT in charSet
-    while self._peekChar() and self._peekChar() not in charSet:
+    while ( self._peekChar()
+        and self._peekChar() not in charSet ):
       self._pos += 1
 
   # ----- token level (this is what the reader talks to) -----
@@ -103,7 +108,8 @@ def read_object( scanner ):
   elif tok == RPAREN:
     raise SyntaxError( 'unexpected )' )
   else:                                       # EOF
-    raise SyntaxError( 'unexpected end of input' )
+    raise SyntaxError(
+        'unexpected end of input' )
 
 
 def read_list( scanner ):
@@ -112,7 +118,8 @@ def read_list( scanner ):
   while scanner.peek() not in ( RPAREN, EOF ):
     result.append( read_object( scanner ) )
   if scanner.peek() == EOF:
-    raise SyntaxError( 'unterminated list, expected )' )
+    raise SyntaxError(
+        'unterminated list, expected )' )
   scanner.consume()                           # discard the closing ')'
   return result
 
@@ -135,7 +142,8 @@ def parse( source ):
   scanner = Scanner( source )
   tree = read_object( scanner )
   if scanner.peek() != EOF:
-    raise SyntaxError( 'unexpected trailing input' )
+    raise SyntaxError(
+        'unexpected trailing input' )
   return tree
 
 

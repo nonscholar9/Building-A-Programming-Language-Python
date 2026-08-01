@@ -167,7 +167,8 @@ def lEval( expr, env ):
         break
       elif C[0] == 'if':                 # ['if', test, then, else]
         _, condExpr, thenExpr, elseExpr = C
-        K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+        K.append( (FRAME_IF, thenExpr,
+                       elseExpr, E) )
         C = condExpr                       # evaluate the test first
       elif C[0] == 'set!':               # ['set!', name, valueExpr]
         _, name, valExpr = C
@@ -258,7 +259,9 @@ def lEval( expr, env ):
           # list into the argument positions and call the real function,
           # here at the call site, just as call/cc reaches in below.
           # Both sides read the OLD args; do not split this in two.
-          fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+          fn, args = ( args[0],
+                       list( args[1:-1] )
+                       + list( args[-1] ) )
 
         if fn is CALLCC:               # (call/cc f): reify K, then call f with it
           # This application's own frame was already popped above, so K

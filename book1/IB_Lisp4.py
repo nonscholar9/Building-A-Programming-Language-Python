@@ -115,7 +115,8 @@ def lEval( expr, env ):
         break
       elif C[0] == 'if':                # ['if', test, then, else]
         _, condExpr, thenExpr, elseExpr = C
-        K.append( (FRAME_IF, thenExpr, elseExpr, E) )
+        K.append( (FRAME_IF, thenExpr,
+                       elseExpr, E) )
         C = condExpr                  # evaluate the test first (keep descending)
       else:                             # [fn, arg] -- an application
         fnExpr, argExpr = C
@@ -133,7 +134,8 @@ def lEval( expr, env ):
       if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
         # V is the test value; #f is the only false value, as everywhere else.
         _, thenExpr, elseExpr, env = frame
-        C = thenExpr if V is not lFalse else elseExpr
+        C = (thenExpr if V is not lFalse
+             else elseExpr)
         E = env
         break
 

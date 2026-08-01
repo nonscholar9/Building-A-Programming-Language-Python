@@ -314,7 +314,9 @@ def run_vm( prog, pc=0, env=None ):
       # IB_Lisp5 does; the loop lets (apply apply ...) resolve.
       while fn is applyFn:
         # Both sides read the OLD args; do not split this in two.
-        fn, args = args[0], list( args[1:-1] ) + list( args[-1] )
+        fn, args = ( args[0],
+                     list( args[1:-1] )
+                     + list( args[-1] ) )
 
       if callable( fn ):              # primitive: compute it, flow it on
         V = fn( args )
@@ -327,7 +329,8 @@ def run_vm( prog, pc=0, env=None ):
       else:                           # closure: bind params, enter the body
         _, params, body_pc, clo_env = fn
         if op == OP_CALL:
-          K.append( (FRAME_RET, pc + 1, callerEnv) )
+          K.append( (FRAME_RET, pc + 1,
+                         callerEnv) )
         E  = Environment( outer=clo_env,
                           bindings=bind_params( params, args ) )
         pc = body_pc

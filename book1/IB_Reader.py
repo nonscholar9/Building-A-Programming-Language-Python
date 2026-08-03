@@ -79,6 +79,8 @@ class Scanner:
       self._tok = QUOTE
     else:                                  # anything else begins an atom
       self._consumeUpTo(DELIMITERS)    # scan the run up to a delimiter
+      if self.lexeme() == '#\\':       # '#\' takes one more character,
+        self._pos += 1                 # whatever it is: #\( #\; #\space
       self._tok = ATOM
 
   def _skipSpaceAndComments(self):

@@ -155,12 +155,12 @@ def lEval(expr, env):
     initialBindings = {
         name: lEval(initExpr, env)
         for name, initExpr in bindingPairs}
-    new_env = Environment(
+    local_env = Environment(
         outer=env, bindings=initialBindings)
         
     for subExpr in body[:-1]:             # non-tail body forms
-      lEval(subExpr, new_env)
-    return lEval(body[-1], new_env)       # tail body form
+      lEval(subExpr, local_env)
+    return lEval(body[-1], local_env)       # tail body form
 
   else:
     # eval operator + operands
@@ -184,13 +184,13 @@ def lEval(expr, env):
       # off the *captured* (lexical) environment, not the caller's.
       initialBindings = bind_params(
           fn.params, args)
-      new_env = Environment(
+      local_env = Environment(
           outer=fn.definingEnv,
           bindings=initialBindings)
 
       for subExpr in fn.body[:-1]:       # non-tail body forms
-        lEval(subExpr, new_env)
-      return lEval(fn.body[-1], new_env)   # tail body form
+        lEval(subExpr, local_env)
+      return lEval(fn.body[-1], local_env)   # tail body form
 
 # ---------------------------------------------------------------------------
 # Primitives and global environment

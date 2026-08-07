@@ -224,12 +224,18 @@ def lEval(expr, env):
         # operator + all operands evaluated -> apply doneList[0] to doneList[1:]
         fn, *args = doneList
 
+        # apply is a value: splice its final list into the argument
+        # positions and call the real function, here at the call site.
+        # The loop lets (apply apply ...) resolve.
+        while fn is applyFn:
+          # Both sides read the OLD args; do not split this in two.
+          fn, args = (args[0],
+                       list(args[1:-1])
+                       + list(args[-1]))
+
         if callable(fn):             # primitive: compute the value, flow it on
           V = fn(args)
-          if isinstance(V, _CallRequest):  # a request means "not a value":
-            fn, args = V.fn, V.args        # take the function it resolved to
-          else:
-            continue                 # stay in APPLY
+          continue                   # stay in APPLY
         _, params, body, clo_env = fn  # closure: bind params, run the body
         initialBindings = bind_params(
             params, args)
@@ -279,26 +285,13 @@ def lisp_mul(args):    # variadic product; (*) is 1, the multiplicative identity
     result *= x
   return result
 
-# apply is an ordinary primitive.  A primitive may return a value or a request:
-# "not a value -- call this function on these arguments instead".  apply
-# resolves its own chains and spreads its own list, so what the machine gets
-# back is always a single call.
-class _CallRequest:
-  def __init__(self, fn, args):
-    self.fn, self.args = fn, args
+# apply is a value the evaluator recognizes at the call site, not a special form
+# and not an ordinary primitive: it must open a scope and run a body, which a
+# Python primitive cannot do.
+class _Apply:
+  pass
 
-
-def lisp_apply(args):
-  fn, spread = (args[0],
-                 list(args[1:-1]) + list(args[-1]))
-  while fn is lisp_apply:        # (apply apply ...): unwind it here
-    # Both sides read the OLD spread; do not split this in two.
-    fn, spread = (spread[0],
-                   list(spread[1:-1])
-                   + list(spread[-1]))
-  if callable(fn):               # a primitive needs no machine: call it
-    return fn(spread)
-  return _CallRequest(fn, spread)  # a closure does: ask for the call
+applyFn = _Apply()
 
 globalBindings = {
     '+':     lambda args: sum(args),                          # variadic; (+) is 0
@@ -324,7 +317,8 @@ globalBindings = {
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
 
-    'apply': lisp_apply,
+    # apply, above, is bound to the sentinel the evaluator watches for.
+    'apply': applyFn,
 }
 global_env = Environment(
     bindings=globalBindings)
@@ -339,7 +333,7 @@ def lisp_str(val):
     return '(' + parts + ')'
   if isinstance(val, tuple):             # a closure: (VAL_CLOSURE, params, body, env)
     return '#<procedure (' + ' '.join(val[1]) + ')>'
-  if val is lisp_apply:
+  if val is applyFn:
     return '#<primitive apply>'
   if callable(val):
     return '#<primitive>'

@@ -16,10 +16,10 @@ continuation frame:
   FRAME_IF   -- wait on a test value, then pick a branch
   FRAME_SET  -- wait on a value, then assign it
   FRAME_SEQ  -- a begin / lambda-body with forms still to run
-  FRAME_ARG  -- an application accumulating operator + operands
+  FRAME_CALL -- an application accumulating operator + operands
 
 let needs no frame of its own: it desugars to a lambda application right in the
-EVAL loop.  A function call pushes no frame (FRAME_ARG installs the body
+EVAL loop.  A function call pushes no frame (FRAME_CALL installs the body
 directly), so a tail call reuses the current K depth -- the same tail-call
 optimization #3 and #4 have, now living on the explicit stack.  (countdown
 100000) at the bottom runs in constant K depth to prove it.
@@ -38,12 +38,12 @@ from IB_Reader import parse
 VAL_CLOSURE = 1
 
 # Continuation frame kinds.
-FRAME_IF  = 0   # waiting on a test value
-FRAME_SET = 1   # waiting on a value to assign
-FRAME_SEQ = 2   # a begin / body with forms still to run
-FRAME_ARG = 3   # an application accumulating operator + operands
-FRAME_AND = 4   # an and with operands still to run
-FRAME_OR  = 5   # an or with operands still to run
+FRAME_IF   = 0   # waiting on a test value
+FRAME_SET  = 1   # waiting on a value to assign
+FRAME_SEQ  = 2   # a begin / body with forms still to run
+FRAME_CALL = 3   # an application accumulating operator + operands
+FRAME_AND  = 4   # an and with operands still to run
+FRAME_OR   = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
 # Environment: a scope at run time, linked into a stack (same class as IB_Lisp2/3/4)
@@ -182,7 +182,7 @@ def lEval(expr, env):
         C = forms[0]
       else:                              # [fn, *args] -- an application
         fnExpr, *argExprs = C
-        K.append((FRAME_ARG, [], argExprs, E))
+        K.append((FRAME_CALL, [], argExprs, E))
         C = fnExpr                       # evaluate the operator first
 
     # ----- Begin state APPLY -----
@@ -212,11 +212,11 @@ def lEval(expr, env):
         C = forms[0]
         break
 
-      elif ftag == FRAME_ARG:            # (FRAME_ARG, doneList, todoList, env)
+      elif ftag == FRAME_CALL:           # (FRAME_CALL, doneList, todoList, env)
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:                       # more operands to evaluate
-          K.append((FRAME_ARG, doneList,
+          K.append((FRAME_CALL, doneList,
                          todoList[1:], env))
           C = todoList[0]
           E = env

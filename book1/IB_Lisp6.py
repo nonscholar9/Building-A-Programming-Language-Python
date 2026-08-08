@@ -42,19 +42,18 @@ from IB_Reader import parse
 # ---------------------------------------------------------------------------
 VAL_CLOSURE = 1                 # a closure: (VAL_CLOSURE, params, body_pc, env)
 
-# Continuation frame kinds.  FRAME_ARG accumulates the operator and every
-# operand of one call, exactly as IB_Lisp5's did; IB_Lisp4's separate
-# FRAME_CALL was only ever needed when a call had exactly one argument.
-FRAME_IF  = 0                   # waiting on a test value
-FRAME_ARG = 1                   # a call, accumulating operator + operands
-FRAME_RET = 2                   # NEW: a saved return address (pc) and its env
+# Continuation frame kinds.  FRAME_CALL accumulates the operator and every
+# operand of one call, exactly as IB_Lisp4's and IB_Lisp5's did.
+FRAME_IF   = 0                  # waiting on a test value
+FRAME_CALL = 1                  # a call, accumulating operator + operands
+FRAME_RET  = 2                  # NEW: a saved return address (pc) and its env
 
 # Opcodes -- one per CEK transition, plus OP_JUMP for layout.
 OP_INT       = 0   # V = n (or a boolean literal; both are constants)
 OP_VAR       = 1   # V = E.lookup(name)
 OP_LAM       = 2   # V = (VAL_CLOSURE, params, body_pc, E)
 OP_JUMP      = 3   # pc = target
-OP_APP_START = 4   # K.push((FRAME_ARG, [], E))
+OP_APP_START = 4   # K.push((FRAME_CALL, [], E))
 OP_APPLY_ARG = 5   # stash V in the frame, restore E for the next operand
 OP_CALL      = 6   # non-tail call: push FRAME_RET, bind params, jump to body
 OP_TCALL     = 7   # tail call: bind params, jump to body (NO FRAME_RET -> TCO)
@@ -300,12 +299,12 @@ def run_vm(prog, pc=0, env=None):
       pc += 1
 
     elif op == OP_APP_START:            # start collecting operator + operands
-      K.append((FRAME_ARG, [], E))
+      K.append((FRAME_CALL, [], E))
       pc += 1
 
     elif op == OP_APPLY_ARG:            # stash V, restore E for the next one
       _, doneList, env = K.pop()
-      K.append((FRAME_ARG, doneList + [V],
+      K.append((FRAME_CALL, doneList + [V],
                      env))
       E  = env
       pc += 1

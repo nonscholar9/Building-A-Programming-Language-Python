@@ -41,12 +41,12 @@ from IB_Reader import parse
 VAL_CLOSURE = 1
 
 # Continuation frame kinds.
-FRAME_IF  = 0   # waiting on a test value
-FRAME_SET = 1   # waiting on a value to assign
-FRAME_SEQ = 2   # a begin / body with forms still to run
-FRAME_ARG = 3   # an application accumulating operator + operands
-FRAME_AND = 4   # an and with operands still to run
-FRAME_OR  = 5   # an or with operands still to run
+FRAME_IF   = 0   # waiting on a test value
+FRAME_SET  = 1   # waiting on a value to assign
+FRAME_SEQ  = 2   # a begin / body with forms still to run
+FRAME_CALL = 3   # an application accumulating operator + operands
+FRAME_AND  = 4   # an and with operands still to run
+FRAME_OR   = 5   # an or with operands still to run
 
 # ---------------------------------------------------------------------------
 # call/cc support
@@ -74,7 +74,7 @@ CALLCC = _CallCC()
 class _Apply:
   """apply is also a value, not a special form: it must open a scope and run a
     body, which no primitive can do, so the evaluator recognizes it at the call
-    site (see the splice in FRAME_ARG), the same way it recognizes call/cc."""
+    site (see the splice in FRAME_CALL), the same way it recognizes call/cc."""
 
 applyFn = _Apply()
 
@@ -216,7 +216,7 @@ def lEval(expr, env):
         C = forms[0]
       else:                              # [fn, *args] -- an application
         fnExpr, *argExprs = C
-        K.append((FRAME_ARG, [], argExprs, E))
+        K.append((FRAME_CALL, [], argExprs, E))
         C = fnExpr                       # evaluate the operator first
 
     # ----- Begin state APPLY -----
@@ -246,11 +246,11 @@ def lEval(expr, env):
         C = forms[0]
         break
 
-      elif ftag == FRAME_ARG:            # (FRAME_ARG, doneList, todoList, env)
+      elif ftag == FRAME_CALL:           # (FRAME_CALL, doneList, todoList, env)
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:                       # more operands to evaluate
-          K.append((FRAME_ARG, doneList,
+          K.append((FRAME_CALL, doneList,
                          todoList[1:], env))
           C = todoList[0]
           E = env

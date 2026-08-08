@@ -40,10 +40,10 @@ from IB_Reader import parse
 VAL_CLOSURE = 1
 
 # Continuation frame kinds.
-FRAME_IF  = 0   # waiting on a test value
-FRAME_SET = 1   # waiting on a value to assign
-FRAME_SEQ = 2   # a begin / body with forms still to run
-FRAME_ARG = 3   # an application accumulating operator + operands
+FRAME_IF   = 0   # waiting on a test value
+FRAME_SET  = 1   # waiting on a value to assign
+FRAME_SEQ  = 2   # a begin / body with forms still to run
+FRAME_CALL = 3   # an application accumulating operator + operands
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ def lEval(expr, env):
         C = forms[0]
       else:                              # [fn, *args] -- an application
         fnExpr, *argExprs = C
-        K.append((FRAME_ARG, [], argExprs, E))
+        K.append((FRAME_CALL, [], argExprs, E))
         C = fnExpr
 
     # ----- Begin state APPLY -----
@@ -205,11 +205,11 @@ def lEval(expr, env):
         C = forms[0]
         break
 
-      elif ftag == FRAME_ARG:            # (FRAME_ARG, doneList, todoList, env)
+      elif ftag == FRAME_CALL:           # (FRAME_CALL, doneList, todoList, env)
         _, doneList, todoList, env = frame
         doneList = doneList + [V]
         if todoList:
-          K.append((FRAME_ARG, doneList,
+          K.append((FRAME_CALL, doneList,
                          todoList[1:], env))
           C = todoList[0]
           E = env

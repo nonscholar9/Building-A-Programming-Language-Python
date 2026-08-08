@@ -23,10 +23,16 @@ The machine runs as two states, written as two inner loops:
 Because the value flows back in its own register V, C is *always* code -- there
 is no need for the value/code discriminator the textbook one-register CEK uses.
 
-A continuation frame is just a tagged tuple -- (FRAME_IF, ...), (FRAME_ARG, ...),
-(FRAME_CALL, ...) -- dispatched on its tag in the APPLY loop.  There are no frame
-classes and no `step` methods: a frame is plain data and all the behavior lives
-here in the machine, the way a real interpreter would.
+A continuation frame is just a tagged tuple -- (FRAME_IF, ...), (FRAME_CALL, ...)
+-- dispatched on its tag in the APPLY loop.  There are no frame classes and no
+`step` methods: a frame is plain data and all the behavior lives here in the
+machine, the way a real interpreter would.
+
+A call needs only ONE kind of frame, however many arguments it has.  FRAME_CALL
+accumulates: it carries the values already in hand and the expressions still to
+evaluate, and each time a value arrives the frame is popped, extended, and pushed
+back with one less expression to go.  The operator is just the first of them, so
+the function and its arguments are gathered by the same frame.
 
 This toy is a pure lambda calculus + if (#f is the only false value) -- the
 smallest setting that still has closures and control flow, so the machine itself
@@ -50,13 +56,12 @@ from IB_Reader import parse
 # Tags
 # ---------------------------------------------------------------------------
 # A number value is just a Python int; only a closure needs a tag, to carry
-# its (param, body, captured-environment).
+# its (params, body, captured-environment).
 VAL_CLOSURE = 1
 
 # Continuation frame kinds.
 FRAME_IF   = 0   # waiting on a test value
-FRAME_ARG  = 1   # waiting on a function value
-FRAME_CALL = 2   # waiting on an argument value
+FRAME_CALL = 1   # an application accumulating operator + operands
 
 # ---------------------------------------------------------------------------
 # Environment: a scope at run time, linked into a stack (same class as IB_Lisp2/3)
@@ -109,19 +114,19 @@ def lEval(expr, env):
       elif not isinstance(C, list):   # a number or boolean literal -> itself
         V = C
         break
-      elif C[0] == 'lambda':            # ['lambda', param, body] -> a closure
-        _, param, body = C
-        V = (VAL_CLOSURE, param, body, E)
+      elif C[0] == 'lambda':            # ['lambda', params, body] -> a closure
+        _, params, body = C
+        V = (VAL_CLOSURE, params, body, E)
         break
       elif C[0] == 'if':                # ['if', test, then, else]
         _, condExpr, thenExpr, elseExpr = C
         K.append((FRAME_IF, thenExpr,
                        elseExpr, E))
         C = condExpr                  # evaluate the test first (keep descending)
-      else:                             # [fn, arg] -- an application
-        fnExpr, argExpr = C
-        K.append((FRAME_ARG, argExpr, E))
-        C = fnExpr                    # evaluate fn first (keep descending)
+      else:                             # [fn, *args] -- an application
+        fnExpr, *argExprs = C
+        K.append((FRAME_CALL, [], argExprs, E))
+        C = fnExpr                    # evaluate the operator first (keep descending)
 
     # ----- Begin state APPLY -----
     while True:
@@ -139,22 +144,24 @@ def lEval(expr, env):
         E = env
         break
 
-      elif ftag == FRAME_ARG:           # (FRAME_ARG, arg, env)
-        # V is the function value; remember it, evaluate the argument next.
-        _, argExpr, env = frame
-        K.append((FRAME_CALL, V))
-        C = argExpr
-        E = env
-        break
-
-      elif ftag == FRAME_CALL:          # (FRAME_CALL, closure)
-        # V is the argument value, and the frame carries the closure.  Bind
-        # the parameter in the closure's captured env and evaluate the body.
-        # No frame is pushed here -- a tail call reuses this K depth (TCO).
-        _, closure = frame
-        _, param, body, clo_env = closure
+      elif ftag == FRAME_CALL:          # (FRAME_CALL, doneList, todoList, env)
+        # V is the newest value: the operator the first time through, then one
+        # operand per visit.  Move it into doneList and look at what is left.
+        _, doneList, todoList, env = frame
+        doneList = doneList + [V]
+        if todoList:                       # more operands to evaluate
+          K.append((FRAME_CALL, doneList,
+                         todoList[1:], env))
+          C = todoList[0]
+          E = env
+          break
+        # Operator and operands all in -> apply doneList[0] to doneList[1:].
+        # Bind the parameters in the closure's captured env and evaluate the
+        # body.  No frame is pushed here -- a tail call reuses this K depth (TCO).
+        fn, *args = doneList
+        _, params, body, clo_env = fn
         E = Environment(outer=clo_env,
-                        bindings={param: V})
+            bindings=dict(zip(params, args)))
         C = body
         break
 
@@ -169,8 +176,8 @@ def lisp_str(val):
   if isinstance(val, list):              # an expression (code)
     parts = ' '.join(lisp_str(x) for x in val)
     return '(' + parts + ')'
-  if isinstance(val, tuple):             # a closure value: (VAL_CLOSURE, param, body, env)
-    return '#<procedure (' + val[1] + ')>'
+  if isinstance(val, tuple):             # a closure value: (VAL_CLOSURE, params, body, env)
+    return '#<procedure (' + ' '.join(val[1]) + ')>'
   return str(val)                        # a number or a symbol
 
 
@@ -186,20 +193,23 @@ def main():
   # A literal evaluates to itself.
   run('42')
 
-  # ((lambda (x) x) 7) -- identity applied to 7.
-  run('((lambda x x) 7)')
+  # Identity applied to 7.
+  run('((lambda (x) x) 7)')
 
-  # (((lambda (x) (lambda (y) x)) 3) 9) -- a curried constant function.
-  run('(((lambda x (lambda y x)) 3) 9)')
+  # Two parameters, two arguments: one frame gathers the function and both.
+  run('((lambda (x y) (if x x y)) #f 9)')
 
-  # (if #t 100 200) -- a true test takes the then branch.
+  # A curried constant function -- two nested one-argument calls.
+  run('(((lambda (x) (lambda (y) x)) 3) 9)')
+
+  # A true test takes the then branch.
   run('(if #t 100 200)')
 
-  # (if #f 100 200) -- #f is the only false value, so this takes the else branch.
+  # #f is the only false value, so this takes the else branch.
   run('(if #f 100 200)')
 
-  # ((lambda (f) (f 3)) (lambda (x) x)) -- pass a function as an argument.
-  run('((lambda f (f 3)) (lambda x x))')
+  # Pass a function as an argument.
+  run('((lambda (f) (f 3)) (lambda (x) x))')
 
 
 if __name__ == '__main__':

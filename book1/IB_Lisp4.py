@@ -139,9 +139,9 @@ def lEval(expr, env):
       if ftag == FRAME_IF:              # (FRAME_IF, then, else, env)
         # V is the test value; #f is the only false value, as everywhere else.
         _, thenExpr, elseExpr, env = frame
+        E = env
         C = (thenExpr if V is not lFalse
              else elseExpr)
-        E = env
         break
 
       elif ftag == FRAME_CALL:          # (FRAME_CALL, doneList, todoList, env)
@@ -152,8 +152,8 @@ def lEval(expr, env):
         if todoList:                       # more operands to evaluate
           K.append((FRAME_CALL, doneList,
                          todoList[1:], env))
-          C = todoList[0]
           E = env
+          C = todoList[0]
           break
         # Operator and operands all in -> apply doneList[0] to doneList[1:].
         # Bind the parameters in the closure's captured env and evaluate the

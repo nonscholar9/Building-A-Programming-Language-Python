@@ -229,8 +229,8 @@ def lEval(expr, env):
 
       if ftag == FRAME_IF:               # (FRAME_IF, then, else, env)
         _, thenExpr, elseExpr, env = frame
-        C = thenExpr if V is not lFalse else elseExpr   # #f is the only false
         E = env
+        C = thenExpr if V is not lFalse else elseExpr   # #f is the only false
         break
 
       elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
@@ -252,8 +252,8 @@ def lEval(expr, env):
         if todoList:                       # more operands to evaluate
           K.append((FRAME_CALL, doneList,
                          todoList[1:], env))
-          C = todoList[0]
           E = env
+          C = todoList[0]
           break
         # operator + all operands evaluated -> apply doneList[0] to doneList[1:]
         fn, *args = doneList

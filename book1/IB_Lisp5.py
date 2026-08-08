@@ -171,14 +171,16 @@ def lEval(expr, env):
         if not forms:
           V = lTrue                  # (and) with no forms is true
           break
-        K.append((FRAME_AND, forms[1:], E))
+        if len(forms) > 1:
+          K.append((FRAME_AND, forms[1:], E))
         C = forms[0]
       elif C[0] == 'or':                 # ['or', *forms] -- short-circuits
         forms = list(C[1:])
         if not forms:
           V = lFalse                 # (or) with no forms is false
           break
-        K.append((FRAME_OR, forms[1:], E))
+        if len(forms) > 1:
+          K.append((FRAME_OR, forms[1:], E))
         C = forms[0]
       else:                              # [fn, *args] -- an application
         fnExpr, *argExprs = C
@@ -253,7 +255,8 @@ def lEval(expr, env):
         if not forms:                  # V is the last operand's value
           continue
         E = env
-        K.append((FRAME_AND, forms[1:], E))
+        if len(forms) > 1:
+          K.append((FRAME_AND, forms[1:], E))
         C = forms[0]
         break
 
@@ -264,7 +267,8 @@ def lEval(expr, env):
         if not forms:                  # V is #f
           continue
         E = env
-        K.append((FRAME_OR, forms[1:], E))
+        if len(forms) > 1:
+          K.append((FRAME_OR, forms[1:], E))
         C = forms[0]
         break
 

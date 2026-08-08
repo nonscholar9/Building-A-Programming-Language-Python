@@ -199,7 +199,8 @@ def main():
   # Two parameters, two arguments: one frame gathers the function and both.
   run('((lambda (x y) (if x x y)) #f 9)')
 
-  # A curried constant function -- two nested one-argument calls.
+  # A lambda that returns a lambda -- two nested calls, and the inner
+  # function hands back the x it captured.
   run('(((lambda (x) (lambda (y) x)) 3) 9)')
 
   # A true test takes the then branch.

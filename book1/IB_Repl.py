@@ -14,7 +14,7 @@ at a prompt instead of hand-writing nested Python lists:
     lisp> quit
 
 By default it drives IB_Lisp1 (Chapter 1).  To use a later chapter's
-evaluator, change the import below to IB_Lisp2, 3, 5, or 7 -- every machine
+evaluator, change the import below to IB_Lisp2, 3, 5, 5b_callcc, or 7 -- every machine
 in the book exports the same lEval(expr, env) / global_env / lisp_str interface,
 so nothing else changes.  The parser is written once, in Chapter 8, and every
 machine is fed by it.
@@ -26,7 +26,7 @@ Run with: python IB_Repl.py
 """
 
 from IB_Reader import parse
-from IB_Lisp1  import lEval, global_env, lisp_str   # <- swap for IB_Lisp2 / 3 / 5 / 7
+from IB_Lisp1  import lEval, global_env, lisp_str   # <- swap for IB_Lisp2 / 3 / 5 / 5b_callcc / 7
 
 
 def repl():

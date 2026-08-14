@@ -372,7 +372,7 @@ def main():
 
   run('(begin (set! y 1) (set! y (+ y 9)) y)')   # 10
 
-  run('(if 0 100 200)')                          # 100  (0 is TRUE in Scheme)
+  run('(if 0 100 200)')                          # 100  (0 is TRUE: #f alone is false)
   run("'(a b c)")                   # (a b c)
 
   # Tail-recursive countdown: TCO keeps K bounded, so 100,000 iterations run

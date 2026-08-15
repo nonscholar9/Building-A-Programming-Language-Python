@@ -167,8 +167,9 @@ def compile_expr(expr, out, tail):
     body_pc  = len(out)
     _, params, *body = expr
     compile_body(body, out, tail=True)      # a body is always in tail position
+    past_body = len(out)
     out[lam_idx]  = (OP_LAM, params, body_pc)
-    out[jump_idx] = (OP_JUMP, len(out))
+    out[jump_idx] = (OP_JUMP, past_body)
     if tail:
       out.append((OP_RET,))
 

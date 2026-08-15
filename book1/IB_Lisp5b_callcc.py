@@ -422,6 +422,25 @@ def main():
   run('(saved 10)')                                 # 110  (resumes (+ 100 10))
   run('(saved 55)')                                 # 155  (resumes again)
 
+  # 4) A generator, built out of nothing but capture and invoke.  Two saved
+  #    continuations take turns: `yield` freezes the producer and resumes the
+  #    consumer, `next` freezes the consumer and resumes the producer.  Each
+  #    one picks up exactly where it stopped, which is what Python's `yield`
+  #    does and what no amount of closures alone can do.
+  run('(set! producer-k 0)')
+  run('(set! consumer-k 0)')
+  run('(set! yield (lambda (v) (call/cc (lambda (k) '
+      '(begin (set! producer-k k) (consumer-k v))))))')
+  run('(set! next (lambda () (call/cc (lambda (k) '
+      '(begin (set! consumer-k k) (producer-k 0))))))')
+  run("(set! gen (lambda () (begin (yield 1) (yield 2) (yield 3) 'done)))")
+  run('(set! start (lambda () (call/cc (lambda (k) '
+      '(begin (set! consumer-k k) (gen))))))')
+  run('(start)')                                    # 1
+  run('(next)')                                     # 2
+  run('(next)')                                     # 3
+  run('(next)')                                     # done
+
 
 if __name__ == '__main__':
   main()

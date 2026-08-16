@@ -93,7 +93,7 @@ class Function:
     self.definingEnv = definingEnv   # captured when the lambda is evaluated
 
 # ---------------------------------------------------------------------------
-# The looping evaluator with TCO
+# The tail-call looper
 # ---------------------------------------------------------------------------
 
 def lEval(expr, env):

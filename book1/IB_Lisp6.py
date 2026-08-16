@@ -1,16 +1,16 @@
 """
-IB_Lisp6 - A Bytecode VM.
+IB_Lisp6 - A CEK VM.
 
 The CEK machine of IB_Lisp5 re-walks the AST and re-decides "which
 transition runs next" on every single step.  But for a fixed program that
 decision never changes -- `(lambda (x) x)` is always a lambda.  So why make it
 over and over at run time?
 
-A bytecode VM makes it ONCE, at compile time.  Give every CEK transition a
+A CEK VM makes it ONCE, at compile time.  Give every CEK transition a
 number -- an *opcode* -- and walk the AST a single time, emitting a flat list of
 these numbered instructions.  At run time there is no AST left to dispatch on and
 no EVAL/APPLY state flag: the loop just reads the next opcode and does it.  That
-is all a bytecode VM is -- the CEK machine with its dispatch precomputed.
+is all a CEK VM is -- the CEK machine with its dispatch precomputed.
 
 It runs the whole language IB_Lisp5 runs: #t/#f with Scheme truthiness (#f is
 the only false value -- 0 is true), quote, set!, begin, let, cond, and, or,

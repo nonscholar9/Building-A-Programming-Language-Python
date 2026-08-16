@@ -13,7 +13,7 @@ This file is the starting point for a series that progressively adds features:
   IB_Lisp3.py   -- adds tail-call optimization (TCO) via looping
   IB_Lisp4.py   -- the CEK machine (explicit K), on pure lambda calculus
   IB_Lisp5.py   -- the CEK machine with the full language restored
-  IB_Lisp6.py   -- compiles the machine to a flat bytecode VM
+  IB_Lisp6.py   -- compiles the machine to a CEK VM
   IB_Reader.py        -- the reader, so no later machine is fed a hand-typed AST
 
 Throughout the series, evaluation is driven by three quantities:

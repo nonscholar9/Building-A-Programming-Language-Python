@@ -29,7 +29,7 @@ over the program once, before the machine ever sees it.  The machine got
 smaller and the language stayed exactly the same size.
 
 Two of the four were already rewrites and had been since Chapter 2.  The `let`
-branch in IB_Base built a lambda and pointed C at it; the `cond` branch
+branch in Chapter 5's evaluator built a lambda and pointed C at it; a `cond`
 built an `if` and pointed C at that.  Neither touched V, E, or K.  They were
 translators parked in the evaluator's dispatch, running at the last possible
 moment, one node at a time, on every pass of the loop.  The other two, `and`

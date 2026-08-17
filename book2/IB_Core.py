@@ -114,14 +114,16 @@ class Environment:
   # has no slot numbers.  That is enough to skip the asking.
   def lookupAtDepth(self, name, depth):
     env = self
-    for _ in range(depth):
+    while depth:                   # a countdown, not a range object
       env = env._outer
+      depth -= 1
     return env._bindings[name]
 
   def setAtDepth(self, name, depth, value):
     env = self
-    for _ in range(depth):
+    while depth:
       env = env._outer
+      depth -= 1
     env._bindings[name] = value
     return value
 

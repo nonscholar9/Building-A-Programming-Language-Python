@@ -159,18 +159,20 @@ def run_vm(prog, pc=0, frame=None):
     elif op == OP_LOCAL:                # two integers, no search
       _, depth, index = instr
       f = E
-      for _ in range(depth):
-        f = f.outer
+      while depth:            # a countdown, not a range object:
+        f = f.outer           # building one costs more than the walk
+        depth -= 1
       V = f.slots[index]
       if V is UNBOUND:
         raise NameError('Unbound variable')
       pc += 1
 
     elif op == OP_GLOBAL:
-      name = instr[1]
-      if name not in GLOBALS:
-        raise NameError(f'Unbound variable: {name}')
-      V = GLOBALS[name]
+      try:                            # one dictionary operation, not two:
+        V = GLOBALS[instr[1]]         # asking and then fetching is asking twice
+      except KeyError:
+        raise NameError(
+            f'Unbound variable: {instr[1]}') from None
       pc += 1
 
     elif op == OP_LAM:                  # capture the frame in the closure
@@ -184,8 +186,9 @@ def run_vm(prog, pc=0, frame=None):
     elif op == OP_SET_LOCAL:
       _, depth, index = instr
       f = E
-      for _ in range(depth):
+      while depth:
         f = f.outer
+        depth -= 1
       f.slots[index] = V
       pc += 1
 

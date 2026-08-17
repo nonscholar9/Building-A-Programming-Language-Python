@@ -42,9 +42,12 @@ own name.  The address rides along as an attribute for the machine to find.
 Run with: python IB_Addresser.py
 """
 
+import IB_Core
+
 from IB_Core     import lisp_str
 from IB_Expander import expand
 from IB_Analyzer import analyze, LispError
+from IB_Reader   import parse
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +61,7 @@ from IB_Analyzer import analyze, LispError
 # about itself.
 
 class Addressed(str):
-  """A variable that knows where it lives."""
+  """A local variable that knows where it lives."""
 
   def __new__(cls, name, depth, index):
     sym = super().__new__(cls, name)
@@ -68,6 +71,21 @@ class Addressed(str):
 
   def __repr__(self):
     return f'{str(self)}@{self.depth}.{self.index}'
+
+
+class Global(str):
+  """A variable the pass could not place, which is a positive result.
+
+    The only way to bind a name in this language is a lambda parameter.  So a
+    name with no enclosing parameter of that name is not merely unplaced, it is
+    GLOBAL, and nothing later can shadow it.  Saying so is worth more than it
+    looks: the machine's walk outward is longest for exactly these names, and
+    this is what lets it skip the walk entirely.
+    """
+  depth = None                                 # never at a depth: it is global
+
+  def __repr__(self):
+    return f'{str(self)}@global'
 
 
 # ---------------------------------------------------------------------------
@@ -106,11 +124,16 @@ def resolve(name, scopes):
 # The pass
 # ---------------------------------------------------------------------------
 
-def address(form, scopes=None):
-  """Rewrite every lexically bound variable into an Addressed symbol.
+def address(form, scopes=None, mark_globals=True):
+  """Label every variable with where it lives: a depth, or the global scope.
 
-    Globals are left exactly as they are.  The meaning of the program does not
-    change; only the amount of work the machine has to do to find things.
+    The meaning of the program does not change; only the amount of work the
+    machine has to do to find things.
+
+    `mark_globals` is here so the two halves of the win can be measured apart.
+    Turn it off and only locals are labelled, which is lexical addressing as it
+    is usually described.  Leave it on and the globals are labelled too, which
+    is where nearly all of the saving turns out to be.
     """
   if scopes is None:
     scopes = []
@@ -118,7 +141,7 @@ def address(form, scopes=None):
   if isinstance(form, str):                  # a variable reference
     slot = resolve(form, scopes)
     if slot is None:
-      return form                          # global: leave it a plain str
+      return Global(form) if mark_globals else form
     depth, index = slot
     return Addressed(form, depth, index)
 
@@ -132,12 +155,13 @@ def address(form, scopes=None):
 
   if head == 'lambda':                         # ['lambda', params, *body]
     inner = scopes + [frame_names(form[1])]
-    return ['lambda', form[1]] + [address(f, inner) for f in form[2:]]
+    return ['lambda', form[1]] + [address(f, inner, mark_globals)
+                                   for f in form[2:]]
 
   # if, set!, begin and application all just walk their parts.  set! is not a
   # special case here: its target is a variable reference like any other, and
   # addressing it is exactly what lets an assignment write straight to a slot.
-  return [address(f, scopes) for f in form]
+  return [address(f, scopes, mark_globals) for f in form]
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +194,78 @@ def globals_in(form, found=None):
     for sub in parts:
       globals_in(sub, found)
   return found
+
+
+# ---------------------------------------------------------------------------
+# What it is worth, in scopes examined
+# ---------------------------------------------------------------------------
+#
+# The unit is one dictionary looked in.  The searching version looks in every
+# scope on the way out until it finds the name; the told versions look in one.
+# It is the same count on every computer, and it is exactly what the pass
+# removes, which is more than can be said for a stopwatch.
+
+BENCH = """
+(begin
+  (set! fib (lambda (n)
+    (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))))
+  (set! gcd (lambda (a b)
+    (if (= b 0) a (gcd b (% a b)))))
+  (set! adder (lambda (x) (lambda (y) (lambda (z) (+ x (+ y z))))))
+  (set! total 0)
+  (set! loop (lambda (i)
+    (if (= i 0) 0
+      (begin (set! total (+ total (((adder 1) 2) i)))
+             (loop (- i 1))))))
+  (list (fib 18) (gcd 1071 462) (loop 300) total))
+"""
+
+
+def count_scopes(form):
+  """Run a program on a fresh machine, counting the dictionaries it looks in."""
+  seen = {'scopes': 0}
+  Env  = IB_Core.Environment
+  saved = (Env.lookup, Env.lookupAtDepth, Env.lookupGlobal)
+
+  def counted(method, scopes_per_call=None):
+    def go(self, name, *rest):
+      if scopes_per_call is None:            # the searching version
+        env, n = self, 1
+        while env and name not in env._bindings:
+          env = env._outer
+          n += 1
+        seen['scopes'] += n
+      else:
+        seen['scopes'] += scopes_per_call
+      return method(self, name, *rest)
+    return go
+
+  Env.lookup        = counted(saved[0])
+  Env.lookupAtDepth = counted(saved[1], 1)
+  Env.lookupGlobal  = counted(saved[2], 1)
+  try:
+    value = IB_Core.lEval(
+        form, Env(bindings=IB_Core.globalBindings))
+  finally:
+    Env.lookup, Env.lookupAtDepth, Env.lookupGlobal = saved
+  return lisp_str(value), seen['scopes']
+
+
+def measure():
+  core = expand(parse(BENCH))
+  runs = [
+      ('nothing placed',        core),
+      ('locals placed',         address(core, mark_globals=False)),
+      ('locals and globals',    address(core)),
+]
+  print('  what the machine was told   scopes examined      value')
+  base = None
+  for label, form in runs:
+    value, scopes = count_scopes(form)
+    base = scopes if base is None else base
+    share = '' if scopes == base else f'  ({100.0*(base-scopes)/base:.0f}% fewer)'
+    print(f'  {label:26} {scopes:>10,}{share:>14}   {value}')
+  return runs
 
 
 def main():
@@ -213,6 +309,9 @@ def main():
       print(f'  quiet   {label}')
     except LispError as e:
       print(f'  error   {label}:  {e}')
+
+  print('\n--- what the placing is worth, in scopes examined ---\n')
+  measure()
 
   print('\n--- the meaning is untouched: printing it back gives the source ---\n')
   src  = ['lambda', ['x'], ['lambda', ['y'], ['+', 'x', 'y']]]

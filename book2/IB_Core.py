@@ -87,9 +87,6 @@ class Environment:
     self._global   = (outer._global if outer
                       else self)
 
-  # The searching pair.  These ask every scope on the way out whether it has
-  # the name, and they are what the machine uses for a program no pass has
-  # looked at.
   def lookup(self, name):
     env = self
     while env:
@@ -105,36 +102,6 @@ class Environment:
         env._bindings[name] = value
         return value
       env = env._outer
-    self._global._bindings[name] = value
-    return value
-
-  # The told pair.  Same answers, no searching: somebody worked out where the
-  # name lives before the program ran, and these take their word for it.  A
-  # depth is as much as can be named here, because a scope is a dict and a dict
-  # has no slot numbers.  That is enough to skip the asking.
-  def lookupAtDepth(self, name, depth):
-    env = self
-    while depth:                   # a countdown, not a range object
-      env = env._outer
-      depth -= 1
-    return env._bindings[name]
-
-  def setAtDepth(self, name, depth, value):
-    env = self
-    while depth:
-      env = env._outer
-      depth -= 1
-    env._bindings[name] = value
-    return value
-
-  def lookupGlobal(self, name):
-    try:
-      return self._global._bindings[name]
-    except KeyError:
-      raise NameError(
-          f'Unbound variable: {name}') from None
-
-  def setGlobal(self, name, value):
     self._global._bindings[name] = value
     return value
 
@@ -178,16 +145,8 @@ def lEval(expr, env):
 
     # ----- Begin state EVAL -----
     while True:
-      if isinstance(C, str):           # a variable
-        # Three cases, and the first is the one Book One always took.  A plain
-        # string is a name nobody has placed, so the machine searches for it.
-        # The other two arrive from a pass that already knows the answer.
-        if type(C) is str:
-          V = E.lookup(C)
-        elif C.depth is None:          # placed, and it is global
-          V = E.lookupGlobal(C)
-        else:                          # placed, at a known depth
-          V = E.lookupAtDepth(C, C.depth)
+      if isinstance(C, str):           # variable -> look it up
+        V = E.lookup(C)
         break
       elif not isinstance(C, list):    # number or boolean -> itself
         V = C
@@ -235,12 +194,7 @@ def lEval(expr, env):
 
       elif ftag == FRAME_SET:            # (FRAME_SET, name, env)
         _, name, env = frame
-        if type(name) is str:            # the same three cases as a lookup
-          env.set(name, V)
-        elif name.depth is None:
-          env.setGlobal(name, V)
-        else:
-          env.setAtDepth(name, name.depth, V)
+        env.set(name, V)
         continue
 
       elif ftag == FRAME_SEQ:            # (FRAME_SEQ, remaining_forms, env)

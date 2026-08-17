@@ -221,51 +221,53 @@ BENCH = """
 """
 
 
-def count_scopes(form):
-  """Run a program on a fresh machine, counting the dictionaries it looks in."""
-  seen = {'scopes': 0}
-  Env  = IB_Core.Environment
-  saved = (Env.lookup, Env.lookupAtDepth, Env.lookupGlobal)
+def count_searching(form):
+  """Run a program and count what the machine's searching lookup costs.
 
-  def counted(method, scopes_per_call=None):
-    def go(self, name, *rest):
-      if scopes_per_call is None:            # the searching version
-        env, n = self, 1
-        while env and name not in env._bindings:
-          env = env._outer
-          n += 1
-        seen['scopes'] += n
-      else:
-        seen['scopes'] += scopes_per_call
-      return method(self, name, *rest)
-    return go
+    Every scope the walk looks in is one count, whether the name was there or
+    not, and where it finally found it is recorded too.  Nothing here changes
+    the machine; it watches.
+    """
+  seen  = {'scopes': 0, 'local': 0, 'global': 0,
+           'local_scopes': 0, 'global_scopes': 0}
+  Env   = IB_Core.Environment
+  saved = Env.lookup
 
-  Env.lookup        = counted(saved[0])
-  Env.lookupAtDepth = counted(saved[1], 1)
-  Env.lookupGlobal  = counted(saved[2], 1)
+  def counted(self, name):
+    env, n = self, 1
+    while env and name not in env._bindings:
+      env = env._outer
+      n += 1
+    where = 'global' if env is self._global else 'local'
+    seen['scopes'] += n
+    seen[where] += 1
+    seen[where + '_scopes'] += n
+    return saved(self, name)
+
+  Env.lookup = counted
   try:
     value = IB_Core.lEval(
-        form, Env(bindings=IB_Core.globalBindings))
+        form, Env(bindings=dict(IB_Core.globalBindings)))
   finally:
-    Env.lookup, Env.lookupAtDepth, Env.lookupGlobal = saved
-  return lisp_str(value), seen['scopes']
+    Env.lookup = saved
+  return lisp_str(value), seen
 
 
 def measure():
-  core = expand(parse(BENCH))
-  runs = [
-      ('nothing placed',        core),
-      ('locals placed',         address(core, mark_globals=False)),
-      ('locals and globals',    address(core)),
-]
-  print('  what the machine was told   scopes examined      value')
-  base = None
-  for label, form in runs:
-    value, scopes = count_scopes(form)
-    base = scopes if base is None else base
-    share = '' if scopes == base else f'  ({100.0*(base-scopes)/base:.0f}% fewer)'
-    print(f'  {label:26} {scopes:>10,}{share:>14}   {value}')
-  return runs
+  """How much searching one program does, and how much of it is for globals."""
+  value, s = count_searching(expand(parse(BENCH)))
+  print(f'  value                       {value}')
+  print(f'  variable lookups            {s["local"] + s["global"]:>10,}')
+  print(f'  scopes looked in            {s["scopes"]:>10,}')
+  print(f'    for a local               {s["local_scopes"]:>10,}'
+        f'   in {s["local"]:,} lookups')
+  print(f'    walking out to a global   {s["global_scopes"]:>10,}'
+        f'   in {s["global"]:,} lookups')
+  print()
+  print('  Every one of those could be a single scope, because the pass above')
+  print('  has already worked out which one it is.  Nothing in this machine')
+  print('  takes it up; the compiler does.')
+  return s
 
 
 def main():
@@ -310,7 +312,7 @@ def main():
     except LispError as e:
       print(f'  error   {label}:  {e}')
 
-  print('\n--- what the placing is worth, in scopes examined ---\n')
+  print('\n--- how much searching this machine does ---\n')
   measure()
 
   print('\n--- the meaning is untouched: printing it back gives the source ---\n')

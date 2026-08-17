@@ -50,10 +50,21 @@ OP_APPLY_IF  = 11      # pop FRAME_IF, pc = then_pc or else_pc
 OP_RET       = 12      # pop FRAME_RET and resume, or halt
 OP_SET_LOCAL = 13      # frame[depth].slots[index] = V
 OP_SET_GLOBAL= 14      # GLOBALS[name] = V
+OP_VAR       = 15      # V = the value bound to this NAME, by searching
+OP_SET_VAR   = 16      # bind this NAME, by searching
 
 OP_NAMES = ['INT', 'QUOTE', 'LOCAL', 'GLOBAL', 'LAM', 'JUMP',
             'APP_START', 'APPLY_ARG', 'CALL', 'TCALL', 'IF_START',
-            'APPLY_IF', 'RET', 'SET_LOCAL', 'SET_GLOBAL']
+            'APPLY_IF', 'RET', 'SET_LOCAL', 'SET_GLOBAL',
+            'VAR', 'SET_VAR']
+
+# Which pair of those the compiler emits, and therefore what a frame holds.
+# It is one flag because it has to be: placing a variable is an agreement
+# between the compiler and the machine, and neither can keep it alone.  Set it
+# to False and the compiler stops addressing, the frames go back to holding
+# names, and the machine goes back to searching.  That is the measurement in
+# [SS]11.7, and it is the only reason the searching path is still here.
+ADDRESSED = True
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +104,21 @@ def bind_slots(params, args):
     dot   = params.index('.')
     named = list(args[:dot])
     named += [UNBOUND] * (dot - len(named))
-    return named + [list(args[dot:])]
-  slots = list(args[:len(params)])
-  slots += [UNBOUND] * (len(params) - len(slots))
-  return slots
+    slots = named + [list(args[dot:])]
+  else:
+    slots = list(args[:len(params)])
+    slots += [UNBOUND] * (len(params) - len(slots))
+  if ADDRESSED:
+    return slots
+  return dict(zip(frame_names(params), slots))
+
+
+def frame_names(params):
+  """The names a parameter list declares, in slot order."""
+  if '.' in params:
+    dot = params.index('.')
+    return list(params[:dot]) + [params[dot + 1]]
+  return list(params)
 
 
 # ---------------------------------------------------------------------------
@@ -256,6 +278,32 @@ def run_vm(prog, pc=0, frame=None):
         E  = Frame(bind_slots(params, args),
                    cloFrame)
         pc = body_pc
+
+    elif op == OP_VAR:                  # the same variable, searched for
+      name = instr[1]
+      f = E
+      while f is not None and name not in f.slots:
+        f = f.outer
+      if f is None:
+        try:
+          V = GLOBALS[name]
+        except KeyError:
+          raise NameError(
+              f'Unbound variable: {name}') from None
+      else:
+        V = f.slots[name]
+      pc += 1
+
+    elif op == OP_SET_VAR:
+      name = instr[1]
+      f = E
+      while f is not None and name not in f.slots:
+        f = f.outer
+      if f is None:
+        GLOBALS[name] = V
+      else:
+        f.slots[name] = V
+      pc += 1
 
     elif op == OP_IF_START:
       _, then_pc, else_pc = instr

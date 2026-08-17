@@ -45,7 +45,7 @@ from IB_Expander import expand
 from IB_VM       import (OP_INT, OP_QUOTE, OP_LOCAL, OP_GLOBAL, OP_LAM,
                          OP_JUMP, OP_APP_START, OP_APPLY_ARG, OP_CALL,
                          OP_TCALL, OP_IF_START, OP_APPLY_IF, OP_RET,
-                         OP_SET_LOCAL, OP_SET_GLOBAL,
+                         OP_SET_LOCAL, OP_SET_GLOBAL, OP_SET_VAR,
                          run_vm, disassemble, GLOBALS, STEPS)
 from IB_Compiler import compile_program
 
@@ -70,7 +70,7 @@ def assigned_globals(code):
     """
   return { instr[1] for instr in code
            if instr is not None
-           and instr[0] == OP_SET_GLOBAL }
+           and instr[0] in (OP_SET_GLOBAL, OP_SET_VAR) }
 
 
 # ---------------------------------------------------------------------------

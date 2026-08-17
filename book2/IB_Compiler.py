@@ -33,10 +33,12 @@ from IB_AST       import LBoolean, lisp_str
 from IB_Reader    import parse
 from IB_Expander  import expand
 from IB_Addresser import address, Addressed
+import IB_VM
+
 from IB_VM        import (OP_INT, OP_QUOTE, OP_LOCAL, OP_GLOBAL, OP_LAM,
                           OP_JUMP, OP_APP_START, OP_APPLY_ARG, OP_CALL,
                           OP_TCALL, OP_IF_START, OP_APPLY_IF, OP_RET,
-                          OP_SET_LOCAL, OP_SET_GLOBAL,
+                          OP_SET_LOCAL, OP_SET_GLOBAL, OP_VAR, OP_SET_VAR,
                           run_vm, disassemble, GLOBALS, STEPS)
 
 
@@ -52,7 +54,12 @@ def compile_body(forms, out, tail):
 
 
 def compile_expr(expr, out, tail):
-  if isinstance(expr, Addressed):        # a local: the addresser placed it
+  if not IB_VM.ADDRESSED and isinstance(expr, str):
+    out.append((OP_VAR, str(expr)))      # nobody placed it: the machine looks
+    if tail:                             # for it, the way Chapter 6's did
+      out.append((OP_RET,))
+
+  elif isinstance(expr, Addressed):      # a local: the addresser placed it
     out.append((OP_LOCAL, expr.depth,
                 expr.index))
     if tail:
@@ -109,7 +116,9 @@ def compile_expr(expr, out, tail):
   elif expr[0] == 'set!':                # ['set!', name, valueExpr]
     _, name, valExpr = expr
     compile_expr(valExpr, out, tail=False)
-    if isinstance(name, Addressed):
+    if not IB_VM.ADDRESSED:
+      out.append((OP_SET_VAR, str(name)))
+    elif isinstance(name, Addressed):
       out.append((OP_SET_LOCAL,
                   name.depth, name.index))
     else:
@@ -129,10 +138,15 @@ def compile_expr(expr, out, tail):
                else (OP_CALL,))
 
 
+def place(core):
+  """Address the program, unless we are measuring what that is worth."""
+  return address(core) if IB_VM.ADDRESSED else core
+
+
 def compile_program(core):
   """Address, then compile, one whole expression."""
   out = []
-  compile_expr(address(core), out, tail=True)
+  compile_expr(place(core), out, tail=True)
   return out
 
 
@@ -151,7 +165,7 @@ PROG = []
 def lEval(expr, env=None):
   """Compile one expression onto the end of the program and run it."""
   start = len(PROG)
-  compile_expr(address(expr), PROG, tail=True)
+  compile_expr(place(expr), PROG, tail=True)
   return run_vm(PROG, start, env)
 
 
@@ -179,6 +193,58 @@ def show(source, want=None):
                                     else 'FAIL ')
   print(f'  {mark}{source}')
   print(f'       ==> {got}   [{steps} instructions]')
+
+
+BENCH = """
+(begin
+  (set! fib (lambda (n)
+    (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))))
+  (set! adder (lambda (x) (lambda (y) (lambda (z) (+ x (+ y z))))))
+  (set! total 0)
+  (set! loop (lambda (i)
+    (if (= i 0) 0
+      (begin (set! total (+ total (((adder 1) 2) i)))
+             (loop (- i 1))))))
+  (list (fib 18) (loop 1200) total))
+"""
+
+
+def measure_placing(rounds=9):
+  """The same machine and the same program, with the variables placed and not.
+
+    This is the only measurement in the book that has to be a clock rather than
+    a count, and the two columns beside it are what make that honest: the
+    instruction counts are IDENTICAL.  The machine runs the same number of
+    instructions either way.  All that differs is what one of them costs.
+    """
+  import time
+  core = expand(parse(BENCH))
+  results = {}
+  for _ in range(rounds):                # interleaved, so drift hits both
+    for placed in (False, True):
+      IB_VM.ADDRESSED = placed
+      code   = compile_program(core)
+      before = STEPS[0]
+      t0     = time.perf_counter()
+      value  = run_vm(code, 0, None)
+      dt     = time.perf_counter() - t0
+      row    = results.setdefault(placed, [[], 0, 0, ''])
+      row[0].append(dt)
+      row[1], row[2], row[3] = (STEPS[0] - before, len(code),
+                                lisp_str(value))
+  IB_VM.ADDRESSED = True
+
+  print(f'  {"variable access":24} {"seconds":>8} {"instructions":>14}'
+        f' {"code":>6}')
+  for placed, label in ((False, 'searched for by name'),
+                        (True,  'placed, then indexed')):
+    times, steps, size, value = results[placed]
+    print(f'  {label:24} {min(times):8.4f} {steps:>14,} {size:>6}')
+  slow = min(results[False][0])
+  fast = min(results[True][0])
+  print(f'\n  Placing them: {100.0 * (slow - fast) / slow:.0f}% less time for the'
+        f' same {results[True][1]:,} instructions.')
+  print('  Your number will differ.  The instruction counts will not.')
 
 
 def main():
@@ -223,6 +289,9 @@ def main():
       '            (walk (cdr ys))))))'
       '      (walk xs))))))')
   show("(find '(1 2 3 4))", 'found')
+
+  print('\n--- what placing the variables is worth ---\n')
+  measure_placing()
 
   print('\n--- a macro, all the way down to bytecode ---\n')
   run('(define-macro (unless test . body)'

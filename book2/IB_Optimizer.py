@@ -55,10 +55,25 @@ from IB_Compiler import compile_program
 # ---------------------------------------------------------------------------
 #
 # Pure means: the same arguments always give the same answer, and computing it
-# changes nothing.  `print` is not here, and neither is anything that builds a
-# fresh list, because a folded value is shared by every run of that line.
+# changes nothing.  `print` is not here, because computing it is the point of
+# calling it.
+#
+# The list primitives ARE here, and the reason they can be is a fact about this
+# language rather than about folding.  A folded value is computed once and then
+# shared by every run of that line, so folding `(list 1 2)` hands the same list
+# to every pass through the code.  Nothing in our Lisp can tell that apart from
+# a fresh list each time: there is no `set-car!` to change one, and no `eq?` to
+# ask whether two are the same object.  `quote` has been handing out one shared
+# list per program since Chapter 1 for exactly this reason.
 
-PURE = { '+', '-', '*', '%', '=', '<', '>', '<=', '>=', 'not' }
+PURE = { '+', '-', '*', '%', 'not',
+         '=', '<', '>', '<=', '>=',
+         'car', 'cdr', 'cons', 'list', 'null?' }
+
+# What a fold may read, and what may stand in front of it.  A quoted datum is
+# as constant as a number; the operator is the one GLOBAL in the run.
+CONST = (OP_INT, OP_QUOTE)
+ATOM  = (OP_INT, OP_QUOTE, OP_GLOBAL)
 
 
 def assigned_globals(code):
@@ -102,15 +117,15 @@ def fold_constants(code, frozen):
     parts = []
     while True:
       cur = code[i] if i < len(code) else None
-      if cur is None:
+      nxt = code[i + 1] if i + 1 < len(code) else None
+      if cur is None or nxt is None:
         break
-      if cur[0] in (OP_INT, OP_GLOBAL) and \
-         i + 1 < len(code) and code[i + 1] is not None and \
-         code[i + 1][0] == OP_APPLY_ARG:
-        parts.append(cur)
-        i += 2
-        continue
-      break
+      if cur[0] not in ATOM:
+        break
+      if nxt[0] != OP_APPLY_ARG:
+        break
+      parts.append(cur)
+      i += 2
 
     if len(parts) < 2 or i >= len(code) or code[i] is None:
       continue
@@ -123,17 +138,25 @@ def fold_constants(code, frozen):
     name = head[1]
     if name not in PURE or name in frozen:
       continue
-    if any(a[0] != OP_INT for a in rest):
+    if any(a[0] not in CONST for a in rest):
       continue
 
-    value = GLOBALS[name]([a[1] for a in rest])
-    if not isinstance(value, (int, LBoolean)):
+    try:
+      value = GLOBALS[name]([a[1] for a in rest])
+    except Exception:
+      continue      # (car '()) is the program's error, not ours
+
+    if isinstance(value, (int, LBoolean)):
+      folded = (OP_INT, value)
+    elif isinstance(value, (list, str)):   # a list or a symbol
+      folded = (OP_QUOTE, value)
+    else:
       continue
 
     tail = code[i][0] == OP_TCALL
     for k in range(pc, i + 1):        # blank the whole call
       code[k] = None
-    code[pc] = (OP_INT, value)
+    code[pc] = folded
     if tail:
       code[pc + 1] = (OP_RET,)
     changed = True
@@ -384,6 +407,8 @@ def main():
          '(if (and #t #t) (+ 1 2) (+ 3 4))')
   report('sugar, expanded then folded',
          "(or #f (and #t (+ 20 22)))")
+  report('a list built before it runs',
+         "(cons 'a (list 1 (+ 1 1)))")
   report('a loop the optimizer cannot help',
          '((lambda (count)'
          '   (begin'

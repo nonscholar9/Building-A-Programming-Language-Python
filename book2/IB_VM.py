@@ -107,7 +107,8 @@ def bind_slots(params, args):
     slots = named + [list(args[dot:])]
   else:
     slots = list(args[:len(params)])
-    slots += [UNBOUND] * (len(params) - len(slots))
+    gaps  = len(params) - len(slots)
+    slots += [UNBOUND] * gaps
   if ADDRESSED:
     return slots
   return dict(zip(frame_names(params), slots))
@@ -116,8 +117,9 @@ def bind_slots(params, args):
 def frame_names(params):
   """The names a parameter list declares, in slot order."""
   if '.' in params:
-    dot = params.index('.')
-    return list(params[:dot]) + [params[dot + 1]]
+    dot   = params.index('.')
+    named = list(params[:dot])
+    return named + [params[dot + 1]]
   return list(params)
 
 

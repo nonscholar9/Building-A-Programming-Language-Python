@@ -28,12 +28,17 @@ see the shape of, and a parameter list has a shape.
 
 WHERE IT SITS.  After the expander, before the checker:
 
-    read -> expand -> ADDRESS -> analyze -> machine
+    read -> expand -> ADDRESS -> analyze -> compile -> the VM
 
 Before the checker on purpose.  This pass rewrites the tree, and a pass that
 rewrites the tree should have something standing between it and the machine.
 The checker validates what actually runs, which is this pass's output, not the
 program as it was written.
+
+WHO COLLECTS IT.  The compiler, and only the compiler.  The CEK machine runs an
+addressed program perfectly well and gets nothing for it: an Addressed symbol
+IS its own name, so `lookup` searches for it exactly as before.  What the
+addresses are worth is settled in the chapter, on both machines.
 
 An `Addressed` symbol is a `str` subclass, so every pass downstream keeps
 working without knowing this one exists: it hashes, compares and prints as its
@@ -73,21 +78,6 @@ class Addressed(str):
     return f'{str(self)}@{self.depth}.{self.index}'
 
 
-class Global(str):
-  """A variable the pass could not place, which is a positive result.
-
-    The only way to bind a name in this language is a lambda parameter.  So a
-    name with no enclosing parameter of that name is not merely unplaced, it is
-    GLOBAL, and nothing later can shadow it.  Saying so is worth more than it
-    looks: the machine's walk outward is longest for exactly these names, and
-    this is what lets it skip the walk entirely.
-    """
-  depth = None                                 # never at a depth: it is global
-
-  def __repr__(self):
-    return f'{str(self)}@global'
-
-
 # ---------------------------------------------------------------------------
 # Frame layout
 # ---------------------------------------------------------------------------
@@ -101,8 +91,9 @@ def frame_names(params):
     every call, however many arguments arrive.
     """
   if '.' in params:
-    dot = params.index('.')
-    return list(params[:dot]) + [params[dot + 1]]
+    dot   = params.index('.')
+    named = list(params[:dot])
+    return named + [params[dot + 1]]
   return list(params)
 
 
@@ -114,7 +105,7 @@ def resolve(name, scopes):
     first is what makes shadowing come out right: the nearest binding wins, and
     the ones further out are never reached.
     """
-  for depth, names in enumerate(reversed(scopes)):
+  for depth, names in enumerate(scopes[::-1]):
     if name in names:
       return depth, names.index(name)
   return None                                  # not lexical, so global
@@ -124,16 +115,11 @@ def resolve(name, scopes):
 # The pass
 # ---------------------------------------------------------------------------
 
-def address(form, scopes=None, mark_globals=True):
+def address(form, scopes=None):
   """Label every variable with where it lives: a depth, or the global scope.
 
     The meaning of the program does not change; only the amount of work the
     machine has to do to find things.
-
-    `mark_globals` is here so the two halves of the win can be measured apart.
-    Turn it off and only locals are labelled, which is lexical addressing as it
-    is usually described.  Leave it on and the globals are labelled too, which
-    is where nearly all of the saving turns out to be.
     """
   if scopes is None:
     scopes = []
@@ -141,7 +127,7 @@ def address(form, scopes=None, mark_globals=True):
   if isinstance(form, str):                  # a variable reference
     slot = resolve(form, scopes)
     if slot is None:
-      return Global(form) if mark_globals else form
+      return form                            # a global: leave it alone
     depth, index = slot
     return Addressed(form, depth, index)
 
@@ -155,13 +141,13 @@ def address(form, scopes=None, mark_globals=True):
 
   if head == 'lambda':                         # ['lambda', params, *body]
     inner = scopes + [frame_names(form[1])]
-    return ['lambda', form[1]] + [address(f, inner, mark_globals)
-                                   for f in form[2:]]
+    return ['lambda', form[1]] + [address(f, inner)
+                                  for f in form[2:]]
 
   # if, set!, begin and application all just walk their parts.  set! is not a
   # special case here: its target is a variable reference like any other, and
   # addressing it is exactly what lets an assignment write straight to a slot.
-  return [address(f, scopes, mark_globals) for f in form]
+  return [address(f, scopes) for f in form]
 
 
 # ---------------------------------------------------------------------------

@@ -8,16 +8,21 @@ front end runs first, to catch the break and report it as an error in *our*
 language instead.  It is a tree walk in three layers of rising ambition, and
 the third layer walks straight into a wall that is worth seeing from the inside.
 
-Like the expander, this is a link in the chain every program runs through, and
-it is the LAST one before the machine.  Nothing reaches the evaluator without
-coming through here first, which is the point: the machine is allowed to trust
-the shape of what it is handed because this pass has already refused anything
-malformed.  `analyze` returns the form so it can be threaded, not called aside
-for its effect.
+WHERE IT SITS.  After the expander, and after the addresser once there is one:
 
-It runs after everything else the front end does, so the only forms it ever
-meets are the core forms the machine knows: quote, lambda, if, set!, begin, and
-application.  The sugar is already gone.
+    read -> expand -> address -> ANALYZE -> compile -> the machine
+
+So the only forms it ever meets are the core forms the machine knows: quote,
+lambda, if, set!, begin, and application.  The sugar is already gone, and an
+addressed variable is still a str, so this pass never learns that either
+happened.
+
+It is also the one link in the chain that could be taken out.  Every other pass
+hands the next stage something it needs; this one hands back the form it was
+given, so `analyze` can be threaded through a pipeline rather than called aside
+for its effect, and a program that passes it runs exactly as it would have.
+What is lost by removing it is the error message, and that is the whole of what
+a checker is for.
 
 Run with: python IB_Analyzer.py
 """
@@ -76,6 +81,11 @@ def check_shapes(form):
           f'set!: target is not a name: '
           f'{lisp_str(form[1])}')
 
+  elif head == 'begin':
+    if len(form) < 2:
+      raise LispError(
+          'begin: expected at least one form')
+
   elif head == 'lambda':
     if len(form) < 3:
       raise LispError(
@@ -93,6 +103,17 @@ def check_shapes(form):
           'lambda: a parameter is named '
           'twice in '
           f'{lisp_str(params)}')
+    if params.count('.') > 1:
+      raise LispError(
+          'lambda: more than one dot in '
+          f'{lisp_str(params)}')
+    if '.' in params:
+      dot = params.index('.')
+      if dot == 0 or dot != len(params) - 2:
+        raise LispError(
+            'lambda: the dot needs exactly '
+            'one name after it, in '
+            f'{lisp_str(params)}')
     for sub in form[2:]:                     # the body; the params are not code
       check_shapes(sub)
     return
@@ -112,6 +133,15 @@ def arity_of(params):
   if '.' in params:
     return (params.index('.'), None)
   return (len(params), len(params))
+
+
+def describe(lo, hi):
+  """An arity, in the English the error message wants."""
+  if hi is None:
+    return f'{lo} or more arguments'
+  if hi != lo:
+    return f'{lo} to {hi} arguments'
+  return f'{lo} argument' if lo == 1 else f'{lo} arguments'
 
 
 def check_arity(form, known):
@@ -144,10 +174,9 @@ def check_arity(form, known):
     lo, hi = arity_of(known[head])
     n = len(form) - 1
     if n < lo or (hi is not None and n > hi):
-      want = str(lo) if hi == lo else f'{lo} or more' if hi is None \
-             else f'{lo} to {hi}'
-      noun = 'argument' if want == '1' else 'arguments'
-      raise LispError(f'{head}: expected {want} {noun}, got {n}')
+      raise LispError(
+          f'{head}: expected '
+          f'{describe(lo, hi)}, got {n}')
 
   for sub in form[1:]:
     check_arity(sub, known)
@@ -208,6 +237,8 @@ def main():
   check('(set! 5 1)',       ['set!', 5, 1])
   check('(lambda x x)',     ['lambda', 'x', 'x'])
   check('(lambda (a a) a)', ['lambda', ['a', 'a'], 'a'])
+  check('(lambda (a .) a)',  ['lambda', ['a', '.'], 'a'])
+  check('(begin)',          ['begin'])
 
   print('\n--- arity: caught while the lambda is in view... ---\n')
   check('(square 5 99)',

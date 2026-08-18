@@ -189,10 +189,10 @@ def show(source, want=None):
   before = STEPS[0]
   got    = lisp_str(run(source))
   steps  = STEPS[0] - before
-  mark   = '' if want is None else ('ok   ' if got == str(want)
-                                    else 'FAIL ')
-  print(f'  {mark}{source}')
-  print(f'       ==> {got}   [{steps} instructions]')
+  print(f'>>> {source}')
+  print(f'  ==> {got}   [{steps} instructions]')
+  if want is not None and got != str(want):
+    print(f'  FAIL expected {want}')
 
 
 BENCH = """
@@ -250,7 +250,7 @@ def measure_placing(rounds=9):
 def main():
   print('--- what the compiler emits, and where the addresser shows ---\n')
   core = expand(parse('(let ((x 7)) (lambda (y) (+ x y)))'))
-  print(f'  core   {lisp_str(core)}')
+  print(f'  core       {lisp_str(core)}')
   print(f'  addressed  {lisp_str(address(core))}\n')
   disassemble(compile_program(core))
 

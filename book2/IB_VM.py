@@ -94,6 +94,10 @@ class _Unbound:
 UNBOUND = _Unbound()
 
 
+def unbound(name):
+  raise NameError(f'Unbound variable: {name}')
+
+
 def bind_slots(params, args):
   """The frame a call builds, in the order the addresser assumed.
 
@@ -192,11 +196,10 @@ def run_vm(prog, pc=0, frame=None):
       pc += 1
 
     elif op == OP_GLOBAL:
-      try:                            # one dictionary operation, not two:
-        V = GLOBALS[instr[1]]         # asking and then fetching is asking twice
+      try:                     # one dictionary operation, not two:
+        V = GLOBALS[instr[1]]  # asking then fetching is asking twice
       except KeyError:
-        raise NameError(
-            f'Unbound variable: {instr[1]}') from None
+        unbound(instr[1])
       pc += 1
 
     elif op == OP_LAM:                  # capture the frame in the closure
@@ -290,8 +293,7 @@ def run_vm(prog, pc=0, frame=None):
         try:
           V = GLOBALS[name]
         except KeyError:
-          raise NameError(
-              f'Unbound variable: {name}') from None
+          unbound(name)
       else:
         V = f.slots[name]
       pc += 1

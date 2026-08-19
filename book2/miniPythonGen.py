@@ -24,10 +24,12 @@ import sys
 sys.path.insert(0, '.')
 from miniPythonParser import Parser
 from IB_Expander        import expand, gensym
-from IB_Core            import lEval, global_env, lisp_str
+from IB_Core            import (lEval,
+    global_env, lisp_str)
 from IB_AST            import lFalse
 
-_STOP = ['quote', 'stop-iteration']     # a value mini-Python source cannot make
+# a value mini-Python source cannot make
+_STOP = ['quote', 'stop-iteration']
 
 
 # ---------------------------------------------------------------------------
@@ -67,12 +69,18 @@ def _has_yield(s):
   if tag == 'yield':
     return True
   if tag == 'if':
-    return (any(_has_yield(x) for x in s[2])
-             or any(_has_yield(x) for _, blk in s[3] for x in blk)
-             or (s[4] is not None and any(_has_yield(x) for x in s[4])))
+    if any(_has_yield(x) for x in s[2]):
+      return True
+    for _, blk in s[3]:
+      if any(_has_yield(x) for x in blk):
+        return True
+    if s[4] is None:
+      return False
+    return any(_has_yield(x) for x in s[4])
   if tag == 'while':
     return any(_has_yield(x) for x in s[2])
-  return False                          # a nested def is its own generator, if any
+  # a nested def is its own generator
+  return False
 
 
 # ---------------------------------------------------------------------------
@@ -81,10 +89,11 @@ def _has_yield(s):
 #   ('gen', resume, consumer)  a yield suspends; a return stops the generator
 # ---------------------------------------------------------------------------
 
-_ARITH = {'+', '-', '*', '%', '<', '>', '<=', '>='}
+_UNCHANGED = {'+', '-', '*', '%',
+               '<', '>', '<=', '>='}
 
 def lower_module(node):
-  return ['begin'] + [lower_stmt(s, None) for s in node[1]]
+  return ['begin'] + lower_body(node[1], None)
 
 def lower_body(stmts, ctx):
   return [lower_stmt(s, ctx) for s in stmts]
@@ -99,15 +108,19 @@ def lower_stmt(s, ctx):
     return lFalse
   if tag == 'return':
     if ctx[0] == 'func':
-      value = lower_expr(s[1]) if s[1] is not None else lFalse
-      return [ctx[1], value]                  # (ret value)
-    return [ctx[2], _STOP]                      # a return ends a generator
+      value = lFalse
+      if s[1] is not None:
+        value = lower_expr(s[1])
+      return [ctx[1], value]
+    # a return ends a generator
+    return [ctx[2], _STOP]
   if tag == 'yield':
     _, resume, consumer = ctx
     k = gensym()
-    return ['call/cc', ['lambda', [k],
-                          ['set!', resume, k],
-                          [consumer, lower_expr(s[1])]]]
+    return ['call/cc',
+             ['lambda', [k],
+               ['set!', resume, k],
+               [consumer, lower_expr(s[1])]]]
   if tag == 'if':
     return lower_if(s, ctx)
   if tag == 'while':
@@ -118,47 +131,75 @@ def lower_stmt(s, ctx):
 
 def lower_def(s):
   _, name, params, body = s
-  locals_ = sorted(assigned_names(body) - set(params))
+  names   = assigned_names(body)
+  locals_ = sorted(names - set(params))
   if contains_yield(body):
-    return lower_generator(name, params, body, locals_)
+    return lower_generator(name, params,
+                            body, locals_)
 
   ret = gensym()
-  cc = ['call/cc', ['lambda', [ret]] + lower_body(body, ('func', ret))]
-  inner = [['let', [[v, lFalse] for v in locals_], cc]] if locals_ else [cc]
-  return ['set!', name, ['lambda', list(params)] + inner]
+  ctx = ('func', ret)
+  cc  = ['call/cc',
+          ['lambda', [ret]]
+            + lower_body(body, ctx)]
+  inner = [cc]
+  if locals_:
+    cells = [[v, lFalse] for v in locals_]
+    inner = [['let', cells, cc]]
+  fn = ['lambda', list(params)] + inner
+  return ['set!', name, fn]
 
-def lower_generator(name, params, body, locals_):
-  resume, consumer, ig, kn = gensym(), gensym(), gensym(), gensym()
+def lower_generator(name, params, body,
+                     locals_):
+  resume   = gensym()
+  consumer = gensym()
+  ig       = gensym()
+  kn       = gensym()
   ctx   = ('gen', resume, consumer)
-  cells = [[resume, lFalse], [consumer, lFalse]] + [[v, lFalse] for v in locals_]
+  cells = [[resume, lFalse],
+            [consumer, lFalse]]
+  cells += [[v, lFalse] for v in locals_]
 
-  resume_body = lower_body(body, ctx) + [[consumer, _STOP]]   # ran off the end
+  # and the value that says it ran off the end
+  resume_body = (lower_body(body, ctx)
+                  + [[consumer, _STOP]])
   resume_fn   = ['lambda', [ig]] + resume_body
   next_thunk  = ['lambda', [],
-                  ['call/cc', ['lambda', [kn],
-                                 ['set!', consumer, kn],
-                                 [resume, lFalse]]]]
+                  ['call/cc',
+                    ['lambda', [kn],
+                      ['set!', consumer, kn],
+                      [resume, lFalse]]]]
   gen_fn = ['lambda', list(params),
-             ['let', cells, ['set!', resume, resume_fn], next_thunk]]
+             ['let', cells,
+               ['set!', resume, resume_fn],
+               next_thunk]]
   return ['set!', name, gen_fn]
+
+def _clause(test, block, ctx):
+  return [lower_expr(test),
+           ['begin'] + lower_body(block, ctx)]
 
 def lower_if(s, ctx):
   _, test, body, elifs, orelse = s
-  clauses = [[lower_expr(test), ['begin'] + lower_body(body, ctx)]]
+  clauses = [_clause(test, body, ctx)]
   for etest, ebody in elifs:
-    clauses.append([lower_expr(etest), ['begin'] + lower_body(ebody, ctx)])
+    clauses.append(_clause(etest, ebody, ctx))
   if orelse is not None:
-    clauses.append(['else', ['begin'] + lower_body(orelse, ctx)])
+    tail = ['begin'] + lower_body(orelse, ctx)
+    clauses.append(['else', tail])
   return ['cond'] + clauses
 
 def lower_while(s, ctx):
   _, test, body = s
-  loop = gensym()
+  loop  = gensym()
+  again = (['begin'] + lower_body(body, ctx)
+            + [[loop]])
   helper = ['lambda', [],
              ['if', lower_expr(test),
-               ['begin'] + lower_body(body, ctx) + [[loop]],
-               lFalse]]
-  return ['let', [[loop, lFalse]], ['set!', loop, helper], [loop]]
+               again, lFalse]]
+  return ['let', [[loop, lFalse]],
+           ['set!', loop, helper],
+           [loop]]
 
 def lower_expr(e):
   tag = e[0]
@@ -167,10 +208,14 @@ def lower_expr(e):
   if tag == 'name':
     return e[1]
   if tag == 'call':
-    # next(g) advances the generator, which IS its own advance-thunk.
-    if e[1][0] == 'name' and e[1][1] == 'next' and len(e[2]) == 1:
+    # next(g) advances the generator, which
+    # IS its own advance-thunk
+    if (e[1][0] == 'name' and e[1][1] == 'next'
+         and len(e[2]) == 1):
       return [lower_expr(e[2][0])]
-    return [lower_expr(e[1])] + [lower_expr(a) for a in e[2]]
+    fn   = lower_expr(e[1])
+    args = [lower_expr(a) for a in e[2]]
+    return [fn] + args
   if tag == 'unary':
     op, x = e[1], lower_expr(e[2])
     if op == '-':
@@ -180,8 +225,10 @@ def lower_expr(e):
     if op == 'not':
       return ['not', x]
   if tag == 'binop':
-    op, l, r = e[1], lower_expr(e[2]), lower_expr(e[3])
-    if op in _ARITH:
+    op = e[1]
+    l  = lower_expr(e[2])
+    r  = lower_expr(e[3])
+    if op in _UNCHANGED:
       return [op, l, r]
     if op == '==':
       return ['=', l, r]
@@ -195,7 +242,9 @@ def lower_expr(e):
 
 
 def run(source):
-  return lEval(expand(lower_module(Parser().parse(source))), global_env)
+  tree = Parser().parse(source)
+  core = expand(lower_module(tree))
+  return lEval(core, global_env)
 
 
 # ---------------------------------------------------------------------------

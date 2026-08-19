@@ -48,12 +48,12 @@ from IB_Compiler     import run_core
 
 def run(source, backend='cek'):
   """Run a whole mini-Python program through every stage of the tower."""
-  tree = Parser().parse(source)     # text -> tree
-  core = expand(lower_module(tree)) # tree -> Lisp -> core
-  core = analyze(core)              # core -> core, or a refusal
+  tree = Parser().parse(source)     # -> tree
+  core = expand(lower_module(tree)) # -> core
+  core = analyze(core)              # or refuse
   if backend == 'vm':
-    return run_core(core)           # core -> bytecode -> the VM
-  return lEval(core, global_env)    # core -> behaviour
+    return run_core(core)           # -> the VM
+  return lEval(core, global_env)    # behaviour
 
 
 # ---------------------------------------------------------------------------

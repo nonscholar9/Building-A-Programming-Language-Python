@@ -6,7 +6,7 @@ while, and return, which the machine has never heard of.  This turns that tree
 into forms the machine does run.
 
 The lowering emits SURFACE Lisp (let, cond, and, or, begin, set!, lambda), and
-then hands it to Book One's expander to finish into core forms.  So the pipeline
+then hands it to Chapter 9's expander to finish into core forms.  So the pipeline
 is:  python text -> parse -> lower -> expand -> lEval.  The lowering reuses the
 expander rather than reimplementing let/cond/and/or.
 
@@ -35,8 +35,8 @@ from IB_Reader   import parse
 
 
 # ---------------------------------------------------------------------------
-# The assigned-names scan (from the Chapter 10 spike): every name a body
-# assigns to is local to that whole body, so the def must bind them up front.
+# The assigned-names scan: every name a body assigns to is local to that whole
+# body, so the def must bind them all up front.
 # ---------------------------------------------------------------------------
 
 def assigned_names(body):
@@ -62,7 +62,8 @@ def _assigned_stmt(s, found):
     for st in s[2]:
       _assigned_stmt(st, found)
   elif tag == 'def':
-    found.add(s[1])            # the def name is a local binding
+    # the def name is a local binding
+    found.add(s[1])
     # do not descend: a nested def owns its own scope
 
 
@@ -70,10 +71,11 @@ def _assigned_stmt(s, found):
 # Lowering
 # ---------------------------------------------------------------------------
 
-_ARITH = {'+', '-', '*', '%', '<', '>', '<=', '>='}
+_UNCHANGED = {'+', '-', '*', '%',
+               '<', '>', '<=', '>='}
 
 def lower_module(node):
-  return ['begin'] + [lower_stmt(s) for s in node[1]]
+  return ['begin'] + lower_body(node[1])
 
 def lower_stmt(s):
   tag = s[0]
@@ -82,7 +84,9 @@ def lower_stmt(s):
   if tag == 'expr':
     return lower_expr(s[1])
   if tag == 'return':
-    return lower_expr(s[1]) if s[1] is not None else lFalse
+    if s[1] is None:
+      return lFalse
+    return lower_expr(s[1])
   if tag == 'pass':
     return lFalse
   if tag == 'if':
@@ -98,31 +102,39 @@ def lower_body(stmts):
 
 def lower_def(s):
   _, name, params, body = s
-  locals_ = sorted(assigned_names(body) - set(params))
+  names   = assigned_names(body)
+  locals_ = sorted(names - set(params))
   inner = lower_body(body)
   if locals_:
     bindings = [[v, lFalse] for v in locals_]
     lam_body = [['let', bindings] + inner]
   else:
     lam_body = inner
-  return ['set!', name, ['lambda', list(params)] + lam_body]
+  fn = ['lambda', list(params)] + lam_body
+  return ['set!', name, fn]
+
+def _clause(test, block):
+  return [lower_expr(test),
+           ['begin'] + lower_body(block)]
 
 def lower_if(s):
   _, test, body, elifs, orelse = s
-  clauses = [[lower_expr(test), ['begin'] + lower_body(body)]]
+  clauses = [_clause(test, body)]
   for etest, ebody in elifs:
-    clauses.append([lower_expr(etest), ['begin'] + lower_body(ebody)])
+    clauses.append(_clause(etest, ebody))
   if orelse is not None:
-    clauses.append(['else', ['begin'] + lower_body(orelse)])
+    tail = ['begin'] + lower_body(orelse)
+    clauses.append(['else', tail])
   return ['cond'] + clauses
 
 def lower_while(s):
   _, test, body = s
-  loop = gensym()
+  loop  = gensym()
+  again = (['begin'] + lower_body(body)
+            + [[loop]])
   helper = ['lambda', [],
              ['if', lower_expr(test),
-               ['begin'] + lower_body(body) + [[loop]],
-               lFalse]]
+               again, lFalse]]
   return ['let', [[loop, lFalse]],
            ['set!', loop, helper],
            [loop]]
@@ -134,7 +146,9 @@ def lower_expr(e):
   if tag == 'name':
     return e[1]
   if tag == 'call':
-    return [lower_expr(e[1])] + [lower_expr(a) for a in e[2]]
+    fn   = lower_expr(e[1])
+    args = [lower_expr(a) for a in e[2]]
+    return [fn] + args
   if tag == 'unary':
     op, x = e[1], lower_expr(e[2])
     if op == '-':
@@ -144,8 +158,10 @@ def lower_expr(e):
     if op == 'not':
       return ['not', x]
   if tag == 'binop':
-    op, l, r = e[1], lower_expr(e[2]), lower_expr(e[3])
-    if op in _ARITH:
+    op = e[1]
+    l  = lower_expr(e[2])
+    r  = lower_expr(e[3])
+    if op in _UNCHANGED:
       return [op, l, r]
     if op == '==':
       return ['=', l, r]
@@ -168,7 +184,28 @@ def run_python(source):
 # Demo
 # ---------------------------------------------------------------------------
 
+def show_lowering(source):
+  """Print a def and the Lisp it
+     lowers to."""
+  tree = Parser().parse(source)
+  print(source, end='')
+  print('  =>',
+        lisp_str(lower_def(tree[1][0])))
+  print()
+
+
 def main():
+  print('--- what the lowering emits ---\n')
+  show_lowering("def f(a):\n"
+                 "    return a + 1\n")
+  show_lowering("def f(a):\n"
+                 "    if a < 0:\n"
+                 "        return 0\n"
+                 "    return a\n")
+  show_lowering("def f():\n"
+                 "    x = 5\n"
+                 "    return x\n")
+
   print('--- a function with no early return: gcd (tail return + while) ---\n')
   gcd = ("def gcd(a, b):\n"
           "    while b != 0:\n"
@@ -203,7 +240,7 @@ def main():
   print('The (cond ((= n 0) 1)) is not the last form, so its value is thrown')
   print('away: the early "return 1" does not return.  factorial(0) falls')
   print('through to (* 0 (factorial -1)) and recurses without end.')
-  print('A return that is not in tail position needs call/cc -- Chapter 14.')
+  print('A return that is not in tail position needs call/cc -- Chapter 16.')
 
 
 if __name__ == '__main__':

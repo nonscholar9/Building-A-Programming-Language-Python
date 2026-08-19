@@ -2,8 +2,8 @@
 # mini-Python -- grammar
 #
 # The target language of Book Two's capstone: a small Python, large enough to
-# write simple programs in and no larger than the technique needs.  ("Itty-
-# BittyPython" and never bare "Python", because the host we implement it in is
+# write simple programs in and no larger than the technique needs.  ("mini-
+# Python" and never bare "Python", because the host we implement it in is
 # Python too, and the two must not be confused.)
 #
 # NOTATION: the modified BNF used by the Python Language Reference.
@@ -24,7 +24,7 @@
 # and associativity while consuming a token before it ever recurses.
 #
 # Reserved keywords (never a NAME):
-#     and  def  elif  else  if  not  or  pass  return  while
+#     and  def  elif  else  if  not  or  pass  return  while  yield
 # `print` is NOT reserved; it is an ordinary built-in function, called like any
 # other.
 # ===========================================================================
@@ -34,11 +34,12 @@
 # Syntactic grammar  (tokens -> tree)
 # ---------------------------------------------------------------------------
 
-file_input      ::= statement* ENDMARKER
+file_input      ::= statement* EOF
 
 statement       ::= simple_stmt | compound_stmt
 
-simple_stmt     ::= (assign_or_expr | return_stmt | pass_stmt) NEWLINE
+simple_stmt     ::= (assign_or_expr | return_stmt | pass_stmt
+                     | yield_stmt) NEWLINE
 assign_or_expr  ::= expression ["=" expression]
                     # With "=" present this is an assignment, and the left
                     # expression must be a bare NAME.  Without it, the line is
@@ -47,6 +48,7 @@ assign_or_expr  ::= expression ["=" expression]
                     # first and then looking for "=".
 return_stmt     ::= "return" [expression]
 pass_stmt       ::= "pass"
+yield_stmt      ::= "yield" expression
 
 compound_stmt   ::= if_stmt | while_stmt | funcdef
 
@@ -102,7 +104,7 @@ comment         ::= "#" <any character except a newline>*
 NEWLINE         ::= <the end of a logical line>
 INDENT          ::= <an increase in a line's leading indentation>
 DEDENT          ::= <a decrease in a line's leading indentation>
-ENDMARKER       ::= <the end of the input>
+EOF             ::= <the end of the input>
 
 
 # ---------------------------------------------------------------------------

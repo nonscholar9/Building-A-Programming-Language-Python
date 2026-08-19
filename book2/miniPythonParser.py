@@ -205,13 +205,19 @@ _BINOP_NAME = {Lexer.PLUS_TOK: '+', Lexer.MINUS_TOK: '-', Lexer.STAR_TOK: '*',
 _COMP_NAME  = {Lexer.EQEQ_TOK: '==', Lexer.NOTEQ_TOK: '!=', Lexer.LT_TOK: '<',
                 Lexer.GT_TOK: '>', Lexer.LE_TOK: '<=', Lexer.GE_TOK: '>='}
 
-_FIRST_EXPR = (Lexer.NAME_TOK, Lexer.INTEGER_TOK, Lexer.LPAREN_TOK,
-                Lexer.PLUS_TOK, Lexer.MINUS_TOK, Lexer.NOT_TOK)
+_FIRST_EXPR = (Lexer.NAME_TOK,
+                Lexer.INTEGER_TOK,
+                Lexer.LPAREN_TOK,
+                Lexer.PLUS_TOK,
+                Lexer.MINUS_TOK,
+                Lexer.NOT_TOK)
 
 # FIRST(statement) = FIRST(simple_stmt) | FIRST(compound_stmt).  Every "*" and
 # "+" over statements tests this, exactly as the mapping table prescribes.
-_FIRST_STMT = _FIRST_EXPR + (Lexer.RETURN_TOK, Lexer.PASS_TOK, Lexer.YIELD_TOK,
-                              Lexer.IF_TOK, Lexer.WHILE_TOK, Lexer.DEF_TOK)
+_FIRST_STMT = _FIRST_EXPR + (
+    Lexer.RETURN_TOK, Lexer.PASS_TOK,
+    Lexer.YIELD_TOK, Lexer.IF_TOK,
+    Lexer.WHILE_TOK, Lexer.DEF_TOK)
 
 
 # ---------------------------------------------------------------------------
@@ -231,24 +237,32 @@ class Parser(ParserBase):
 
   def _expect(self, tok):
     if self._scanner.peekToken() != tok:
-      raise ParseError(self._scanner, f'{_TOKEN_NAME.get(tok, tok)} expected')
+      name = _TOKEN_NAME.get(tok, tok)
+      raise ParseError(self._scanner,
+          f'{name} expected')
     lex = self._scanner.getLexeme()
     self._scanner.consume()
     return lex
 
-  # file_input ::= statement* ENDMARKER
+  # file_input ::= statement* EOF
   def parse(self, source, filename=''):
     self._scanner.reset(source, filename)
     body = []
-    while self._peek() in _FIRST_STMT:               # statement*
+    # statement*
+    while self._peek() in _FIRST_STMT:
       body.append(self._parse_statement())
-    if self._peek() != Lexer.EOF_TOK:                # ENDMARKER
-      raise ParseError(self._scanner, 'a statement or end of input expected')
+    # EOF
+    if self._peek() != Lexer.EOF_TOK:
+      raise ParseError(self._scanner,
+          'a statement or end of input'
+          ' expected')
     return ('module', body)
 
   # statement ::= simple_stmt | compound_stmt
   def _parse_statement(self):
-    if self._peek() in (Lexer.IF_TOK, Lexer.WHILE_TOK, Lexer.DEF_TOK):
+    if self._peek() in (Lexer.IF_TOK,
+                        Lexer.WHILE_TOK,
+                        Lexer.DEF_TOK):
       return self._parse_compound()
     return self._parse_simple()
 
@@ -270,7 +284,9 @@ class Parser(ParserBase):
   # return_stmt ::= "return" [expression]
   def _parse_return(self):
     self._expect(Lexer.RETURN_TOK)
-    value = self._parse_expression() if self._peek() in _FIRST_EXPR else None
+    value = None
+    if self._peek() in _FIRST_EXPR:
+      value = self._parse_expression()
     return ('return', value)
 
   # yield_stmt ::= "yield" expression
@@ -333,50 +349,61 @@ class Parser(ParserBase):
     self._expect(Lexer.LPAREN_TOK)
     params = []
     if self._peek() == Lexer.NAME_TOK:
-      params.append(self._expect(Lexer.NAME_TOK))
+      params.append(self._expect(
+          Lexer.NAME_TOK))
       while self._peek() == Lexer.COMMA_TOK:
         self._next()
-        params.append(self._expect(Lexer.NAME_TOK))
+        params.append(self._expect(
+            Lexer.NAME_TOK))
     self._expect(Lexer.RPAREN_TOK)
     self._expect(Lexer.COLON_TOK)
-    return ('def', name, params, self._parse_suite())
+    return ('def', name, params,
+             self._parse_suite())
 
   # suite ::= NEWLINE INDENT statement+ DEDENT
   def _parse_suite(self):
     self._expect(Lexer.NEWLINE_TOK)
     self._expect(Lexer.INDENT_TOK)
-    body = [self._parse_statement()]               # "+": once...
-    while self._peek() in _FIRST_STMT:               # ...then the while
+    # "+": once, then the while
+    body = [self._parse_statement()]
+    while self._peek() in _FIRST_STMT:
       body.append(self._parse_statement())
     self._expect(Lexer.DEDENT_TOK)
     return body
 
   # -- expressions, low precedence to high --
 
-  def _parse_expression(self):                       # expression ::= or_test
+  # expression ::= or_test
+  def _parse_expression(self):
     return self._parse_or()
 
-  def _parse_or(self):        # or_test ::= and_test ("or" and_test)*
+  # or_test ::= and_test ("or" and_test)*
+  def _parse_or(self):
     node = self._parse_and()
     while self._peek() == Lexer.OR_TOK:
       self._next()
-      node = ('binop', 'or', node, self._parse_and())
+      node = ('binop', 'or', node,
+               self._parse_and())
     return node
 
-  def _parse_and(self):       # and_test ::= not_test ("and" not_test)*
+  # and_test ::= not_test ("and" not_test)*
+  def _parse_and(self):
     node = self._parse_not()
     while self._peek() == Lexer.AND_TOK:
       self._next()
-      node = ('binop', 'and', node, self._parse_not())
+      node = ('binop', 'and', node,
+               self._parse_not())
     return node
 
-  def _parse_not(self):       # not_test ::= "not" not_test | comparison
+  # not_test ::= "not" not_test | comparison
+  def _parse_not(self):
     if self._peek() == Lexer.NOT_TOK:
       self._next()
       return ('unary', 'not', self._parse_not())
     return self._parse_comparison()
 
-  def _parse_comparison(self):   # comparison ::= sum [comp_op sum]
+  # comparison ::= sum [comp_op sum]
+  def _parse_comparison(self):
     node = self._parse_sum()
     if self._peek() in _COMP_NAME:
       op = _COMP_NAME[self._peek()]
@@ -385,7 +412,8 @@ class Parser(ParserBase):
                self._parse_sum())
     return node
 
-  def _parse_sum(self):       # sum ::= term (("+" | "-") term)*
+  # sum ::= term (("+" | "-") term)*
+  def _parse_sum(self):
     node = self._parse_term()
     while self._peek() in (Lexer.PLUS_TOK,
                            Lexer.MINUS_TOK):
@@ -395,23 +423,28 @@ class Parser(ParserBase):
                self._parse_term())
     return node
 
-  def _parse_term(self):      # term ::= factor (("*" | "%") factor)*
+  # term ::= factor (("*" | "%") factor)*
+  def _parse_term(self):
     node = self._parse_factor()
-    while self._peek() in (Lexer.STAR_TOK, Lexer.PERCENT_TOK):
+    while self._peek() in (Lexer.STAR_TOK,
+                           Lexer.PERCENT_TOK):
       op = _BINOP_NAME[self._peek()]
       self._next()
       node = ('binop', op, node,
                self._parse_factor())
     return node
 
-  def _parse_factor(self):    # factor ::= ("+" | "-") factor | call
-    if self._peek() in (Lexer.PLUS_TOK, Lexer.MINUS_TOK):
+  # factor ::= ("+" | "-") factor | call
+  def _parse_factor(self):
+    if self._peek() in (Lexer.PLUS_TOK,
+                        Lexer.MINUS_TOK):
       op = _BINOP_NAME[self._peek()]
       self._next()
       return ('unary', op, self._parse_factor())
     return self._parse_call()
 
-  def _parse_call(self):      # call ::= atom ("(" [argument_list] ")")*
+  # call ::= atom ("(" [argument_list] ")")*
+  def _parse_call(self):
     node = self._parse_atom()
     while self._peek() == Lexer.LPAREN_TOK:
       self._next()
@@ -430,18 +463,22 @@ class Parser(ParserBase):
         args.append(self._parse_expression())
     return args
 
-  def _parse_atom(self):      # atom ::= NAME | INTEGER | "(" expression ")"
+  # atom ::= NAME | INTEGER | "(" expression ")"
+  def _parse_atom(self):
     tok = self._peek()
     if tok == Lexer.NAME_TOK:
-      return ('name', self._expect(Lexer.NAME_TOK))
+      return ('name',
+               self._expect(Lexer.NAME_TOK))
     if tok == Lexer.INTEGER_TOK:
-      return ('num', int(self._expect(Lexer.INTEGER_TOK)))
+      lex = self._expect(Lexer.INTEGER_TOK)
+      return ('num', int(lex))
     if tok == Lexer.LPAREN_TOK:
       self._next()
       node = self._parse_expression()
       self._expect(Lexer.RPAREN_TOK)
       return node
-    raise ParseError(self._scanner, 'a name, an integer, or ( expected')
+    raise ParseError(self._scanner,
+        'a name, an integer, or ( expected')
 
 
 # ---------------------------------------------------------------------------
@@ -552,6 +589,11 @@ def main():
   d = fac[1][0]
   assert d[0] == 'def' and d[1] == 'factorial' and d[2] == ['n'], d
   assert len(d[3]) == 2, 'def body should be: the if, and the return'
+
+  print('--- precedence, in the shape of the tree ---\n')
+  print('x = 1 + 2 * 3')
+  print(pp(parser.parse("x = 1 + 2 * 3\n")))
+  print()
 
   # Precedence: 1 + 2 * 3 nests the * under the +.
   e = parser.parse("x = 1 + 2 * 3\n")[1][0]

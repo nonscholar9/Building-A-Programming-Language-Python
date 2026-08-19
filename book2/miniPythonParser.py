@@ -52,20 +52,26 @@ class Lexer(LexerBase):
       YIELD_TOK) = range(32)
 
   KEYWORDS = {
-      'def': DEF_TOK, 'if': IF_TOK, 'elif': ELIF_TOK, 'else': ELSE_TOK,
-      'while': WHILE_TOK, 'return': RETURN_TOK, 'pass': PASS_TOK,
-      'and': AND_TOK, 'or': OR_TOK, 'not': NOT_TOK, 'yield': YIELD_TOK,
-}
+      'def': DEF_TOK, 'if': IF_TOK,
+      'elif': ELIF_TOK, 'else': ELSE_TOK,
+      'while': WHILE_TOK, 'pass': PASS_TOK,
+      'return': RETURN_TOK, 'yield': YIELD_TOK,
+      'and': AND_TOK, 'or': OR_TOK,
+      'not': NOT_TOK,
+  }
   _SINGLE = {
-      '+': PLUS_TOK, '-': MINUS_TOK, '*': STAR_TOK,
-      '%': PERCENT_TOK, '(': LPAREN_TOK, ')': RPAREN_TOK,
+      '+': PLUS_TOK, '-': MINUS_TOK,
+      '*': STAR_TOK, '%': PERCENT_TOK,
+      '(': LPAREN_TOK, ')': RPAREN_TOK,
       ':': COLON_TOK, ',': COMMA_TOK,
-}
+  }
 
   def __init__(self):
     super().__init__()
-    self._indents     = [0]      # a stack of indentation widths
-    self._pending     = []       # tokens ready to emit (queued DEDENTs, EOF)
+    # a stack of indentation widths
+    self._indents     = [0]
+    # tokens ready to emit: DEDENTs, EOF
+    self._pending     = []
     self._at_line_start = True
 
   def _scanNextToken(self):
@@ -158,7 +164,8 @@ class Lexer(LexerBase):
       if buf.peekNextChar() == '=':
         buf.consume()
         return Lexer.NOTEQ_TOK
-      raise ParseError(self, "'=' expected after '!'")
+      raise ParseError(self,
+          "'=' expected after '!'")
     if ch == '<':
       buf.consume()
       if buf.peekNextChar() == '=':
@@ -174,7 +181,8 @@ class Lexer(LexerBase):
     if ch in Lexer._SINGLE:
       buf.consume()
       return Lexer._SINGLE[ch]
-    raise ParseError(self, f'unexpected character: {ch!r}')
+    raise ParseError(self,
+        f'unexpected character: {ch!r}')
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +448,37 @@ class Parser(ParserBase):
 # Demo
 # ---------------------------------------------------------------------------
 
+def token_names():
+  """Each _TOK constant, mapped to its
+     own name, for the demo below."""
+  return {v: k[:-4]
+          for k, v in vars(Lexer).items()
+          if k.endswith('_TOK')}
+
+
+def show_tokens(source):
+  """Print the token stream one source
+     line at a time."""
+  lexer = Lexer()
+  lexer.reset(source)
+  names = token_names()
+  line  = []
+  while True:
+    tok  = lexer.peekToken()
+    name = names[tok]
+    if tok in (Lexer.NAME_TOK,
+                Lexer.INTEGER_TOK):
+      name += '(' + lexer.getLexeme() + ')'
+    line.append(name)
+    if tok == Lexer.EOF_TOK:
+      break
+    if tok == Lexer.NEWLINE_TOK:
+      print(' '.join(line))
+      line = []
+    lexer.consume()
+  print(' '.join(line))
+
+
 def pp(node, indent=0):
   pad = '  ' * indent
   if isinstance(node, tuple) and node and isinstance(node[0], str):
@@ -489,6 +528,17 @@ def main():
       "    else:\n"
       "        return 3\n"
 )
+
+  layout = (
+      "def f(n):\n"
+      "    if n == 0:\n"
+      "        return 1\n"
+      "    return n\n"
+)
+  print('--- the tokens, one source line at a time ---\n')
+  print(layout)
+  show_tokens(layout)
+  print()
 
   parser = Parser()
   for label, src in [('factorial', factorial), ('gcd', gcd), ('grade', grades)]:

@@ -52,7 +52,7 @@ class LexerBuffer:
     self._filename  = filename
     self._source    = source
     self._sourceLen = len(source)
-    self._nextChar  = source[0] if source else ''
+    self._nextChar  = source[:1]
     self._point     = 0
     self._mark      = 0
     self._lineNum   = 1
@@ -112,7 +112,9 @@ class LexerBuffer:
   def scanLineTxt(self):
     start = self.scanLinePos()
     end   = self._source.find('\n', start)
-    return self._source[start:] if end == -1 else self._source[start:end]
+    if end == -1:
+      return self._source[start:]
+    return self._source[start:end]
 
 
 # ---------------------------------------------------------------------------
@@ -139,8 +141,10 @@ class LexerBase(ABC):
 
   @abstractmethod
   def _scanNextToken(self):
-    """Scan past the next token, leaving the buffer with _mark at its first
-        character and _point one past its last, and return the token's kind."""
+    """Scan past the next token, leaving
+       the buffer with _mark at its first
+       character and _point one past its
+       last.  Return the token's kind."""
     ...
 
 

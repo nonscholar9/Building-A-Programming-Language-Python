@@ -187,8 +187,8 @@ def check_arity(form, known):
 # instant either side of it is a name.  There is nothing to check against.
 # ---------------------------------------------------------------------------
 
-_NUMERIC = {'+', '-', '*', '%', '<', '>', '<=',
-            '>=', '='}
+_NUMERIC = {'+', '-', '*', '%', '<', '>',
+            '<=', '>='}
 
 def check_types(form):
   if not isinstance(form, list) or not form:

@@ -10,14 +10,14 @@ value:
 
 Each arrow is a piece the book built:
 
-    parse    book2/miniPythonParser.py  (Ch 11-12, on ParserBase)
-    lower    book2/miniPythonGen.py      (Ch 13-15: the assigned-names scan,
+    parse    book2/miniPythonParser.py  (Ch 13-14, on ParserBase)
+    lower    book2/miniPythonGen.py      (Ch 15-17: the assigned-names scan,
                                                while->tail recursion, return->call/cc,
                                                yield->a call/cc coroutine)
     expand   book2/IB_Expander.py        (Ch 9: let/cond/and/or -> core)
     analyze  book2/IB_Analyzer.py         (Ch 10: the checker; quiet unless the
                                                 lowered program is malformed)
-    lEval    book2/IB_Core.py             (Book One's CEK machine, sealed at Ch 9)
+    lEval    book2/IB_Core.py             (Book One's CEK machine, Ch 4-5)
 
 Two languages, one tower.  The lower half is the complete Lisp interpreter
 (expander, analyzer, CEK evaluator).  mini-Python is perched on top,
@@ -25,7 +25,15 @@ and it is really a second front end: it lowers its own surface into the Lisp the
 tower already runs.  Nothing below `lower` knows the program began as something
 that looked like Python, and the machine has not changed a line since Chapter 9.
 
-Run with: python miniPython.py
+EITHER MACHINE.  Nothing above the last line cares which of Book One's last two
+machines runs the core forms, so the last line is a choice.  `lEval` is the CEK
+machine of Chapters 4 and 5.  `run_core` addresses the same forms, compiles them
+to bytecode, and runs that on the CEK VM of Chapter 6, which is the machine
+Chapters 11 and 12 build.  The program, and every stage above it, is identical
+either way.
+
+Run with: python miniPython.py          (the CEK machine)
+          python miniPython.py --vm     (the CEK VM)
 """
 
 import sys
@@ -35,14 +43,17 @@ from miniPythonGen    import lower_module      # the full lowering, yield and al
 from IB_Expander     import expand
 from IB_Analyzer     import analyze
 from IB_Core         import lEval, global_env, lisp_str
+from IB_Compiler     import run_core
 
 
-def run(source):
+def run(source, backend='cek'):
   """Run a whole mini-Python program through every stage of the tower."""
-  tree = Parser().parse(source)       # text  -> tree
-  core = expand(lower_module(tree)) # tree  -> Lisp -> core
-  core = analyze(core)                # core  -> core, or a refusal
-  return lEval(core, global_env)      # core  -> behaviour
+  tree = Parser().parse(source)     # text -> tree
+  core = expand(lower_module(tree)) # tree -> Lisp -> core
+  core = analyze(core)              # core -> core, or a refusal
+  if backend == 'vm':
+    return run_core(core)           # core -> bytecode -> the VM
+  return lEval(core, global_env)    # core -> behaviour
 
 
 # ---------------------------------------------------------------------------
@@ -93,11 +104,16 @@ print(next(g))
 
 
 def main():
-  print('--- a mini-Python program, run end to end ---\n')
+  if '--vm' in sys.argv:
+    backend, name = 'vm', 'the CEK VM'
+  else:
+    backend, name = 'cek', 'the CEK machine'
+  print(f'--- mini-Python, on {name} ---')
+  print()
   print('source:')
   print(PROGRAM)
   print('output:')
-  run(PROGRAM)
+  run(PROGRAM, backend)
 
 
 if __name__ == '__main__':

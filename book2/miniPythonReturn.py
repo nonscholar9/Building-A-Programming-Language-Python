@@ -1,7 +1,7 @@
 """
 miniPythonReturn - the lowering, completed: early return via call/cc.
 
-Chapter 13 lowered everything but a return that is not the last thing a function
+Chapter 15 lowered everything but a return that is not the last thing a function
 does.  An early return abandons the rest of the body and leaves the function then
 and there, which is a non-local exit, and the machine has no form for it -- except
 the one Book One's second interlude built, call/cc, which makes the continuation
@@ -35,7 +35,7 @@ from IB_Reader   import parse
 
 
 # ---------------------------------------------------------------------------
-# The assigned-names scan (Chapter 13): a def binds the names its body assigns.
+# The assigned-names scan (Chapter 15): a def binds the names its body assigns.
 # ---------------------------------------------------------------------------
 
 def assigned_names(body):
@@ -69,10 +69,11 @@ def _assigned_stmt(s, found):
 # so a return anywhere in the body knows what to jump to.
 # ---------------------------------------------------------------------------
 
-_ARITH = {'+', '-', '*', '%', '<', '>', '<=', '>='}
+_UNCHANGED = {'+', '-', '*', '%',
+               '<', '>', '<=', '>='}
 
 def lower_module(node):
-  return ['begin'] + [lower_stmt(s, None) for s in node[1]]
+  return ['begin'] + lower_body(node[1], None)
 
 def lower_body(stmts, ret):
   return [lower_stmt(s, ret) for s in stmts]
@@ -84,8 +85,11 @@ def lower_stmt(s, ret):
   if tag == 'expr':
     return lower_expr(s[1])
   if tag == 'return':
-    value = lower_expr(s[1]) if s[1] is not None else lFalse
-    return [ret, value]                 # jump to the function's continuation
+    value = lFalse
+    if s[1] is not None:
+      value = lower_expr(s[1])
+    # jump to the function's continuation
+    return [ret, value]
   if tag == 'pass':
     return lFalse
   if tag == 'if':
@@ -93,37 +97,48 @@ def lower_stmt(s, ret):
   if tag == 'while':
     return lower_while(s, ret)
   if tag == 'def':
-    return lower_def(s)                 # a nested def has its own continuation
+    # a nested def has its own continuation
+    return lower_def(s)
   raise ValueError(f'unknown statement {s!r}')
 
 def lower_def(s):
   _, name, params, body = s
   ret     = gensym()
-  locals_ = sorted(assigned_names(body) - set(params))
-  cc = ['call/cc', ['lambda', [ret]] + lower_body(body, ret)]
+  names   = assigned_names(body)
+  locals_ = sorted(names - set(params))
+  inner   = lower_body(body, ret)
+  cc = ['call/cc',
+         ['lambda', [ret]] + inner]
   if locals_:
     bindings = [[v, lFalse] for v in locals_]
     lam_body = [['let', bindings, cc]]
   else:
     lam_body = [cc]
-  return ['set!', name, ['lambda', list(params)] + lam_body]
+  fn = ['lambda', list(params)] + lam_body
+  return ['set!', name, fn]
+
+def _clause(test, block, ret):
+  return [lower_expr(test),
+           ['begin'] + lower_body(block, ret)]
 
 def lower_if(s, ret):
   _, test, body, elifs, orelse = s
-  clauses = [[lower_expr(test), ['begin'] + lower_body(body, ret)]]
+  clauses = [_clause(test, body, ret)]
   for etest, ebody in elifs:
-    clauses.append([lower_expr(etest), ['begin'] + lower_body(ebody, ret)])
+    clauses.append(_clause(etest, ebody, ret))
   if orelse is not None:
-    clauses.append(['else', ['begin'] + lower_body(orelse, ret)])
+    tail = ['begin'] + lower_body(orelse, ret)
+    clauses.append(['else', tail])
   return ['cond'] + clauses
 
 def lower_while(s, ret):
   _, test, body = s
-  loop = gensym()
+  loop  = gensym()
+  again = (['begin'] + lower_body(body, ret)
+            + [[loop]])
   helper = ['lambda', [],
              ['if', lower_expr(test),
-               ['begin'] + lower_body(body, ret) + [[loop]],
-               lFalse]]
+               again, lFalse]]
   return ['let', [[loop, lFalse]],
            ['set!', loop, helper],
            [loop]]
@@ -135,7 +150,9 @@ def lower_expr(e):
   if tag == 'name':
     return e[1]
   if tag == 'call':
-    return [lower_expr(e[1])] + [lower_expr(a) for a in e[2]]
+    fn   = lower_expr(e[1])
+    args = [lower_expr(a) for a in e[2]]
+    return [fn] + args
   if tag == 'unary':
     op, x = e[1], lower_expr(e[2])
     if op == '-':
@@ -145,8 +162,10 @@ def lower_expr(e):
     if op == 'not':
       return ['not', x]
   if tag == 'binop':
-    op, l, r = e[1], lower_expr(e[2]), lower_expr(e[3])
-    if op in _ARITH:
+    op = e[1]
+    l  = lower_expr(e[2])
+    r  = lower_expr(e[3])
+    if op in _UNCHANGED:
       return [op, l, r]
     if op == '==':
       return ['=', l, r]
@@ -170,7 +189,7 @@ def run_python(source):
 # ---------------------------------------------------------------------------
 
 def main():
-  print('--- factorial, the Chapter 13 cliffhanger, now runs ---\n')
+  print('--- factorial, the Chapter 15 cliffhanger, now runs ---\n')
   fac = ("def factorial(n):\n"
           "    if n == 0:\n"
           "        return 1\n"          # an EARLY return
@@ -196,7 +215,7 @@ def main():
               "    return -1\n")
   print('first_ge(100, 7) =>', lisp_str(lEval(parse('(first_ge 100 7)'), global_env)))  # 7
 
-  print('\n--- Chapter 13 still holds: tail return + while ---\n')
+  print('\n--- Chapter 15 still holds: tail return + while ---\n')
   run_python("def gcd(a, b):\n"
               "    while b != 0:\n"
               "        t = b\n"

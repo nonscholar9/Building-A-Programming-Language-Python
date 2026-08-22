@@ -60,9 +60,9 @@ class Environment:
 
 class Function:
   def __init__(self, params, body, definingEnv):
-    self.params: list[str]   = params
-    self.body:   list        = body    # last expression is in tail position
-    self.definingEnv: Environment = definingEnv   # this is what makes it a closure
+    self.params = params   # list of parameter name strings
+    self.body   = body     # last expression is in tail position
+    self.definingEnv = definingEnv   # this is what makes it a closure
 
 # ---------------------------------------------------------------------------
 # Binding a call's arguments

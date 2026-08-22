@@ -174,7 +174,7 @@ def run(expr):
   print(f'==> {lisp_str( result )}')  # its value, in Lisp syntax
   print()
 
-def main() -> None:
+def main():
   # Self-evaluating atom: a number evaluates to itself.
   run(42)
 

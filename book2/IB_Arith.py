@@ -50,7 +50,7 @@ class Lexer(LexerBase):
 }
   _DIGITS = '0123456789'
 
-  def _scanNextToken(self) -> int:
+  def _scanNextToken(self):
     buf = self.buffer
     buf.consumePast(' \t\n\r')              # skip whitespace between tokens
     buf.markStartOfLexeme()

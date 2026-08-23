@@ -345,7 +345,7 @@ def lisp_str(val):
 
 
 def run(source):
-  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 12 built this
   print('>>> ' + lisp_str(expr))
   result = lEval(expr, global_env)
   print('==> ' + lisp_str(result))

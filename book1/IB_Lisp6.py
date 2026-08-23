@@ -133,7 +133,7 @@ def bind_params(params, args):
 
 # A reserved parameter name `or` binds its first value to, so a true result is
 # returned without evaluating it twice.  It is not a legal source name; making a
-# trick like this hygienic in general is Chapter 9's expander.
+# trick like this hygienic in general is Chapter 8's expander.
 _OR_TMP = '%or-tmp%'
 
 
@@ -451,7 +451,7 @@ def disassemble(prog):
 
 
 def run(source):
-  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 12 built this
   print('>>> ' + lisp_str(expr))
   print('==> ' + lisp_str(lEval(expr)))
   print()

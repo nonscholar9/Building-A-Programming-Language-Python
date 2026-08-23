@@ -1,7 +1,7 @@
 """
 IB_Expander - the expander: the sugar moves out of the machine.
 
-This is Chapter 9's code, and it is also a phase of the pipeline that every
+This is Chapter 8's code, and it is also a phase of the pipeline that every
 later chapter imports and none of them changes:
 
     from IB_Expander import expand
@@ -233,7 +233,7 @@ def run(source):
 
     Every phase this book adds from here shows up in this function.
     """
-  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 12 built this
   print('>>> ' + lisp_str(expr))
   core = expand(expr)
   if core != expr:

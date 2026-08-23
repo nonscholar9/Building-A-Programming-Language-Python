@@ -1,8 +1,8 @@
 """
 IB_Core - the machine, finished.
 
-This is where Chapter 9 leaves the evaluator, and it is the last time the
-evaluator changes.  From Chapter 10 on, every example in this book begins with
+This is where Chapter 8 leaves the evaluator, and it is the last time the
+evaluator changes.  From Chapter 9 on, every example in this book begins with
 
     from IB_Core import lEval, global_env, lisp_str
 
@@ -11,7 +11,7 @@ written as one line: everything we build from here runs *in front of* the
 machine, and a backend is something you use without opening.
 
 What is in here is Chapter 5's CEK machine, plus the Book One challenges the
-introduction handed over, minus the four forms Chapter 9 took out.  `let`,
+introduction handed over, minus the four forms Chapter 8 took out.  `let`,
 `cond`, `and`, and `or` are gone, along with two frame kinds, because they are
 rewrite rules now and a rule needs no room in the machine.  A program that has
 been through the expander contains none of them.

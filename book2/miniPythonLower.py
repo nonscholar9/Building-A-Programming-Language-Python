@@ -6,7 +6,7 @@ while, and return, which the machine has never heard of.  This turns that tree
 into forms the machine does run.
 
 The lowering emits SURFACE Lisp (let, cond, and, or, begin, set!, lambda), and
-then hands it to Chapter 9's expander to finish into core forms.  So the pipeline
+then hands it to Chapter 8's expander to finish into core forms.  So the pipeline
 is:  python text -> parse -> lower -> expand -> lEval.  The lowering reuses the
 expander rather than reimplementing let/cond/and/or.
 

@@ -28,7 +28,7 @@ from IB_Reader import parse
 
 
 def run(source):
-  expr = parse(source) if isinstance(source, str) else source   # Chapter 8 built this
+  expr = parse(source) if isinstance(source, str) else source   # Chapter 12 built this
   print(f'>>> {lisp_str( expr )}')
   result = lEval(expr, global_env)
   print(f'==> {lisp_str( result )}')

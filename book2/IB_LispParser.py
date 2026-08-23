@@ -1,5 +1,5 @@
 """
-IB_Lisp8_parser -- An S-expression scanner and reader for the IttyBitty Lisp.
+IB_LispParser -- An S-expression scanner and reader for the IttyBitty Lisp.
 
 Turns a source string into the nested Python list AST that lEval (from
 IB_Lisp1.py) evaluates directly.  Two stages, the same split real
@@ -20,7 +20,7 @@ Unlike a pad-the-parens-and-split tokenizer, the scanner reads the source one
 character at a time.  For a Lisp that is a little more code than the trick
 allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
-separated by spaces (see the challenges in Chapter 8).
+separated by spaces (see the challenges in Chapter 12).
 
 The cursor, the one token of lookahead, and the recursive descent over the
 token stream are what every hand-written front end is made of, so they live in
@@ -28,13 +28,13 @@ ParserBase.py, which knows nothing about any particular language.  A Lexer and
 a Reader subclass it.  What is left is the part that is Lisp's alone, and there
 is very little of it, which is why it fits in a chapter.
 
-Run with: python IB_Lisp8_parser.py
+Run with: python IB_LispParser.py
 """
 
 from IB_AST import lTrue, lFalse
 
 # The scanner and the reader themselves now live in IB_Reader.py, because every
-# machine from Chapter 2 on imports them.  This file is the rest of Chapter 8:
+# machine from Chapter 2 on imports them.  This file is the rest of Chapter 12:
 # the reader wired to an evaluator, which is the whole pipeline end to end.
 from IB_Reader import Lexer, Reader, atom, parse
 

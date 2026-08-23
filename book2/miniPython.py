@@ -23,13 +23,13 @@ Two languages, one tower.  The lower half is the complete Lisp interpreter
 (expander, analyzer, CEK evaluator).  mini-Python is perched on top,
 and it is really a second front end: it lowers its own surface into the Lisp the
 tower already runs.  Nothing below `lower` knows the program began as something
-that looked like Python, and the machine has not changed a line since Chapter 9.
+that looked like Python, and the machine has not changed a line since Chapter 8.
 
 EITHER MACHINE.  Nothing above the last line cares which of Book One's last two
 machines runs the core forms, so the last line is a choice.  `lEval` is the CEK
 machine of Chapters 4 and 5.  `run_core` addresses the same forms, compiles them
 to bytecode, and runs that on the CEK VM of Chapter 6, which is the machine
-Chapters 11 and 12 build.  The program, and every stage above it, is identical
+Chapters 10 and 11 build.  The program, and every stage above it, is identical
 either way.
 
 Run with: python miniPython.py          (the CEK machine)

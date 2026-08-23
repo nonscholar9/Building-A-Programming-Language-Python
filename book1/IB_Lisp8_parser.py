@@ -7,10 +7,10 @@ compilers use:
 
     source string
         |
-        v  Scanner        one character at a time -> a stream of tokens
+        v  Lexer          one character at a time -> a stream of tokens
     tokens: ( ) ' and atoms
         |
-        v  read_object    recursive descent -> a nested Python list
+        v  Reader         recursive descent -> a nested Python list
     AST
         |
         v  lEval
@@ -22,12 +22,11 @@ allows, but it is a real scanner: it is where you would add string literals,
 line numbers for error messages, or any token whose pieces are not already
 separated by spaces (see the challenges in Chapter 8).
 
-What is here is the smallest version of a general tool.  The cursor, the one
-token of lookahead, and the recursive descent over the token stream are what
-every hand-written front end is made of; Book Two packages exactly those, plus
-line and column tracking for error messages, as a ParserBase.py that a language
-subclasses.  This file is that design cut down to what one Lisp needs and
-written out by hand, which is why it fits in a chapter.
+The cursor, the one token of lookahead, and the recursive descent over the
+token stream are what every hand-written front end is made of, so they live in
+ParserBase.py, which knows nothing about any particular language.  A Lexer and
+a Reader subclass it.  What is left is the part that is Lisp's alone, and there
+is very little of it, which is why it fits in a chapter.
 
 Run with: python IB_Lisp8_parser.py
 """
@@ -37,8 +36,7 @@ from IB_AST import lTrue, lFalse
 # The scanner and the reader themselves now live in IB_Reader.py, because every
 # machine from Chapter 2 on imports them.  This file is the rest of Chapter 8:
 # the reader wired to an evaluator, which is the whole pipeline end to end.
-from IB_Reader import Scanner, read_object, read_list, atom, parse
-from IB_Reader import EOF, LPAREN, RPAREN, QUOTE, ATOM, DELIMITERS
+from IB_Reader import Lexer, Reader, atom, parse
 
 
 # ---------------------------------------------------------------------------
@@ -103,13 +101,21 @@ def lisp_str(val):
   return str(val)
 
 
+# The token kinds are small integers, so name them for the display below.
+KIND = {Lexer.EOF_TOK: 'eof', Lexer.LPAREN_TOK: '(',
+        Lexer.RPAREN_TOK: ')', Lexer.QUOTE_TOK: '''''',
+        Lexer.ATOM_TOK: 'atom'}
+
+
 def scan_all(source):
   # Drain a fresh scanner into a list of (kind, lexeme) pairs, so the chapter
   # can show the token stream the reader consumes.
-  scanner = Scanner(source)
+  scanner = Lexer()
+  scanner.reset(source)
   tokens = []
-  while scanner.peek() != EOF:
-    tokens.append((scanner.peek(), scanner.lexeme()))
+  while scanner.peekToken() != Lexer.EOF_TOK:
+    tokens.append((KIND[scanner.peekToken()],
+                   scanner.getLexeme()))
     scanner.consume()
   return tokens
 

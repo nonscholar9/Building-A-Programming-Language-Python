@@ -45,7 +45,10 @@ assign_or_expr  ::= expression ["=" expression]
                     # expression must be a bare NAME.  Without it, the line is
                     # an expression evaluated for its effect, e.g. print(x).
                     # The parser decides which by reading the left expression
-                    # first and then looking for "=".
+                    # first and then looking for "=".  This is left-factored:
+                    # NAME "=" expression | expression would offer two
+                    # alternatives that both begin with NAME, which one token
+                    # of lookahead cannot choose between.
 return_stmt     ::= "return" [expression]
 pass_stmt       ::= "pass"
 yield_stmt      ::= "yield" expression

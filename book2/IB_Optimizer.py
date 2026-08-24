@@ -66,9 +66,9 @@ from IB_Compiler import compile_program
 # ask whether two are the same object.  `quote` has been handing out one shared
 # list per program since Chapter 1 for exactly this reason.
 
-PURE = { '+', '-', '*', '%', 'not',
-         '=', '<', '>', '<=', '>=',
-         'car', 'cdr', 'cons', 'list', 'null?' }
+PURE = {'+', '-', '*', '%', 'not',
+        '=', '<', '>', '<=', '>=',
+        'car', 'cdr', 'cons', 'list', 'null?'}
 
 # What a fold may read, and what may stand in front of it.  A quoted datum is
 # as constant as a number; the operator is the one GLOBAL in the run.
@@ -83,9 +83,9 @@ def assigned_globals(code):
     left of an assignment still means, at the moment this program runs, what it
     meant when the machine started.
     """
-  return { instr[1] for instr in code
-           if instr is not None
-           and instr[0] in (OP_SET_GLOBAL, OP_SET_VAR) }
+  return {instr[1] for instr in code
+          if instr is not None
+          and instr[0] in (OP_SET_GLOBAL, OP_SET_VAR)}
 
 
 # ---------------------------------------------------------------------------

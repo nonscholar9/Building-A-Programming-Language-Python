@@ -57,25 +57,25 @@ class Lexer(LexerBase):
     self._skipSpaceAndComments()
     buf.markStartOfLexeme()
 
-    ch = buf.peekNextChar()
+    ch = buf.peekChar()
     if ch == '':
       return Lexer.EOF_TOK
     if ch in Lexer._SINGLE:
-      buf.consume()
+      buf.consumeChar()
       return Lexer._SINGLE[ch]
     # anything else begins an atom
     buf.consumeUpTo(DELIMITERS)
     # '#\' takes one more character,
     # whatever it is: #\( #\; #\space
     if buf.getLexeme() == '#\\':
-      buf.consume()
+      buf.consumeChar()
     return Lexer.ATOM_TOK
 
   def _skipSpaceAndComments(self):
     buf = self.buffer
     while True:
       buf.consumePast(WHITESPACE)
-      if buf.peekNextChar() != ';':
+      if buf.peekChar() != ';':
         return          # a ';' comment runs to end of line
       buf.consumeUpTo('\n')
 
@@ -116,12 +116,12 @@ class Reader(ParserBase):
     tok = scn.peekToken()
     if tok == Lexer.ATOM_TOK:
       text = scn.getLexeme()
-      scn.consume()
+      scn.consumeToken()
       return atom(text)
     if tok == Lexer.LPAREN_TOK:
       return self._readList()
     if tok == Lexer.QUOTE_TOK:      # 'expr -> (quote expr)
-      scn.consume()
+      scn.consumeToken()
       return ['quote', self._readObject()]
     if tok == Lexer.RPAREN_TOK:
       raise ParseError(scn.buffer,
@@ -131,13 +131,13 @@ class Reader(ParserBase):
 
   def _readList(self):
     scn = self._scanner
-    scn.consume()          # discard the opening '('
+    scn.consumeToken()          # discard the opening '('
     result = []
     while scn.peekToken() not in (
         Lexer.RPAREN_TOK, Lexer.EOF_TOK):
       result.append(self._readObject())
     # the closing ')' must be there
-    scn.expect(Lexer.RPAREN_TOK,
+    scn.expectToken(Lexer.RPAREN_TOK,
         'unterminated list, expected )')
     return result
 

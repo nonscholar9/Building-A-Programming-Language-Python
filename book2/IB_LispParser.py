@@ -110,13 +110,13 @@ KIND = {Lexer.EOF_TOK: 'eof', Lexer.LPAREN_TOK: '(',
 def scan_all(source):
   # Drain a fresh scanner into a list of (kind, lexeme) pairs, so the chapter
   # can show the token stream the reader consumes.
-  scanner = Lexer()
-  scanner.reset(source)
+  scn = Lexer()
+  scn.reset(source)
   tokens = []
-  while scanner.peekToken() != Lexer.EOF_TOK:
-    tokens.append((KIND[scanner.peekToken()],
-                   scanner.getLexeme()))
-    scanner.consume()
+  while scn.peekToken() != Lexer.EOF_TOK:
+    tokens.append((KIND[scn.peekToken()],
+                   scn.getLexeme()))
+    scn.consumeToken()
   return tokens
 
 

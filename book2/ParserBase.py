@@ -18,8 +18,8 @@ work all of it out.  All three hand their trees to the same Lisp back end.
     insist on one the grammar requires, scan a run, remember where a lexeme
     began, and track line and column so an error can point at the spot.
   * LexerBase   - one token of lookahead on top of the buffer.  A subclass
-    fills in _scanNextToken; everyone else calls peekToken / consume / expect /
-    getLexeme.  The two cursors are the same shape one size apart.
+    fills in _scanNextToken; everyone else calls peekToken / consumeToken /
+    expectToken / getLexeme.  The two cursors are the same shape one size apart.
   * ParserBase  - the abstract parse(source) a concrete grammar implements.
   * ParseError  - a syntax error that renders as file (line, col) with a caret.
 
@@ -58,10 +58,10 @@ class LexerBuffer:
     self._mark      = 0
     self._lineNum   = 1
 
-  def peekNextChar(self):
+  def peekChar(self):
     return self._nextChar
 
-  def consume(self):
+  def consumeChar(self):
     if self._nextChar == '':
       return
     if self._nextChar == '\n':
@@ -72,7 +72,7 @@ class LexerBuffer:
         if self._point < self._sourceLen
         else '')
 
-  def expect(self, charSet, message=None):
+  def expectChar(self, charSet, message=None):
     """Consume the next character, which
        the grammar says must be in
        charSet.  Refuse anything else."""
@@ -80,21 +80,21 @@ class LexerBuffer:
         or self._nextChar not in charSet):
       raise ParseError(self, message or
           f'{charSet!r} expected')
-    self.consume()
+    self.consumeChar()
 
   def consumePast(self, charSet):
     """Advance over a run of characters
        that ARE in charSet."""
     while (self._nextChar
             and self._nextChar in charSet):
-      self.consume()
+      self.consumeChar()
 
   def consumeUpTo(self, charSet):
     """Advance over a run of characters
        that are NOT in charSet."""
     while (self._nextChar
             and self._nextChar not in charSet):
-      self.consume()
+      self.consumeChar()
 
   def markStartOfLexeme(self):
     self._mark = self._point
@@ -139,15 +139,15 @@ class LexerBase(ABC):
 
   def reset(self, source, filename=''):
     self.buffer.reset(source, filename)
-    self.consume()                        # prime the one-token lookahead
+    self.consumeToken()                   # prime the one-token lookahead
 
   def peekToken(self):
     return self._tok
 
-  def consume(self):
+  def consumeToken(self):
     self._tok = self._scanNextToken()
 
-  def expect(self, tok, message=None):
+  def expectToken(self, tok, message=None):
     """Consume the next token, which the
        grammar says must be tok, and
        return its lexeme.  Refuse
@@ -156,7 +156,7 @@ class LexerBase(ABC):
       raise ParseError(self.buffer, message
           or f'{self.tokenName(tok)} expected')
     lex = self.getLexeme()
-    self.consume()
+    self.consumeToken()
     return lex
 
   def getLexeme(self):

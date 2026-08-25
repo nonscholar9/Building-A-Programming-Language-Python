@@ -13,12 +13,12 @@ is its rule run through one mechanical mapping.
 
 Over characters, for the scanner:
 
-    S          -> buf.consume(), guarded by peekNextChar if not settled
+    S          -> buf.consumeChar(), or buf.expectChar(S) if not settled
     { S }      -> buf.consumePast(S)
     { ANY -S } -> buf.consumeUpTo(S)
     a b ...    -> statements in sequence
-    a | b      -> if buf.peekNextChar() in FIRST(a): ... elif ...
-    [ a ]      -> if buf.peekNextChar() in FIRST(a): ...
+    a | b      -> if buf.peekChar() in FIRST(a): ... elif ...
+    [ a ]      -> if buf.peekChar() in FIRST(a): ...
 
 Over tokens, for the parser:
 
@@ -125,17 +125,17 @@ class Lexer(LexerBase):
     buf = self.buffer
     while True:
       n = 0
-      while buf.peekNextChar() == ' ':
-        buf.consume()
+      while buf.peekChar() == ' ':
+        buf.consumeChar()
         n += 1
-      ch = buf.peekNextChar()
+      ch = buf.peekChar()
       if ch == '#':
         buf.consumeUpTo('\n')
-        ch = buf.peekNextChar()
+        ch = buf.peekChar()
       if ch == '':
         return None              # end of input
       if ch == '\n':
-        buf.consume()            # a blank / comment-only line: skip it
+        buf.consumeChar()            # a blank / comment-only line: skip it
         continue
       return n
 
@@ -145,13 +145,13 @@ class Lexer(LexerBase):
     # IGNORE ' ' + '\t'
     buf.consumePast(' \t')
     # COMMENTS FROM "#" TO lf
-    if buf.peekNextChar() == '#':
+    if buf.peekChar() == '#':
       buf.consumeUpTo('\n')
 
-    ch = buf.peekNextChar()
+    ch = buf.peekChar()
     if ch == '' or ch == '\n':
       if ch == '\n':
-        buf.consume()
+        buf.consumeChar()
       self._at_line_start = True
       return Lexer.NEWLINE_TOK
 
@@ -161,61 +161,61 @@ class Lexer(LexerBase):
     if ch in _NAME_START:
       buf.consumePast(_NAME_REST)
       return Lexer.KEYWORDS.get(
-          self.getLexeme(), Lexer.NAME_TOK)
+          buf.getLexeme(), Lexer.NAME_TOK)
     # INTEGER = digit { digit }.
     if ch in _DIGITS:
       buf.consumePast(_DIGITS)
       return Lexer.INTEGER_TOK
     # "=" | "=="
     if ch == '=':
-      buf.consume()
-      if buf.peekNextChar() == '=':
-        buf.consume()
+      buf.consumeChar()
+      if buf.peekChar() == '=':
+        buf.consumeChar()
         return Lexer.EQEQ_TOK
       return Lexer.ASSIGN_TOK
     # "!="
     if ch == '!':
-      buf.consume()
-      buf.expect('=',
+      buf.consumeChar()
+      buf.expectChar('=',
           "'=' expected after '!'")
       return Lexer.NOTEQ_TOK
     # "<" | "<="
     if ch == '<':
-      buf.consume()
-      if buf.peekNextChar() == '=':
-        buf.consume()
+      buf.consumeChar()
+      if buf.peekChar() == '=':
+        buf.consumeChar()
         return Lexer.LE_TOK
       return Lexer.LT_TOK
     # ">" | ">="
     if ch == '>':
-      buf.consume()
-      if buf.peekNextChar() == '=':
-        buf.consume()
+      buf.consumeChar()
+      if buf.peekChar() == '=':
+        buf.consumeChar()
         return Lexer.GE_TOK
       return Lexer.GT_TOK
     if ch == '+':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.PLUS_TOK
     if ch == '-':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.MINUS_TOK
     if ch == '*':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.STAR_TOK
     if ch == '%':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.PERCENT_TOK
     if ch == '(':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.LPAREN_TOK
     if ch == ')':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.RPAREN_TOK
     if ch == ':':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.COLON_TOK
     if ch == ',':
-      buf.consume()
+      buf.consumeChar()
       return Lexer.COMMA_TOK
     raise ParseError(self.buffer,
         f'unexpected character: {ch!r}')
@@ -269,10 +269,10 @@ class Parser(ParserBase):
     return self._scanner.peekToken()
 
   def _next(self):
-    self._scanner.consume()
+    self._scanner.consumeToken()
 
   def _expect(self, tok):
-    return self._scanner.expect(tok)
+    return self._scanner.expectToken(tok)
 
   # file_input = { statement } EOF.
   def parse(self, source, filename=''):
@@ -528,23 +528,23 @@ def token_names():
 def show_tokens(source):
   """Print the token stream one source
      line at a time."""
-  lexer = Lexer()
-  lexer.reset(source)
+  scn = Lexer()
+  scn.reset(source)
   names = token_names()
   line  = []
   while True:
-    tok  = lexer.peekToken()
+    tok  = scn.peekToken()
     name = names[tok]
     if tok in (Lexer.NAME_TOK,
                 Lexer.INTEGER_TOK):
-      name += '(' + lexer.getLexeme() + ')'
+      name += '(' + scn.getLexeme() + ')'
     line.append(name)
     if tok == Lexer.EOF_TOK:
       break
     if tok == Lexer.NEWLINE_TOK:
       print(' '.join(line))
       line = []
-    lexer.consume()
+    scn.consumeToken()
   print(' '.join(line))
 
 

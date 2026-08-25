@@ -55,11 +55,11 @@ class Lexer(LexerBase):
     buf.consumePast(' \t\n\r')              # skip whitespace between tokens
     buf.markStartOfLexeme()
 
-    ch = buf.peekNextChar()
+    ch = buf.peekChar()
     if ch == '':
       return Lexer.EOF_TOK
     if ch in Lexer._SINGLE:
-      buf.consume()
+      buf.consumeChar()
       return Lexer._SINGLE[ch]
     if ch in Lexer._DIGITS:
       buf.consumePast(Lexer._DIGITS)       # the whole run of digits
@@ -109,7 +109,7 @@ class Parser(ParserBase):
     while scn.peekToken() in (
         Lexer.PLUS_TOK, Lexer.MINUS_TOK):
       op = _OP[scn.peekToken()]
-      scn.consume()
+      scn.consumeToken()
       node = [op, node, self._parseTerm()]
     return node
 
@@ -119,7 +119,7 @@ class Parser(ParserBase):
     while scn.peekToken() in (
         Lexer.STAR_TOK, Lexer.PERCENT_TOK):
       op = _OP[scn.peekToken()]
-      scn.consume()
+      scn.consumeToken()
       node = [op, node, self._parseFactor()]
     return node
 
@@ -128,17 +128,17 @@ class Parser(ParserBase):
     tok = scn.peekToken()
     if tok == Lexer.INT_TOK:
       value = int(scn.getLexeme())
-      scn.consume()
+      scn.consumeToken()
       return value
     if tok == Lexer.LPAREN_TOK:
-      scn.consume()
+      scn.consumeToken()
       node = self._parseExpr()
-      scn.expect(Lexer.RPAREN_TOK,
+      scn.expectToken(Lexer.RPAREN_TOK,
           "')' expected")
       return node
     # unary minus: -x is (- 0 x)
     if tok == Lexer.MINUS_TOK:
-      scn.consume()
+      scn.consumeToken()
       return ['-', 0, self._parseFactor()]
     raise ParseError(scn.buffer,
         'a number or ( expected')
@@ -180,7 +180,7 @@ class PrattParser(ParserBase):
       lbp = PrattParser._LBP.get(tok)
       if lbp is None or lbp < min_bp:
         break
-      self._scanner.consume()
+      self._scanner.consumeToken()
       # +1 -> left associative
       rhs = self._parseExpr(lbp + 1)
       lhs = [_OP[tok], lhs, rhs]
@@ -191,16 +191,16 @@ class PrattParser(ParserBase):
     tok = scn.peekToken()
     if tok == Lexer.INT_TOK:
       value = int(scn.getLexeme())
-      scn.consume()
+      scn.consumeToken()
       return value
     if tok == Lexer.LPAREN_TOK:
-      scn.consume()
+      scn.consumeToken()
       node = self._parseExpr(0)
-      scn.expect(Lexer.RPAREN_TOK,
+      scn.expectToken(Lexer.RPAREN_TOK,
           "')' expected")
       return node
     if tok == Lexer.MINUS_TOK:
-      scn.consume()
+      scn.consumeToken()
       bp = PrattParser._PREFIX_BP
       return ['-', 0, self._parseExpr(bp)]
     raise ParseError(scn.buffer,

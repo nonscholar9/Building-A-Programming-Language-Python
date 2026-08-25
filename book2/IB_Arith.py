@@ -24,17 +24,17 @@ decides every step from the one token in front of it.
 Run with: python IB_Arith.py
 """
 
-from ParserBase  import LexerBase, ParserBase, ParseError
+from ParserBase  import ScannerBase, ParserBase, ParseError
 from IB_Core import lEval, global_env, lisp_str
 
 
 # ---------------------------------------------------------------------------
-# The scanner: characters into tokens.  A concrete LexerBase supplies token
+# The scanner: characters into tokens.  A concrete ScannerBase supplies token
 # constants and one method, _scanNextToken; the buffer, the lookahead, and the
 # source-position bookkeeping all come from the tool.
 # ---------------------------------------------------------------------------
 
-class Lexer(LexerBase):
+class Scanner(ScannerBase):
   EOF_TOK    = 0
   INT_TOK    = 1
   PLUS_TOK   = 2
@@ -57,13 +57,13 @@ class Lexer(LexerBase):
 
     ch = buf.peekChar()
     if ch == '':
-      return Lexer.EOF_TOK
-    if ch in Lexer._SINGLE:
+      return Scanner.EOF_TOK
+    if ch in Scanner._SINGLE:
       buf.consumeChar()
-      return Lexer._SINGLE[ch]
-    if ch in Lexer._DIGITS:
-      buf.consumePast(Lexer._DIGITS)       # the whole run of digits
-      return Lexer.INT_TOK
+      return Scanner._SINGLE[ch]
+    if ch in Scanner._DIGITS:
+      buf.consumePast(Scanner._DIGITS)       # the whole run of digits
+      return Scanner.INT_TOK
     raise ParseError(buf, f'unexpected character: {ch!r}')
 
 
@@ -87,18 +87,18 @@ class Lexer(LexerBase):
 # precedence table at all.
 # ---------------------------------------------------------------------------
 
-_OP = {Lexer.PLUS_TOK: '+', Lexer.MINUS_TOK: '-',
-        Lexer.STAR_TOK: '*', Lexer.PERCENT_TOK: '%'}
+_OP = {Scanner.PLUS_TOK: '+', Scanner.MINUS_TOK: '-',
+        Scanner.STAR_TOK: '*', Scanner.PERCENT_TOK: '%'}
 
 class Parser(ParserBase):
   def __init__(self):
-    self._scanner = Lexer()
+    self._scanner = Scanner()
 
   def parse(self, source, filename=''):
     scn = self._scanner
     scn.reset(source, filename)
     tree = self._parseExpr()
-    if scn.peekToken() != Lexer.EOF_TOK:
+    if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
           'end of input expected')
     return tree
@@ -107,7 +107,7 @@ class Parser(ParserBase):
     scn  = self._scanner
     node = self._parseTerm()
     while scn.peekToken() in (
-        Lexer.PLUS_TOK, Lexer.MINUS_TOK):
+        Scanner.PLUS_TOK, Scanner.MINUS_TOK):
       op = _OP[scn.peekToken()]
       scn.consumeToken()
       node = [op, node, self._parseTerm()]
@@ -117,7 +117,7 @@ class Parser(ParserBase):
     scn  = self._scanner
     node = self._parseFactor()
     while scn.peekToken() in (
-        Lexer.STAR_TOK, Lexer.PERCENT_TOK):
+        Scanner.STAR_TOK, Scanner.PERCENT_TOK):
       op = _OP[scn.peekToken()]
       scn.consumeToken()
       node = [op, node, self._parseFactor()]
@@ -126,18 +126,18 @@ class Parser(ParserBase):
   def _parseFactor(self):
     scn = self._scanner
     tok = scn.peekToken()
-    if tok == Lexer.INT_TOK:
+    if tok == Scanner.INT_TOK:
       value = int(scn.getLexeme())
       scn.consumeToken()
       return value
-    if tok == Lexer.LPAREN_TOK:
+    if tok == Scanner.LPAREN_TOK:
       scn.consumeToken()
       node = self._parseExpr()
-      scn.expectToken(Lexer.RPAREN_TOK,
+      scn.expectToken(Scanner.RPAREN_TOK,
           "')' expected")
       return node
     # unary minus: -x is (- 0 x)
-    if tok == Lexer.MINUS_TOK:
+    if tok == Scanner.MINUS_TOK:
       scn.consumeToken()
       return ['-', 0, self._parseFactor()]
     raise ParseError(scn.buffer,
@@ -154,21 +154,21 @@ class Parser(ParserBase):
 # ---------------------------------------------------------------------------
 
 class PrattParser(ParserBase):
-  _LBP = {Lexer.PLUS_TOK: 1,
-           Lexer.MINUS_TOK: 1,
-           Lexer.STAR_TOK: 3,
-           Lexer.PERCENT_TOK: 3}
+  _LBP = {Scanner.PLUS_TOK: 1,
+           Scanner.MINUS_TOK: 1,
+           Scanner.STAR_TOK: 3,
+           Scanner.PERCENT_TOK: 3}
   # unary minus binds tighter than *
   _PREFIX_BP = 5
 
   def __init__(self):
-    self._scanner = Lexer()
+    self._scanner = Scanner()
 
   def parse(self, source, filename=''):
     scn = self._scanner
     scn.reset(source, filename)
     tree = self._parseExpr(0)
-    if scn.peekToken() != Lexer.EOF_TOK:
+    if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
           'end of input expected')
     return tree
@@ -189,17 +189,17 @@ class PrattParser(ParserBase):
   def _parsePrefix(self):
     scn = self._scanner
     tok = scn.peekToken()
-    if tok == Lexer.INT_TOK:
+    if tok == Scanner.INT_TOK:
       value = int(scn.getLexeme())
       scn.consumeToken()
       return value
-    if tok == Lexer.LPAREN_TOK:
+    if tok == Scanner.LPAREN_TOK:
       scn.consumeToken()
       node = self._parseExpr(0)
-      scn.expectToken(Lexer.RPAREN_TOK,
+      scn.expectToken(Scanner.RPAREN_TOK,
           "')' expected")
       return node
-    if tok == Lexer.MINUS_TOK:
+    if tok == Scanner.MINUS_TOK:
       scn.consumeToken()
       bp = PrattParser._PREFIX_BP
       return ['-', 0, self._parseExpr(bp)]

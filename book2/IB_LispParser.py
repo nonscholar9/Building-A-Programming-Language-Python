@@ -7,7 +7,7 @@ compilers use:
 
     source string
         |
-        v  Lexer          one character at a time -> a stream of tokens
+        v  Scanner          one character at a time -> a stream of tokens
     tokens: ( ) ' and atoms
         |
         v  Reader         recursive descent -> a nested Python list
@@ -24,7 +24,7 @@ separated by spaces (see the challenges in Chapter 12).
 
 The cursor, the one token of lookahead, and the recursive descent over the
 token stream are what every hand-written front end is made of, so they live in
-ParserBase.py, which knows nothing about any particular language.  A Lexer and
+ParserBase.py, which knows nothing about any particular language.  A Scanner and
 a Reader subclass it.  What is left is the part that is Lisp's alone, and there
 is very little of it, which is why it fits in a chapter.
 
@@ -36,7 +36,7 @@ from IB_AST import lTrue, lFalse
 # The scanner and the reader themselves now live in IB_Reader.py, because every
 # machine from Chapter 2 on imports them.  This file is the rest of Chapter 12:
 # the reader wired to an evaluator, which is the whole pipeline end to end.
-from IB_Reader import Lexer, Reader, atom, parse
+from IB_Reader import Scanner, Reader, atom, parse
 
 
 # ---------------------------------------------------------------------------
@@ -102,18 +102,18 @@ def lisp_str(val):
 
 
 # The token kinds are small integers, so name them for the display below.
-KIND = {Lexer.EOF_TOK: 'eof', Lexer.LPAREN_TOK: '(',
-        Lexer.RPAREN_TOK: ')', Lexer.QUOTE_TOK: '''''',
-        Lexer.ATOM_TOK: 'atom'}
+KIND = {Scanner.EOF_TOK: 'eof', Scanner.LPAREN_TOK: '(',
+        Scanner.RPAREN_TOK: ')', Scanner.QUOTE_TOK: '''''',
+        Scanner.ATOM_TOK: 'atom'}
 
 
 def scan_all(source):
   # Drain a fresh scanner into a list of (kind, lexeme) pairs, so the chapter
   # can show the token stream the reader consumes.
-  scn = Lexer()
+  scn = Scanner()
   scn.reset(source)
   tokens = []
-  while scn.peekToken() != Lexer.EOF_TOK:
+  while scn.peekToken() != Scanner.EOF_TOK:
     tokens.append((KIND[scn.peekToken()],
                    scn.getLexeme()))
     scn.consumeToken()

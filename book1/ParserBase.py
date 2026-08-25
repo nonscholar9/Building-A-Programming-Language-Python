@@ -2,7 +2,7 @@
 ParserBase - the small reusable base for LL(1) recursive-descent parsing.
 
 Everything a hand-written scanner and parser share, and nothing else.  You
-subclass it once per language: a Lexer supplies the tokens (one method,
+subclass it once per language: a Scanner supplies the tokens (one method,
 _scanNextToken), and a Parser supplies the grammar (one recursive-descent
 method per production).  This is the general-purpose one: it knows nothing
 about any particular language, and it carries what a real front end wants
@@ -14,10 +14,10 @@ arithmetic, the parsing chapter's worked example.  miniPythonParser.py is the
 mini-Python front end, where the source states nothing and the subclass has to
 work all of it out.  All three hand their trees to the same Lisp back end.
 
-  * LexerBuffer - a cursor over the source text: peek a character, consume it,
+  * ScannerBuffer - a cursor over the source text: peek a character, consume it,
     insist on one the grammar requires, scan a run, remember where a lexeme
     began, and track line and column so an error can point at the spot.
-  * LexerBase   - one token of lookahead on top of the buffer.  A subclass
+  * ScannerBase   - one token of lookahead on top of the buffer.  A subclass
     fills in _scanNextToken; everyone else calls peekToken / consumeToken /
     expectToken / getLexeme.  The two cursors are the same shape one size apart.
   * ParserBase  - the abstract parse(source) a concrete grammar implements.
@@ -36,10 +36,10 @@ from abc import ABC, abstractmethod
 
 
 # ---------------------------------------------------------------------------
-# LexerBuffer: a cursor over the source string
+# ScannerBuffer: a cursor over the source string
 # ---------------------------------------------------------------------------
 
-class LexerBuffer:
+class ScannerBuffer:
   def __init__(self):
     self._filename  = ''
     self._source    = ''
@@ -129,12 +129,12 @@ class LexerBuffer:
 
 
 # ---------------------------------------------------------------------------
-# LexerBase: one token of lookahead over the buffer
+# ScannerBase: one token of lookahead over the buffer
 # ---------------------------------------------------------------------------
 
-class LexerBase(ABC):
+class ScannerBase(ABC):
   def __init__(self):
-    self.buffer = LexerBuffer()
+    self.buffer = ScannerBuffer()
     self._tok   = -1
 
   def reset(self, source, filename=''):

@@ -1,14 +1,14 @@
 """
 miniPythonParser - the front end for mini-Python, on the ParserBase.
 
-A Lexer (tokens) and a Parser (grammar), each a subclass of the pared-down
+A Scanner (tokens) and a Parser (grammar), each a subclass of the pared-down
 ParserBase.  Together they turn mini-Python source text into an AST; a later
 pass lowers that AST onto the machine.  ("mini-Python", never bare "Python":
 the host we write it in is Python too.)
 
 The grammar is examples/book2/miniPython.atg, in the notation of the Coco/R
 parser generator.  One notation covers both halves of this file: its TOKENS
-section is the Lexer below and its PRODUCTIONS section is the Parser, and each
+section is the Scanner below and its PRODUCTIONS section is the Parser, and each
 is its rule run through one mechanical mapping.
 
 Over characters, for the scanner:
@@ -29,7 +29,7 @@ Over tokens, for the parser:
     [ a ]      -> if self._peek() in FIRST(a): ...
     { a }      -> while self._peek() in FIRST(a): ...
 
-The one idea the Lisp reader never needed is in the Lexer: mini-Python's
+The one idea the Lisp reader never needed is in the Scanner: mini-Python's
 blocks are significant whitespace, so the scanner keeps an indent stack and
 emits INDENT and DEDENT tokens the source never contained.
 
@@ -37,7 +37,7 @@ Run with: python miniPythonParser.py
 """
 
 import string
-from ParserBase import LexerBase, ParserBase, ParseError
+from ParserBase import ScannerBase, ParserBase, ParseError
 
 _NAME_START = string.ascii_letters + '_'
 _NAME_REST  = (string.ascii_letters
@@ -49,7 +49,7 @@ _DIGITS     = string.digits
 # The scanner: characters into tokens, with an indent stack for the layout
 # ---------------------------------------------------------------------------
 
-class Lexer(LexerBase):
+class Scanner(ScannerBase):
   (EOF_TOK, NEWLINE_TOK,
       INDENT_TOK, DEDENT_TOK,
       NAME_TOK, INTEGER_TOK,
@@ -101,19 +101,19 @@ class Lexer(LexerBase):
     if col is None:                  # end of input: unwind to column 0
       while len(self._indents) > 1:
         self._indents.pop()
-        self._pending.append(Lexer.DEDENT_TOK)
-      self._pending.append(Lexer.EOF_TOK)
+        self._pending.append(Scanner.DEDENT_TOK)
+      self._pending.append(Scanner.EOF_TOK)
       return self._pending.pop(0)
 
     top = self._indents[-1]
     if col > top:
       self._indents.append(col)
-      return Lexer.INDENT_TOK
+      return Scanner.INDENT_TOK
     if col < top:
       while (len(self._indents) > 1
               and col < self._indents[-1]):
         self._indents.pop()
-        self._pending.append(Lexer.DEDENT_TOK)
+        self._pending.append(Scanner.DEDENT_TOK)
       if self._indents[-1] != col:
         raise ParseError(self.buffer,
             'unindent does not match any '
@@ -153,70 +153,70 @@ class Lexer(LexerBase):
       if ch == '\n':
         buf.consumeChar()
       self._at_line_start = True
-      return Lexer.NEWLINE_TOK
+      return Scanner.NEWLINE_TOK
 
     buf.markStartOfLexeme()
 
     # NAME = letter { letter | digit }.
     if ch in _NAME_START:
       buf.consumePast(_NAME_REST)
-      return Lexer.KEYWORDS.get(
-          buf.getLexeme(), Lexer.NAME_TOK)
+      return Scanner.KEYWORDS.get(
+          buf.getLexeme(), Scanner.NAME_TOK)
     # INTEGER = digit { digit }.
     if ch in _DIGITS:
       buf.consumePast(_DIGITS)
-      return Lexer.INTEGER_TOK
+      return Scanner.INTEGER_TOK
     # "=" | "=="
     if ch == '=':
       buf.consumeChar()
       if buf.peekChar() == '=':
         buf.consumeChar()
-        return Lexer.EQEQ_TOK
-      return Lexer.ASSIGN_TOK
+        return Scanner.EQEQ_TOK
+      return Scanner.ASSIGN_TOK
     # "!="
     if ch == '!':
       buf.consumeChar()
       buf.expectChar('=',
           "'=' expected after '!'")
-      return Lexer.NOTEQ_TOK
+      return Scanner.NOTEQ_TOK
     # "<" | "<="
     if ch == '<':
       buf.consumeChar()
       if buf.peekChar() == '=':
         buf.consumeChar()
-        return Lexer.LE_TOK
-      return Lexer.LT_TOK
+        return Scanner.LE_TOK
+      return Scanner.LT_TOK
     # ">" | ">="
     if ch == '>':
       buf.consumeChar()
       if buf.peekChar() == '=':
         buf.consumeChar()
-        return Lexer.GE_TOK
-      return Lexer.GT_TOK
+        return Scanner.GE_TOK
+      return Scanner.GT_TOK
     if ch == '+':
       buf.consumeChar()
-      return Lexer.PLUS_TOK
+      return Scanner.PLUS_TOK
     if ch == '-':
       buf.consumeChar()
-      return Lexer.MINUS_TOK
+      return Scanner.MINUS_TOK
     if ch == '*':
       buf.consumeChar()
-      return Lexer.STAR_TOK
+      return Scanner.STAR_TOK
     if ch == '%':
       buf.consumeChar()
-      return Lexer.PERCENT_TOK
+      return Scanner.PERCENT_TOK
     if ch == '(':
       buf.consumeChar()
-      return Lexer.LPAREN_TOK
+      return Scanner.LPAREN_TOK
     if ch == ')':
       buf.consumeChar()
-      return Lexer.RPAREN_TOK
+      return Scanner.RPAREN_TOK
     if ch == ':':
       buf.consumeChar()
-      return Lexer.COLON_TOK
+      return Scanner.COLON_TOK
     if ch == ',':
       buf.consumeChar()
-      return Lexer.COMMA_TOK
+      return Scanner.COMMA_TOK
     raise ParseError(self.buffer,
         f'unexpected character: {ch!r}')
 
@@ -226,34 +226,34 @@ class Lexer(LexerBase):
 # ---------------------------------------------------------------------------
 
 _TOKEN_NAME = {
-    Lexer.EOF_TOK: 'end of input', Lexer.NEWLINE_TOK: 'a newline',
-    Lexer.INDENT_TOK: 'an indent', Lexer.DEDENT_TOK: 'a dedent',
-    Lexer.NAME_TOK: 'a name', Lexer.INTEGER_TOK: 'an integer',
-    Lexer.DEF_TOK: "'def'", Lexer.IF_TOK: "'if'", Lexer.ELIF_TOK: "'elif'",
-    Lexer.ELSE_TOK: "'else'", Lexer.WHILE_TOK: "'while'",
-    Lexer.RETURN_TOK: "'return'", Lexer.PASS_TOK: "'pass'",
-    Lexer.LPAREN_TOK: "'('", Lexer.RPAREN_TOK: "')'",
-    Lexer.COLON_TOK: "':'", Lexer.COMMA_TOK: "','", Lexer.ASSIGN_TOK: "'='",
+    Scanner.EOF_TOK: 'end of input', Scanner.NEWLINE_TOK: 'a newline',
+    Scanner.INDENT_TOK: 'an indent', Scanner.DEDENT_TOK: 'a dedent',
+    Scanner.NAME_TOK: 'a name', Scanner.INTEGER_TOK: 'an integer',
+    Scanner.DEF_TOK: "'def'", Scanner.IF_TOK: "'if'", Scanner.ELIF_TOK: "'elif'",
+    Scanner.ELSE_TOK: "'else'", Scanner.WHILE_TOK: "'while'",
+    Scanner.RETURN_TOK: "'return'", Scanner.PASS_TOK: "'pass'",
+    Scanner.LPAREN_TOK: "'('", Scanner.RPAREN_TOK: "')'",
+    Scanner.COLON_TOK: "':'", Scanner.COMMA_TOK: "','", Scanner.ASSIGN_TOK: "'='",
 }
 
-_BINOP_NAME = {Lexer.PLUS_TOK: '+', Lexer.MINUS_TOK: '-', Lexer.STAR_TOK: '*',
-                Lexer.PERCENT_TOK: '%'}
-_COMP_NAME  = {Lexer.EQEQ_TOK: '==', Lexer.NOTEQ_TOK: '!=', Lexer.LT_TOK: '<',
-                Lexer.GT_TOK: '>', Lexer.LE_TOK: '<=', Lexer.GE_TOK: '>='}
+_BINOP_NAME = {Scanner.PLUS_TOK: '+', Scanner.MINUS_TOK: '-', Scanner.STAR_TOK: '*',
+                Scanner.PERCENT_TOK: '%'}
+_COMP_NAME  = {Scanner.EQEQ_TOK: '==', Scanner.NOTEQ_TOK: '!=', Scanner.LT_TOK: '<',
+                Scanner.GT_TOK: '>', Scanner.LE_TOK: '<=', Scanner.GE_TOK: '>='}
 
-_FIRST_EXPR = (Lexer.NAME_TOK,
-                Lexer.INTEGER_TOK,
-                Lexer.LPAREN_TOK,
-                Lexer.PLUS_TOK,
-                Lexer.MINUS_TOK,
-                Lexer.NOT_TOK)
+_FIRST_EXPR = (Scanner.NAME_TOK,
+                Scanner.INTEGER_TOK,
+                Scanner.LPAREN_TOK,
+                Scanner.PLUS_TOK,
+                Scanner.MINUS_TOK,
+                Scanner.NOT_TOK)
 
 # FIRST(statement) = FIRST(simple_stmt) | FIRST(compound_stmt).  Every "*" and
 # "+" over statements tests this, exactly as the mapping table prescribes.
 _FIRST_STMT = _FIRST_EXPR + (
-    Lexer.RETURN_TOK, Lexer.PASS_TOK,
-    Lexer.YIELD_TOK, Lexer.IF_TOK,
-    Lexer.WHILE_TOK, Lexer.DEF_TOK)
+    Scanner.RETURN_TOK, Scanner.PASS_TOK,
+    Scanner.YIELD_TOK, Scanner.IF_TOK,
+    Scanner.WHILE_TOK, Scanner.DEF_TOK)
 
 
 # ---------------------------------------------------------------------------
@@ -262,7 +262,7 @@ _FIRST_STMT = _FIRST_EXPR + (
 
 class Parser(ParserBase):
   def __init__(self):
-    self._scanner = Lexer()
+    self._scanner = Scanner()
 
   # -- helpers over the scanner
   def _peek(self):
@@ -282,7 +282,7 @@ class Parser(ParserBase):
     while self._peek() in _FIRST_STMT:
       body.append(self._parse_statement())
     # EOF
-    if self._peek() != Lexer.EOF_TOK:
+    if self._peek() != Scanner.EOF_TOK:
       raise ParseError(self._scanner.buffer,
           'a statement or end of input'
           ' expected')
@@ -290,9 +290,9 @@ class Parser(ParserBase):
 
   # statement = simple_stmt | compound_stmt.
   def _parse_statement(self):
-    if self._peek() in (Lexer.IF_TOK,
-                        Lexer.WHILE_TOK,
-                        Lexer.DEF_TOK):
+    if self._peek() in (Scanner.IF_TOK,
+                        Scanner.WHILE_TOK,
+                        Scanner.DEF_TOK):
       return self._parse_compound()
     return self._parse_simple()
 
@@ -300,21 +300,21 @@ class Parser(ParserBase):
   #                 | yield_stmt ) NEWLINE.
   def _parse_simple(self):
     tok = self._peek()
-    if tok == Lexer.RETURN_TOK:
+    if tok == Scanner.RETURN_TOK:
       node = self._parse_return()
-    elif tok == Lexer.YIELD_TOK:
+    elif tok == Scanner.YIELD_TOK:
       node = self._parse_yield()
-    elif tok == Lexer.PASS_TOK:
+    elif tok == Scanner.PASS_TOK:
       self._next()
       node = ('pass',)
     else:
       node = self._parse_assign_or_expr()
-    self._expect(Lexer.NEWLINE_TOK)
+    self._expect(Scanner.NEWLINE_TOK)
     return node
 
   # return_stmt = "return" [ expression ].
   def _parse_return(self):
-    self._expect(Lexer.RETURN_TOK)
+    self._expect(Scanner.RETURN_TOK)
     value = None
     if self._peek() in _FIRST_EXPR:
       value = self._parse_expression()
@@ -322,13 +322,13 @@ class Parser(ParserBase):
 
   # yield_stmt = "yield" expression.
   def _parse_yield(self):
-    self._expect(Lexer.YIELD_TOK)
+    self._expect(Scanner.YIELD_TOK)
     return ('yield', self._parse_expression())
 
   # assign_or_expr = expression [ "=" expression ].
   def _parse_assign_or_expr(self):
     left = self._parse_expression()
-    if self._peek() == Lexer.ASSIGN_TOK:
+    if self._peek() == Scanner.ASSIGN_TOK:
       self._next()
       right = self._parse_expression()
       if left[0] != 'name':
@@ -339,9 +339,9 @@ class Parser(ParserBase):
 
   # compound_stmt = if_stmt | while_stmt | funcdef.
   def _parse_compound(self):
-    if self._peek() == Lexer.IF_TOK:
+    if self._peek() == Scanner.IF_TOK:
       return self._parse_if()
-    if self._peek() == Lexer.WHILE_TOK:
+    if self._peek() == Scanner.WHILE_TOK:
       return self._parse_while()
     return self._parse_def()
 
@@ -349,58 +349,58 @@ class Parser(ParserBase):
   #             { "elif" expression ":" suite }
   #             ["else" ":" suite]
   def _parse_if(self):
-    self._expect(Lexer.IF_TOK)
+    self._expect(Scanner.IF_TOK)
     test = self._parse_expression()
-    self._expect(Lexer.COLON_TOK)
+    self._expect(Scanner.COLON_TOK)
     body = self._parse_suite()
     elifs = []
-    while self._peek() == Lexer.ELIF_TOK:
+    while self._peek() == Scanner.ELIF_TOK:
       self._next()
       t = self._parse_expression()
-      self._expect(Lexer.COLON_TOK)
+      self._expect(Scanner.COLON_TOK)
       elifs.append((t, self._parse_suite()))
     orelse = None
-    if self._peek() == Lexer.ELSE_TOK:
+    if self._peek() == Scanner.ELSE_TOK:
       self._next()
-      self._expect(Lexer.COLON_TOK)
+      self._expect(Scanner.COLON_TOK)
       orelse = self._parse_suite()
     return ('if', test, body, elifs, orelse)
 
   # while_stmt = "while" expression ":" suite.
   def _parse_while(self):
-    self._expect(Lexer.WHILE_TOK)
+    self._expect(Scanner.WHILE_TOK)
     test = self._parse_expression()
-    self._expect(Lexer.COLON_TOK)
+    self._expect(Scanner.COLON_TOK)
     return ('while', test, self._parse_suite())
 
   # funcdef = "def" NAME "(" [ parameter_list ] ")" ":" suite.
   # parameter_list = NAME { "," NAME }.
   def _parse_def(self):
-    self._expect(Lexer.DEF_TOK)
-    name = self._expect(Lexer.NAME_TOK)
-    self._expect(Lexer.LPAREN_TOK)
+    self._expect(Scanner.DEF_TOK)
+    name = self._expect(Scanner.NAME_TOK)
+    self._expect(Scanner.LPAREN_TOK)
     params = []
-    if self._peek() == Lexer.NAME_TOK:
+    if self._peek() == Scanner.NAME_TOK:
       params.append(self._expect(
-          Lexer.NAME_TOK))
-      while self._peek() == Lexer.COMMA_TOK:
+          Scanner.NAME_TOK))
+      while self._peek() == Scanner.COMMA_TOK:
         self._next()
         params.append(self._expect(
-            Lexer.NAME_TOK))
-    self._expect(Lexer.RPAREN_TOK)
-    self._expect(Lexer.COLON_TOK)
+            Scanner.NAME_TOK))
+    self._expect(Scanner.RPAREN_TOK)
+    self._expect(Scanner.COLON_TOK)
     return ('def', name, params,
              self._parse_suite())
 
   # suite = NEWLINE INDENT statement { statement } DEDENT.
   def _parse_suite(self):
-    self._expect(Lexer.NEWLINE_TOK)
-    self._expect(Lexer.INDENT_TOK)
+    self._expect(Scanner.NEWLINE_TOK)
+    self._expect(Scanner.INDENT_TOK)
     # "+": once, then the while
     body = [self._parse_statement()]
     while self._peek() in _FIRST_STMT:
       body.append(self._parse_statement())
-    self._expect(Lexer.DEDENT_TOK)
+    self._expect(Scanner.DEDENT_TOK)
     return body
 
   # -- expressions, low precedence to high --
@@ -412,7 +412,7 @@ class Parser(ParserBase):
   # or_test = and_test { "or" and_test }.
   def _parse_or(self):
     node = self._parse_and()
-    while self._peek() == Lexer.OR_TOK:
+    while self._peek() == Scanner.OR_TOK:
       self._next()
       node = ('binop', 'or', node,
                self._parse_and())
@@ -421,7 +421,7 @@ class Parser(ParserBase):
   # and_test = not_test { "and" not_test }.
   def _parse_and(self):
     node = self._parse_not()
-    while self._peek() == Lexer.AND_TOK:
+    while self._peek() == Scanner.AND_TOK:
       self._next()
       node = ('binop', 'and', node,
                self._parse_not())
@@ -429,7 +429,7 @@ class Parser(ParserBase):
 
   # not_test = "not" not_test | comparison.
   def _parse_not(self):
-    if self._peek() == Lexer.NOT_TOK:
+    if self._peek() == Scanner.NOT_TOK:
       self._next()
       return ('unary', 'not', self._parse_not())
     return self._parse_comparison()
@@ -447,8 +447,8 @@ class Parser(ParserBase):
   # sum = term { ( "+" | "-" ) term }.
   def _parse_sum(self):
     node = self._parse_term()
-    while self._peek() in (Lexer.PLUS_TOK,
-                           Lexer.MINUS_TOK):
+    while self._peek() in (Scanner.PLUS_TOK,
+                           Scanner.MINUS_TOK):
       op = _BINOP_NAME[self._peek()]
       self._next()
       node = ('binop', op, node,
@@ -458,8 +458,8 @@ class Parser(ParserBase):
   # term = factor { ( "*" | "%" ) factor }.
   def _parse_term(self):
     node = self._parse_factor()
-    while self._peek() in (Lexer.STAR_TOK,
-                           Lexer.PERCENT_TOK):
+    while self._peek() in (Scanner.STAR_TOK,
+                           Scanner.PERCENT_TOK):
       op = _BINOP_NAME[self._peek()]
       self._next()
       node = ('binop', op, node,
@@ -468,8 +468,8 @@ class Parser(ParserBase):
 
   # factor = ( "+" | "-" ) factor | call.
   def _parse_factor(self):
-    if self._peek() in (Lexer.PLUS_TOK,
-                        Lexer.MINUS_TOK):
+    if self._peek() in (Scanner.PLUS_TOK,
+                        Scanner.MINUS_TOK):
       op = _BINOP_NAME[self._peek()]
       self._next()
       return ('unary', op, self._parse_factor())
@@ -478,10 +478,10 @@ class Parser(ParserBase):
   # call = atom { "(" [ argument_list ] ")" }.
   def _parse_call(self):
     node = self._parse_atom()
-    while self._peek() == Lexer.LPAREN_TOK:
+    while self._peek() == Scanner.LPAREN_TOK:
       self._next()
       args = self._parse_arguments()
-      self._expect(Lexer.RPAREN_TOK)
+      self._expect(Scanner.RPAREN_TOK)
       node = ('call', node, args)
     return node
 
@@ -490,7 +490,7 @@ class Parser(ParserBase):
     args = []
     if self._peek() in _FIRST_EXPR:
       args.append(self._parse_expression())
-      while self._peek() == Lexer.COMMA_TOK:
+      while self._peek() == Scanner.COMMA_TOK:
         self._next()
         args.append(self._parse_expression())
     return args
@@ -498,16 +498,16 @@ class Parser(ParserBase):
   # atom = NAME | INTEGER | "(" expression ")".
   def _parse_atom(self):
     tok = self._peek()
-    if tok == Lexer.NAME_TOK:
+    if tok == Scanner.NAME_TOK:
       return ('name',
-               self._expect(Lexer.NAME_TOK))
-    if tok == Lexer.INTEGER_TOK:
-      lex = self._expect(Lexer.INTEGER_TOK)
+               self._expect(Scanner.NAME_TOK))
+    if tok == Scanner.INTEGER_TOK:
+      lex = self._expect(Scanner.INTEGER_TOK)
       return ('num', int(lex))
-    if tok == Lexer.LPAREN_TOK:
+    if tok == Scanner.LPAREN_TOK:
       self._next()
       node = self._parse_expression()
-      self._expect(Lexer.RPAREN_TOK)
+      self._expect(Scanner.RPAREN_TOK)
       return node
     raise ParseError(self._scanner.buffer,
         'a name, an integer, or ( expected')
@@ -521,27 +521,27 @@ def token_names():
   """Each _TOK constant, mapped to its
      own name, for the demo below."""
   return {v: k[:-4]
-          for k, v in vars(Lexer).items()
+          for k, v in vars(Scanner).items()
           if k.endswith('_TOK')}
 
 
 def show_tokens(source):
   """Print the token stream one source
      line at a time."""
-  scn = Lexer()
+  scn = Scanner()
   scn.reset(source)
   names = token_names()
   line  = []
   while True:
     tok  = scn.peekToken()
     name = names[tok]
-    if tok in (Lexer.NAME_TOK,
-                Lexer.INTEGER_TOK):
+    if tok in (Scanner.NAME_TOK,
+                Scanner.INTEGER_TOK):
       name += '(' + scn.getLexeme() + ')'
     line.append(name)
-    if tok == Lexer.EOF_TOK:
+    if tok == Scanner.EOF_TOK:
       break
-    if tok == Lexer.NEWLINE_TOK:
+    if tok == Scanner.NEWLINE_TOK:
       print(' '.join(line))
       line = []
     scn.consumeToken()

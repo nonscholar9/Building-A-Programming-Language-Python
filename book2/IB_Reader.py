@@ -16,7 +16,7 @@ they were handed before, which is the point: the AST is still the real input,
 and now something else types it.
 
 The scanner and the reader are the two subclasses ParserBase.py asks for: a
-Lexer that supplies one method, _scanNextToken, and a Reader that supplies the
+Scanner that supplies one method, _scanNextToken, and a Reader that supplies the
 grammar.  The cursor, the one token of lookahead, and the line and column an
 error points at all come from the base.  What is left is the part that is
 Lisp's alone, and there is very little of it, because a parenthesised program
@@ -25,7 +25,7 @@ where every line of it is explained.  You can use it long before you read it;
 that is what a module is for.
 """
 
-from ParserBase import (LexerBase, ParserBase,
+from ParserBase import (ScannerBase, ParserBase,
                         ParseError)
 from IB_AST import lTrue, lFalse
 
@@ -41,7 +41,7 @@ WHITESPACE = " \t\n\r"
 # classifies later.
 # ---------------------------------------------------------------------------
 
-class Lexer(LexerBase):
+class Scanner(ScannerBase):
   EOF_TOK    = 0
   LPAREN_TOK = 1
   RPAREN_TOK = 2
@@ -59,17 +59,17 @@ class Lexer(LexerBase):
 
     ch = buf.peekChar()
     if ch == '':
-      return Lexer.EOF_TOK
-    if ch in Lexer._SINGLE:
+      return Scanner.EOF_TOK
+    if ch in Scanner._SINGLE:
       buf.consumeChar()
-      return Lexer._SINGLE[ch]
+      return Scanner._SINGLE[ch]
     # anything else begins an atom
     buf.consumeUpTo(DELIMITERS)
     # '#\' takes one more character,
     # whatever it is: #\( #\; #\space
     if buf.getLexeme() == '#\\':
       buf.consumeChar()
-    return Lexer.ATOM_TOK
+    return Scanner.ATOM_TOK
 
   def _skipSpaceAndComments(self):
     buf = self.buffer
@@ -86,14 +86,14 @@ class Lexer(LexerBase):
 
 class Reader(ParserBase):
   def __init__(self):
-    self._scanner = Lexer()
+    self._scanner = Scanner()
 
   def parse(self, source, filename=''):
     """The one expression in `source`."""
     scn = self._scanner
     scn.reset(source, filename)
     tree = self._readObject()
-    if scn.peekToken() != Lexer.EOF_TOK:
+    if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
           'unexpected trailing input')
     return tree
@@ -105,7 +105,7 @@ class Reader(ParserBase):
     scn = self._scanner
     scn.reset(source, filename)
     forms = []
-    while scn.peekToken() != Lexer.EOF_TOK:
+    while scn.peekToken() != Scanner.EOF_TOK:
       forms.append(self._readObject())
     return forms
 
@@ -114,16 +114,16 @@ class Reader(ParserBase):
        the front of the token stream."""
     scn = self._scanner
     tok = scn.peekToken()
-    if tok == Lexer.ATOM_TOK:
+    if tok == Scanner.ATOM_TOK:
       text = scn.getLexeme()
       scn.consumeToken()
       return atom(text)
-    if tok == Lexer.LPAREN_TOK:
+    if tok == Scanner.LPAREN_TOK:
       return self._readList()
-    if tok == Lexer.QUOTE_TOK:      # 'expr -> (quote expr)
+    if tok == Scanner.QUOTE_TOK:      # 'expr -> (quote expr)
       scn.consumeToken()
       return ['quote', self._readObject()]
-    if tok == Lexer.RPAREN_TOK:
+    if tok == Scanner.RPAREN_TOK:
       raise ParseError(scn.buffer,
           'unexpected )')
     raise ParseError(scn.buffer,
@@ -134,10 +134,10 @@ class Reader(ParserBase):
     scn.consumeToken()          # discard the opening '('
     result = []
     while scn.peekToken() not in (
-        Lexer.RPAREN_TOK, Lexer.EOF_TOK):
+        Scanner.RPAREN_TOK, Scanner.EOF_TOK):
       result.append(self._readObject())
     # the closing ')' must be there
-    scn.expectToken(Lexer.RPAREN_TOK,
+    scn.expectToken(Scanner.RPAREN_TOK,
         'unterminated list, expected )')
     return result
 

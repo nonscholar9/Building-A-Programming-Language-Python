@@ -74,9 +74,9 @@ class Lexer(LexerBase):
 # iteratively rather than left-recursively, so a rule consumes a token before
 # it recurses:
 #
-#     expr   ::= term (("+" | "-") term)*
-#     term   ::= factor (("*" | "%") factor)*
-#     factor ::= INTEGER | "(" expr ")" | "-" factor
+#     expr   = term { ( "+" | "-" ) term }.
+#     term   = factor { ( "*" | "%" ) factor }.
+#     factor = INTEGER | "(" expr ")" | "-" factor.
 #
 #   expr   ->  term   (('+' | '-') term)*
 #   term   ->  factor (('*' | '%') factor)*

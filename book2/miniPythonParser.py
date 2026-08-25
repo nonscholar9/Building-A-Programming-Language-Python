@@ -6,16 +6,28 @@ ParserBase.  Together they turn mini-Python source text into an AST; a later
 pass lowers that AST onto the machine.  ("mini-Python", never bare "Python":
 the host we write it in is Python too.)
 
-The grammar is examples/book2/miniPython.ebnf, and every parse method below
-is that grammar's matching production run through one mechanical rule:
+The grammar is examples/book2/miniPython.atg, in the notation of the Coco/R
+parser generator.  One notation covers both halves of this file: its TOKENS
+section is the Lexer below and its PRODUCTIONS section is the Parser, and each
+is its rule run through one mechanical mapping.
+
+Over characters, for the scanner:
+
+    S          -> buf.consume(), guarded by peekNextChar if not settled
+    { S }      -> buf.consumePast(S)
+    { ANY -S } -> buf.consumeUpTo(S)
+    a b ...    -> statements in sequence
+    a | b      -> if buf.peekNextChar() in FIRST(a): ... elif ...
+    [ a ]      -> if buf.peekNextChar() in FIRST(a): ...
+
+Over tokens, for the parser:
 
     "t"        -> self._expect(T)
     B          -> self._parseB()
     a b ...    -> statements in sequence
     a | b      -> if self._peek() in FIRST(a): ... elif ...
     [ a ]      -> if self._peek() in FIRST(a): ...
-    a*         -> while self._peek() in FIRST(a): ...
-    a+         -> once, then the while
+    { a }      -> while self._peek() in FIRST(a): ...
 
 The one idea the Lisp reader never needed is in the Lexer: mini-Python's
 blocks are significant whitespace, so the scanner keeps an indent stack and
@@ -28,7 +40,8 @@ import string
 from ParserBase import LexerBase, ParserBase, ParseError
 
 _NAME_START = string.ascii_letters + '_'
-_NAME_REST  = string.ascii_letters + string.digits + '_'
+_NAME_REST  = (string.ascii_letters
+               + string.digits + '_')
 _DIGITS     = string.digits
 
 
@@ -59,13 +72,6 @@ class Lexer(LexerBase):
       'and': AND_TOK, 'or': OR_TOK,
       'not': NOT_TOK,
   }
-  _SINGLE = {
-      '+': PLUS_TOK, '-': MINUS_TOK,
-      '*': STAR_TOK, '%': PERCENT_TOK,
-      '(': LPAREN_TOK, ')': RPAREN_TOK,
-      ':': COLON_TOK, ',': COMMA_TOK,
-  }
-
   def __init__(self):
     super().__init__()
     # a stack of indentation widths
@@ -133,7 +139,9 @@ class Lexer(LexerBase):
   # -- one ordinary token, or the NEWLINE that ends the logical line
   def _scan_inline_token(self):
     buf = self.buffer
+    # IGNORE ' ' + '\t'
     buf.consumePast(' \t')
+    # COMMENTS FROM "#" TO lf
     if buf.peekNextChar() == '#':
       buf.consumeUpTo('\n')
 
@@ -146,19 +154,23 @@ class Lexer(LexerBase):
 
     buf.markStartOfLexeme()
 
+    # NAME = letter { letter | digit }.
     if ch in _NAME_START:
       buf.consumePast(_NAME_REST)
       return Lexer.KEYWORDS.get(
           self.getLexeme(), Lexer.NAME_TOK)
+    # INTEGER = digit { digit }.
     if ch in _DIGITS:
       buf.consumePast(_DIGITS)
       return Lexer.INTEGER_TOK
+    # "=" | "=="
     if ch == '=':
       buf.consume()
       if buf.peekNextChar() == '=':
         buf.consume()
         return Lexer.EQEQ_TOK
       return Lexer.ASSIGN_TOK
+    # "!="
     if ch == '!':
       buf.consume()
       if buf.peekNextChar() == '=':
@@ -166,21 +178,44 @@ class Lexer(LexerBase):
         return Lexer.NOTEQ_TOK
       raise ParseError(self,
           "'=' expected after '!'")
+    # "<" | "<="
     if ch == '<':
       buf.consume()
       if buf.peekNextChar() == '=':
         buf.consume()
         return Lexer.LE_TOK
       return Lexer.LT_TOK
+    # ">" | ">="
     if ch == '>':
       buf.consume()
       if buf.peekNextChar() == '=':
         buf.consume()
         return Lexer.GE_TOK
       return Lexer.GT_TOK
-    if ch in Lexer._SINGLE:
+    if ch == '+':
       buf.consume()
-      return Lexer._SINGLE[ch]
+      return Lexer.PLUS_TOK
+    if ch == '-':
+      buf.consume()
+      return Lexer.MINUS_TOK
+    if ch == '*':
+      buf.consume()
+      return Lexer.STAR_TOK
+    if ch == '%':
+      buf.consume()
+      return Lexer.PERCENT_TOK
+    if ch == '(':
+      buf.consume()
+      return Lexer.LPAREN_TOK
+    if ch == ')':
+      buf.consume()
+      return Lexer.RPAREN_TOK
+    if ch == ':':
+      buf.consume()
+      return Lexer.COLON_TOK
+    if ch == ',':
+      buf.consume()
+      return Lexer.COMMA_TOK
     raise ParseError(self,
         f'unexpected character: {ch!r}')
 
@@ -244,7 +279,7 @@ class Parser(ParserBase):
     self._scanner.consume()
     return lex
 
-  # file_input ::= statement* EOF
+  # file_input = { statement } EOF.
   def parse(self, source, filename=''):
     self._scanner.reset(source, filename)
     body = []
@@ -258,7 +293,7 @@ class Parser(ParserBase):
           ' expected')
     return ('module', body)
 
-  # statement ::= simple_stmt | compound_stmt
+  # statement = simple_stmt | compound_stmt.
   def _parse_statement(self):
     if self._peek() in (Lexer.IF_TOK,
                         Lexer.WHILE_TOK,
@@ -266,7 +301,8 @@ class Parser(ParserBase):
       return self._parse_compound()
     return self._parse_simple()
 
-  # simple_stmt ::= (assign_or_expr | return_stmt | pass_stmt | yield_stmt) NEWLINE
+  # simple_stmt = ( assign_or_expr | return_stmt | pass_stmt
+  #                 | yield_stmt ) NEWLINE.
   def _parse_simple(self):
     tok = self._peek()
     if tok == Lexer.RETURN_TOK:
@@ -281,7 +317,7 @@ class Parser(ParserBase):
     self._expect(Lexer.NEWLINE_TOK)
     return node
 
-  # return_stmt ::= "return" [expression]
+  # return_stmt = "return" [ expression ].
   def _parse_return(self):
     self._expect(Lexer.RETURN_TOK)
     value = None
@@ -289,12 +325,12 @@ class Parser(ParserBase):
       value = self._parse_expression()
     return ('return', value)
 
-  # yield_stmt ::= "yield" expression
+  # yield_stmt = "yield" expression.
   def _parse_yield(self):
     self._expect(Lexer.YIELD_TOK)
     return ('yield', self._parse_expression())
 
-  # assign_or_expr ::= expression ["=" expression]
+  # assign_or_expr = expression [ "=" expression ].
   def _parse_assign_or_expr(self):
     left = self._parse_expression()
     if self._peek() == Lexer.ASSIGN_TOK:
@@ -306,7 +342,7 @@ class Parser(ParserBase):
       return ('assign', left[1], right)
     return ('expr', left)
 
-  # compound_stmt ::= if_stmt | while_stmt | funcdef
+  # compound_stmt = if_stmt | while_stmt | funcdef.
   def _parse_compound(self):
     if self._peek() == Lexer.IF_TOK:
       return self._parse_if()
@@ -314,7 +350,8 @@ class Parser(ParserBase):
       return self._parse_while()
     return self._parse_def()
 
-  # if_stmt ::= "if" expression ":" suite ("elif" expression ":" suite)*
+  # if_stmt = "if" expression ":" suite
+  #             { "elif" expression ":" suite }
   #             ["else" ":" suite]
   def _parse_if(self):
     self._expect(Lexer.IF_TOK)
@@ -334,15 +371,15 @@ class Parser(ParserBase):
       orelse = self._parse_suite()
     return ('if', test, body, elifs, orelse)
 
-  # while_stmt ::= "while" expression ":" suite
+  # while_stmt = "while" expression ":" suite.
   def _parse_while(self):
     self._expect(Lexer.WHILE_TOK)
     test = self._parse_expression()
     self._expect(Lexer.COLON_TOK)
     return ('while', test, self._parse_suite())
 
-  # funcdef ::= "def" NAME "(" [parameter_list] ")" ":" suite
-  # parameter_list ::= NAME ("," NAME)*
+  # funcdef = "def" NAME "(" [ parameter_list ] ")" ":" suite.
+  # parameter_list = NAME { "," NAME }.
   def _parse_def(self):
     self._expect(Lexer.DEF_TOK)
     name = self._expect(Lexer.NAME_TOK)
@@ -360,7 +397,7 @@ class Parser(ParserBase):
     return ('def', name, params,
              self._parse_suite())
 
-  # suite ::= NEWLINE INDENT statement+ DEDENT
+  # suite = NEWLINE INDENT statement { statement } DEDENT.
   def _parse_suite(self):
     self._expect(Lexer.NEWLINE_TOK)
     self._expect(Lexer.INDENT_TOK)
@@ -373,11 +410,11 @@ class Parser(ParserBase):
 
   # -- expressions, low precedence to high --
 
-  # expression ::= or_test
+  # expression = or_test.
   def _parse_expression(self):
     return self._parse_or()
 
-  # or_test ::= and_test ("or" and_test)*
+  # or_test = and_test { "or" and_test }.
   def _parse_or(self):
     node = self._parse_and()
     while self._peek() == Lexer.OR_TOK:
@@ -386,7 +423,7 @@ class Parser(ParserBase):
                self._parse_and())
     return node
 
-  # and_test ::= not_test ("and" not_test)*
+  # and_test = not_test { "and" not_test }.
   def _parse_and(self):
     node = self._parse_not()
     while self._peek() == Lexer.AND_TOK:
@@ -395,14 +432,14 @@ class Parser(ParserBase):
                self._parse_not())
     return node
 
-  # not_test ::= "not" not_test | comparison
+  # not_test = "not" not_test | comparison.
   def _parse_not(self):
     if self._peek() == Lexer.NOT_TOK:
       self._next()
       return ('unary', 'not', self._parse_not())
     return self._parse_comparison()
 
-  # comparison ::= sum [comp_op sum]
+  # comparison = sum [ comp_op sum ].
   def _parse_comparison(self):
     node = self._parse_sum()
     if self._peek() in _COMP_NAME:
@@ -412,7 +449,7 @@ class Parser(ParserBase):
                self._parse_sum())
     return node
 
-  # sum ::= term (("+" | "-") term)*
+  # sum = term { ( "+" | "-" ) term }.
   def _parse_sum(self):
     node = self._parse_term()
     while self._peek() in (Lexer.PLUS_TOK,
@@ -423,7 +460,7 @@ class Parser(ParserBase):
                self._parse_term())
     return node
 
-  # term ::= factor (("*" | "%") factor)*
+  # term = factor { ( "*" | "%" ) factor }.
   def _parse_term(self):
     node = self._parse_factor()
     while self._peek() in (Lexer.STAR_TOK,
@@ -434,7 +471,7 @@ class Parser(ParserBase):
                self._parse_factor())
     return node
 
-  # factor ::= ("+" | "-") factor | call
+  # factor = ( "+" | "-" ) factor | call.
   def _parse_factor(self):
     if self._peek() in (Lexer.PLUS_TOK,
                         Lexer.MINUS_TOK):
@@ -443,7 +480,7 @@ class Parser(ParserBase):
       return ('unary', op, self._parse_factor())
     return self._parse_call()
 
-  # call ::= atom ("(" [argument_list] ")")*
+  # call = atom { "(" [ argument_list ] ")" }.
   def _parse_call(self):
     node = self._parse_atom()
     while self._peek() == Lexer.LPAREN_TOK:
@@ -453,7 +490,7 @@ class Parser(ParserBase):
       node = ('call', node, args)
     return node
 
-  # argument_list ::= expression ("," expression)*   (optional inside the call)
+  # argument_list = expression { "," expression }.
   def _parse_arguments(self):
     args = []
     if self._peek() in _FIRST_EXPR:
@@ -463,7 +500,7 @@ class Parser(ParserBase):
         args.append(self._parse_expression())
     return args
 
-  # atom ::= NAME | INTEGER | "(" expression ")"
+  # atom = NAME | INTEGER | "(" expression ")".
   def _parse_atom(self):
     tok = self._peek()
     if tok == Lexer.NAME_TOK:

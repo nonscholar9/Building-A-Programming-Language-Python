@@ -1,0 +1,180 @@
+/*===========================================================================
+  mini-Python -- an attributed grammar
+
+  The target language of Book Two's capstone: a small Python, large enough to
+  write simple programs in and no larger than the technique needs.  ("mini-
+  Python" and never bare "Python", because the host we implement it in is
+  Python too, and the two must not be confused.)
+
+  NOTATION.  One notation describes both halves of the front end, once over
+  characters and once over tokens.
+
+    =  ... .     declares a rule, and the '.' ends it
+    a b          a sequence: a, and then b
+    a | b        a choice: either a or b
+    [ a ]        optional: a, or nothing
+    { a }        iteration: a, zero or more times
+    ( a )        grouping
+    "abc"        a literal: those characters, in that order
+
+  A name in UPPER CASE is a token.  A name in lower case is a character set.
+
+  In CHARACTERS a rule names a set of characters, built from:
+
+    'a'          one character
+    "abc"        the set of those characters
+    'a'..'z'     every character in the range
+    ANY          every character
+    s + t        the union of two sets
+    s - t        what is in s and not in t
+
+  In TOKENS a rule names a token, built from character sets by the six
+  operators above.  A token declared by name alone is one the scanner
+  produces without a rule describing it: see the layout tokens below.
+
+  In PRODUCTIONS a rule names a piece of the tree, built from tokens by the
+  same six operators.  A literal there is a keyword or a punctuation mark, and
+  a keyword literal is scanned as a NAME and then recognized by its text.
+===========================================================================*/
+
+COMPILER miniPython
+
+
+CHARACTERS
+
+  letter  = 'A'..'Z' + 'a'..'z' + '_'.
+  digit   = "0123456789".
+  lf      = '\n'.
+
+
+TOKENS
+
+  NAME    = letter { letter | digit }.
+  INTEGER = digit { digit }.
+
+  /* The layout tokens.  No rule can describe these, because none of them is
+     a piece of the text: they are what the scanner emits when it works out
+     where a statement ends and where a block opens and closes.  Matching an
+     INDENT against the DEDENT that closes it means counting how many are
+     open, and counting is the one thing the notation above cannot do.  EOF
+     is here for the same reason: the end of the input is a place, not a
+     character. */
+  NEWLINE.
+  INDENT.
+  DEDENT.
+  EOF.
+
+
+COMMENTS FROM "#" TO lf
+
+IGNORE ' ' + '\t'
+
+
+PRODUCTIONS
+
+/*---------------------------------------------------------------------------
+  Statements
+---------------------------------------------------------------------------*/
+
+file_input    = { statement } EOF.
+
+statement     = simple_stmt | compound_stmt.
+
+simple_stmt   = ( assign_or_expr | return_stmt
+                  | pass_stmt | yield_stmt )
+                NEWLINE.
+
+/* With "=" present this is an assignment, and the left expression must be a
+   bare NAME.  Without it, the line is an expression evaluated for its effect,
+   as in print(x).  The parser decides which by reading the left expression
+   first and then looking for "=".  This is left factored: NAME "=" expression
+   | expression would offer two alternatives that both begin with a NAME,
+   which one token of lookahead cannot choose between. */
+assign_or_expr = expression [ "=" expression ].
+
+return_stmt   = "return" [ expression ].
+pass_stmt     = "pass".
+yield_stmt    = "yield" expression.
+
+compound_stmt = if_stmt | while_stmt | funcdef.
+
+if_stmt       = "if" expression ":" suite
+                { "elif" expression ":" suite }
+                [ "else" ":" suite ].
+
+while_stmt    = "while" expression ":" suite.
+
+funcdef       = "def" NAME
+                "(" [ parameter_list ] ")"
+                ":" suite.
+
+parameter_list = NAME { "," NAME }.
+
+suite         = NEWLINE INDENT
+                statement { statement } DEDENT.
+
+
+/*---------------------------------------------------------------------------
+  Expressions (precedence loosest first; left recursion removed)
+
+  Each rule calls the next-tighter one, so a rule higher in this list binds
+  more loosely.  `or` is loosest; a call and a parenthesised group are
+  tightest.  comparison takes an option and not an iteration, so comparisons
+  do not chain: a < b < c is not a mini-Python expression.  factor is where
+  a unary sign is read.
+---------------------------------------------------------------------------*/
+
+expression    = or_test.
+or_test       = and_test { "or" and_test }.
+and_test      = not_test { "and" not_test }.
+not_test      = "not" not_test | comparison.
+comparison    = sum [ comp_op sum ].
+comp_op       = "==" | "!=" | "<" | ">" | "<=" | ">=".
+sum           = term { ( "+" | "-" ) term }.
+term          = factor { ( "*" | "%" ) factor }.
+factor        = ( "+" | "-" ) factor | call.
+call          = atom { "(" [ argument_list ] ")" }.
+argument_list = expression { "," expression }.
+atom          = NAME | INTEGER | "(" expression ")".
+
+END miniPython.
+
+
+/*===========================================================================
+  Reserved keywords (never a NAME):
+      and  def  elif  else  if  not  or  pass  return  while  yield
+  `print` is NOT reserved; it is an ordinary built-in function, called like
+  any other.
+
+  Simplifications from real Python (deliberate, and worth stating):
+    * A suite is always an indented block: "if x:" must be followed by a
+      newline and an indented body, never "if x: return" on one line.
+    * Comparisons do not chain: "a < b < c" is not allowed; write it out.
+    * An assignment target is a single NAME.  No tuple unpacking, no
+      attribute or subscript targets (there are no objects or collections to
+      target).
+    * Integers are the only literal.  No strings, floats, lists, dicts,
+      tuples, or booleans; conditions get their truth from comparisons.
+    * Parameters are plain positional names.  No defaults, *args, keywords.
+
+  Everything above is the locked core.  class, try/except/raise, and
+  break/continue are challenges, not part of this grammar.
+
+  Programs this grammar accepts (sanity check):
+
+      def factorial(n):
+          if n == 0:
+              return 1
+          return n * factorial(n - 1)
+
+      print(factorial(5))
+
+      def gcd(a, b):
+          while b != 0:
+              t = b
+              b = a % b
+              a = t
+          return a
+
+      print(gcd(48, 36))
+===========================================================================*/

@@ -64,7 +64,7 @@ class Lexer(LexerBase):
     if ch in Lexer._DIGITS:
       buf.consumePast(Lexer._DIGITS)       # the whole run of digits
       return Lexer.INT_TOK
-    raise ParseError(self, f'unexpected character: {ch!r}')
+    raise ParseError(buf, f'unexpected character: {ch!r}')
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ class Parser(ParserBase):
     scn.reset(source, filename)
     tree = self._parseExpr()
     if scn.peekToken() != Lexer.EOF_TOK:
-      raise ParseError(scn,
+      raise ParseError(scn.buffer,
           'end of input expected')
     return tree
 
@@ -133,15 +133,14 @@ class Parser(ParserBase):
     if tok == Lexer.LPAREN_TOK:
       scn.consume()
       node = self._parseExpr()
-      if scn.peekToken() != Lexer.RPAREN_TOK:
-        raise ParseError(scn, "')' expected")
-      scn.consume()
+      scn.expect(Lexer.RPAREN_TOK,
+          "')' expected")
       return node
     # unary minus: -x is (- 0 x)
     if tok == Lexer.MINUS_TOK:
       scn.consume()
       return ['-', 0, self._parseFactor()]
-    raise ParseError(scn,
+    raise ParseError(scn.buffer,
         'a number or ( expected')
 
 
@@ -170,7 +169,7 @@ class PrattParser(ParserBase):
     scn.reset(source, filename)
     tree = self._parseExpr(0)
     if scn.peekToken() != Lexer.EOF_TOK:
-      raise ParseError(scn,
+      raise ParseError(scn.buffer,
           'end of input expected')
     return tree
 
@@ -197,15 +196,14 @@ class PrattParser(ParserBase):
     if tok == Lexer.LPAREN_TOK:
       scn.consume()
       node = self._parseExpr(0)
-      if scn.peekToken() != Lexer.RPAREN_TOK:
-        raise ParseError(scn, "')' expected")
-      scn.consume()
+      scn.expect(Lexer.RPAREN_TOK,
+          "')' expected")
       return node
     if tok == Lexer.MINUS_TOK:
       scn.consume()
       bp = PrattParser._PREFIX_BP
       return ['-', 0, self._parseExpr(bp)]
-    raise ParseError(scn,
+    raise ParseError(scn.buffer,
         'a number or ( expected')
 
 

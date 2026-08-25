@@ -80,6 +80,9 @@ class Lexer(LexerBase):
     self._pending     = []
     self._at_line_start = True
 
+  def tokenName(self, tok):
+    return _TOKEN_NAME.get(tok, tok)
+
   def _scanNextToken(self):
     if self._pending:
       return self._pending.pop(0)
@@ -112,7 +115,7 @@ class Lexer(LexerBase):
         self._indents.pop()
         self._pending.append(Lexer.DEDENT_TOK)
       if self._indents[-1] != col:
-        raise ParseError(self,
+        raise ParseError(self.buffer,
             'unindent does not match any '
             'outer level')
       return self._pending.pop(0)
@@ -173,11 +176,9 @@ class Lexer(LexerBase):
     # "!="
     if ch == '!':
       buf.consume()
-      if buf.peekNextChar() == '=':
-        buf.consume()
-        return Lexer.NOTEQ_TOK
-      raise ParseError(self,
+      buf.expect('=',
           "'=' expected after '!'")
+      return Lexer.NOTEQ_TOK
     # "<" | "<="
     if ch == '<':
       buf.consume()
@@ -216,7 +217,7 @@ class Lexer(LexerBase):
     if ch == ',':
       buf.consume()
       return Lexer.COMMA_TOK
-    raise ParseError(self,
+    raise ParseError(self.buffer,
         f'unexpected character: {ch!r}')
 
 
@@ -271,13 +272,7 @@ class Parser(ParserBase):
     self._scanner.consume()
 
   def _expect(self, tok):
-    if self._scanner.peekToken() != tok:
-      name = _TOKEN_NAME.get(tok, tok)
-      raise ParseError(self._scanner,
-          f'{name} expected')
-    lex = self._scanner.getLexeme()
-    self._scanner.consume()
-    return lex
+    return self._scanner.expect(tok)
 
   # file_input = { statement } EOF.
   def parse(self, source, filename=''):
@@ -288,7 +283,7 @@ class Parser(ParserBase):
       body.append(self._parse_statement())
     # EOF
     if self._peek() != Lexer.EOF_TOK:
-      raise ParseError(self._scanner,
+      raise ParseError(self._scanner.buffer,
           'a statement or end of input'
           ' expected')
     return ('module', body)
@@ -337,7 +332,7 @@ class Parser(ParserBase):
       self._next()
       right = self._parse_expression()
       if left[0] != 'name':
-        raise ParseError(self._scanner,
+        raise ParseError(self._scanner.buffer,
             'cannot assign to this expression')
       return ('assign', left[1], right)
     return ('expr', left)
@@ -514,7 +509,7 @@ class Parser(ParserBase):
       node = self._parse_expression()
       self._expect(Lexer.RPAREN_TOK)
       return node
-    raise ParseError(self._scanner,
+    raise ParseError(self._scanner.buffer,
         'a name, an integer, or ( expected')
 
 

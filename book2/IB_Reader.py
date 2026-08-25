@@ -94,7 +94,7 @@ class Reader(ParserBase):
     scn.reset(source, filename)
     tree = self._readObject()
     if scn.peekToken() != Lexer.EOF_TOK:
-      raise ParseError(scn,
+      raise ParseError(scn.buffer,
           'unexpected trailing input')
     return tree
 
@@ -124,8 +124,9 @@ class Reader(ParserBase):
       scn.consume()
       return ['quote', self._readObject()]
     if tok == Lexer.RPAREN_TOK:
-      raise ParseError(scn, 'unexpected )')
-    raise ParseError(scn,
+      raise ParseError(scn.buffer,
+          'unexpected )')
+    raise ParseError(scn.buffer,
         'unexpected end of input')
 
   def _readList(self):
@@ -135,10 +136,9 @@ class Reader(ParserBase):
     while scn.peekToken() not in (
         Lexer.RPAREN_TOK, Lexer.EOF_TOK):
       result.append(self._readObject())
-    if scn.peekToken() == Lexer.EOF_TOK:
-      raise ParseError(scn,
-          'unterminated list, expected )')
-    scn.consume()          # discard the closing ')'
+    # the closing ')' must be there
+    scn.expect(Lexer.RPAREN_TOK,
+        'unterminated list, expected )')
     return result
 
 

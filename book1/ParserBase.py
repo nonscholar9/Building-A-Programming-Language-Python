@@ -15,10 +15,11 @@ mini-Python front end, where the source states nothing and the subclass has to
 work all of it out.  All three hand their trees to the same Lisp back end.
 
   * LexerBuffer - a cursor over the source text: peek a character, consume it,
-    scan a run, remember where a lexeme began, and track line and column so an
-    error can point at the spot.
+    insist on one the grammar requires, scan a run, remember where a lexeme
+    began, and track line and column so an error can point at the spot.
   * LexerBase   - one token of lookahead on top of the buffer.  A subclass
-    fills in _scanNextToken; everyone else calls peekToken / consume / getLexeme.
+    fills in _scanNextToken; everyone else calls peekToken / consume / expect /
+    getLexeme.  The two cursors are the same shape one size apart.
   * ParserBase  - the abstract parse(source) a concrete grammar implements.
   * ParseError  - a syntax error that renders as file (line, col) with a caret.
 
@@ -70,6 +71,16 @@ class LexerBuffer:
         self._source[self._point]
         if self._point < self._sourceLen
         else '')
+
+  def expect(self, charSet, message=None):
+    """Consume the next character, which
+       the grammar says must be in
+       charSet.  Refuse anything else."""
+    if (not self._nextChar
+        or self._nextChar not in charSet):
+      raise ParseError(self, message or
+          f'{charSet!r} expected')
+    self.consume()
 
   def consumePast(self, charSet):
     """Advance over a run of characters
@@ -136,8 +147,27 @@ class LexerBase(ABC):
   def consume(self):
     self._tok = self._scanNextToken()
 
+  def expect(self, tok, message=None):
+    """Consume the next token, which the
+       grammar says must be tok, and
+       return its lexeme.  Refuse
+       anything else."""
+    if self._tok != tok:
+      raise ParseError(self.buffer, message
+          or f'{self.tokenName(tok)} expected')
+    lex = self.getLexeme()
+    self.consume()
+    return lex
+
   def getLexeme(self):
     return self.buffer.getLexeme()
+
+  def tokenName(self, tok):
+    """What to call a token kind in an
+       error message.  A subclass with
+       names for its kinds overrides
+       this."""
+    return str(tok)
 
   @abstractmethod
   def _scanNextToken(self):
@@ -153,8 +183,7 @@ class LexerBase(ABC):
 # ---------------------------------------------------------------------------
 
 class ParseError(Exception):
-  def __init__(self, scanner, message):
-    buf = scanner.buffer
+  def __init__(self, buf, message):
     super().__init__(self._format(
         buf.filename(), buf.scanLineNum(), buf.scanColNum(),
         buf.scanLineTxt(), message))

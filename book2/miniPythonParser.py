@@ -278,7 +278,7 @@ class Parser(ParserBase):
   def parse(self, source, filename=''):
     self._scanner.reset(source, filename)
     body = []
-    # statement*
+    # { statement }
     while self._peek() in _FIRST_STMT:
       body.append(self._parse_statement())
     # EOF

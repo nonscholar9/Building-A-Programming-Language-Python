@@ -108,20 +108,27 @@ class ScannerBuffer:
   def filename(self):
     return self._filename
 
-  def scanLineNum(self):
-    return self._lineNum
+  def point(self):
+    return self._point
 
-  def scanLinePos(self):
+  def mark(self):
+    return self._mark
+
+  def scanLineNum(self, at):
+    return self._lineNum - self._source.count(
+        '\n', at, self._point)
+
+  def scanLinePos(self, at):
     """Index of the first character of
-       the current line."""
+       the line holding at."""
     return self._source.rfind(
-        '\n', 0, self._point) + 1
+        '\n', 0, at) + 1
 
-  def scanColNum(self):
-    return self._point - self.scanLinePos() + 1
+  def scanColNum(self, at):
+    return at - self.scanLinePos(at) + 1
 
-  def scanLineTxt(self):
-    start = self.scanLinePos()
+  def scanLineTxt(self, at):
+    start = self.scanLinePos(at)
     end   = self._source.find('\n', start)
     if end == -1:
       return self._source[start:]
@@ -154,7 +161,8 @@ class ScannerBase(ABC):
        anything else."""
     if self._tok != tok:
       raise ParseError(self.buffer, message
-          or f'{self.tokenName(tok)} expected')
+          or f'{self.tokenName(tok)} expected',
+          self.buffer.mark())
     lex = self.getLexeme()
     self.consumeToken()
     return lex
@@ -183,10 +191,13 @@ class ScannerBase(ABC):
 # ---------------------------------------------------------------------------
 
 class ParseError(Exception):
-  def __init__(self, buf, message):
+  def __init__(self, buf, message, at=None):
+    if at is None:
+      at = buf.point()
     super().__init__(self._format(
-        buf.filename(), buf.scanLineNum(), buf.scanColNum(),
-        buf.scanLineTxt(), message))
+        buf.filename(), buf.scanLineNum(at),
+        buf.scanColNum(at),
+        buf.scanLineTxt(at), message))
 
   @staticmethod
   def _format(filename, line, col, sourceLine,

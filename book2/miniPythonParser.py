@@ -98,6 +98,7 @@ class Scanner(ScannerBase):
   # -- resolve indentation at the first non-blank line, emitting layout tokens
   def _begin_line(self):
     col = self._skip_blank_lines_and_measure()
+    self.buffer.markStartOfLexeme()
     if col is None:                  # end of input: unwind to column 0
       while len(self._indents) > 1:
         self._indents.pop()
@@ -148,14 +149,14 @@ class Scanner(ScannerBase):
     if buf.peekChar() == '#':
       buf.consumeUpTo('\n')
 
+    buf.markStartOfLexeme()
+
     ch = buf.peekChar()
     if ch == '' or ch == '\n':
       if ch == '\n':
         buf.consumeChar()
       self._at_line_start = True
       return Scanner.NEWLINE_TOK
-
-    buf.markStartOfLexeme()
 
     # NAME = letter { letter | digit }.
     if ch in _NAME_START:
@@ -285,7 +286,8 @@ class Parser(ParserBase):
     if self._peek() != Scanner.EOF_TOK:
       raise ParseError(self._scanner.buffer,
           'a statement or end of input'
-          ' expected')
+          ' expected',
+          self._scanner.buffer.mark())
     return ('module', body)
 
   # statement = simple_stmt | compound_stmt.
@@ -510,7 +512,8 @@ class Parser(ParserBase):
       self._expect(Scanner.RPAREN_TOK)
       return node
     raise ParseError(self._scanner.buffer,
-        'a name, an integer, or ( expected')
+        'a name, an integer, or ( expected',
+        self._scanner.buffer.mark())
 
 
 # ---------------------------------------------------------------------------

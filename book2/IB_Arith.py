@@ -100,7 +100,8 @@ class Parser(ParserBase):
     tree = self._parseExpr()
     if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
-          'end of input expected')
+          'end of input expected',
+          scn.buffer.mark())
     return tree
 
   def _parseExpr(self):
@@ -141,7 +142,8 @@ class Parser(ParserBase):
       scn.consumeToken()
       return ['-', 0, self._parseFactor()]
     raise ParseError(scn.buffer,
-        'a number or ( expected')
+        'a number or ( expected',
+        scn.buffer.mark())
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +172,8 @@ class PrattParser(ParserBase):
     tree = self._parseExpr(0)
     if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
-          'end of input expected')
+          'end of input expected',
+          scn.buffer.mark())
     return tree
 
   def _parseExpr(self, min_bp):
@@ -204,7 +207,8 @@ class PrattParser(ParserBase):
       bp = PrattParser._PREFIX_BP
       return ['-', 0, self._parseExpr(bp)]
     raise ParseError(scn.buffer,
-        'a number or ( expected')
+        'a number or ( expected',
+        scn.buffer.mark())
 
 
 # ---------------------------------------------------------------------------

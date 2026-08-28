@@ -95,7 +95,8 @@ class Reader(ParserBase):
     tree = self._readObject()
     if scn.peekToken() != Scanner.EOF_TOK:
       raise ParseError(scn.buffer,
-          'unexpected trailing input')
+          'unexpected trailing input',
+          scn.buffer.mark())
     return tree
 
   def parseAll(self, source, filename=''):
@@ -125,9 +126,11 @@ class Reader(ParserBase):
       return ['quote', self._readObject()]
     if tok == Scanner.RPAREN_TOK:
       raise ParseError(scn.buffer,
-          'unexpected )')
+          'unexpected )',
+          scn.buffer.mark())
     raise ParseError(scn.buffer,
-        'unexpected end of input')
+        'unexpected end of input',
+        scn.buffer.mark())
 
   def _readList(self):
     scn = self._scanner

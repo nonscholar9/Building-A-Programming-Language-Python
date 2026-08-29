@@ -32,11 +32,10 @@ table has to notice.  prune_stale() is that, and it is nine lines.
 Run with: python IB_Debugger2.py
 """
 
-from IB_Core import (VAL_CLOSURE, lEval,
-                     global_env, lisp_str)
+from IB_Core import (VAL_CLOSURE, global_env,
+                     lisp_str)
 from IB_AST import lFalse
-from IB_Reader import parse
-from IB_Expander import expand
+from IB_Repl import evaluate
 from IB_Break import _evaluate
 from IB_Debugger import Debugger
 
@@ -521,7 +520,7 @@ def site_demo():
   print('--- a place, not a name: area '
         'calls + twice ---')
   dbg = Debugger2()
-  lEval(expand(parse(PROGRAM)), global_env)
+  evaluate(PROGRAM)
   dbg.break_on_site('area:+:2')
   print('  the body, with the breakpoint '
         'marked:')
@@ -536,13 +535,13 @@ def stale_demo():
   print('--- and the bill for keying on '
         'identity ---')
   dbg = Debugger2()
-  lEval(expand(parse(PROGRAM)), global_env)
+  evaluate(PROGRAM)
   dbg.break_on_site('area:+:1')
   print('  before redefining area:')
   for number in sorted(dbg.breaks):
     print('  '
           + dbg.breaks[number].describe())
-  lEval(expand(parse(REDEFINE)), global_env)
+  evaluate(REDEFINE)
   print('  after (set! area ...) runs '
         'again:')
   dbg.prune_stale()

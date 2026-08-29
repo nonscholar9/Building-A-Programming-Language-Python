@@ -26,10 +26,10 @@ Run with: python IB_Break.py
 
 import IB_Core as Core
 from IB_Core import (FRAME_IF, FRAME_SET, FRAME_SEQ,
-                     FRAME_CALL, LispError,
-                     lEval, global_env, lisp_str)
-from IB_Reader import parse
-from IB_Expander import expand
+                     FRAME_CALL, MachineError,
+                     global_env, lisp_str)
+from IB_Printer import flat, primitive_names
+from IB_Repl import evaluate
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,12 @@ from IB_Expander import expand
 # One line per frame, innermost first.  Each line says what that frame is
 # waiting for, because that is the only thing a frame knows.
 
+_NAMES = None
+
 def frame_str(frame):
+  global _NAMES
+  if _NAMES is None:
+    _NAMES = primitive_names()
   tag = frame[0]
   if tag == FRAME_IF:
     return ('if: waiting on the test of '
@@ -55,7 +60,7 @@ def frame_str(frame):
     done, todo = frame[1], frame[2]
     if not done:
       return 'call: waiting on the operator'
-    fn = lisp_str(done[0])
+    fn = flat(done[0], _NAMES)
     return ('call: applying ' + fn + ', '
             + str(len(done) - 1) + ' of '
             + str(len(done) - 1 + len(todo))
@@ -107,7 +112,7 @@ def _evaluate(source, env):
   saved = Core.step_hook
   Core.step_hook = None
   try:
-    return lEval(expand(parse(source)), env)
+    return evaluate(source, env)
   finally:
     Core.step_hook = saved
 
@@ -152,7 +157,7 @@ def break_loop(E, K, extra=None, prompt='break> ',
 
     try:
       print(lisp_str(_evaluate(line, E)))
-    except LispError as err:
+    except MachineError as err:
       print('error: ' + str(err))
     except Exception as err:
       print('error: ' + str(err))
@@ -182,8 +187,8 @@ def run(source, env=None, interactive=True):
   """Evaluate one form.  On failure, report and stop where it happened."""
   env = env or global_env
   try:
-    return lEval(expand(parse(source)), env)
-  except LispError as err:
+    return evaluate(source, env)
+  except MachineError as err:
     print()
     print('*** ' + str(err))
     print('    while evaluating: '
@@ -217,8 +222,8 @@ NON_TAIL = """(begin
 
 def depth_of(source):
   try:
-    lEval(expand(parse(source)), global_env)
-  except LispError as err:
+    evaluate(source)
+  except MachineError as err:
     return len(err.K), err
   return None, None
 

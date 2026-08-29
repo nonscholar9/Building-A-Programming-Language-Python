@@ -37,10 +37,9 @@ Run with: python IB_Reverse.py
 """
 
 import IB_Core as Core
-from IB_Core import (Environment, LispError, lEval,
+from IB_Core import (Environment, MachineError,
                      global_env, lisp_str)
-from IB_Reader import parse
-from IB_Expander import expand
+from IB_Repl import evaluate
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +134,7 @@ class Recorder:
       self.undo.install()
     Core.step_hook = self.on_expr
     try:
-      return lEval(expand(parse(source)), env)
+      return evaluate(source, env)
     finally:
       Core.step_hook = None
       if self.undo is not None:
@@ -187,10 +186,10 @@ class Recorder:
 
     Core.step_hook = stop_there
     try:
-      lEval(expand(parse(source)), env)
-    except LispError as err:
+      evaluate(source, env)
+    except MachineError as err:
       # The machine's other opening does the work here.  Anything raised
-      # inside the hook comes back out as a LispError with C, E and K
+      # inside the hook comes back out as a MachineError with C, E and K
       # already attached, so the tool does not have to carry them itself.
       if isinstance(err.__cause__, _Arrived):
         return (err.C, err.E, list(err.K))
@@ -202,7 +201,7 @@ class Recorder:
 
 class _Arrived(Exception):
   """Raised inside the hook to stop the replay.  It never escapes: the
-    machine catches it and re-raises it as a LispError carrying C, E and K.
+    machine catches it and re-raises it as a MachineError carrying C, E and K.
   """
 
 

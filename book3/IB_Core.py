@@ -15,7 +15,7 @@ opens this file in exactly two places, and then leaves it alone:
 
   1. `step_hook`, a single call at the top of the EVAL loop.  Every stepper,
      tracer, debugger and profiler in Book Three hangs off that one line.
-  2. `LispError`, so that a failing program carries C, E and K out with it
+  2. `MachineError`, so that a failing program carries C, E and K out with it
      instead of handing the reader a Python traceback.
 
 Nothing else here differs from `book2/IB_Core.py`, and with `step_hook` unset
@@ -146,7 +146,7 @@ def bind_params(params, args):
 # language has no string literals, and why adding them would be a change to the
 # machine rather than an addition to it.
 
-class LispError(Exception):
+class MachineError(Exception):
   """An error with the machine's registers attached.
 
     Book Two let a broken program raise a bare Python exception, so what
@@ -281,11 +281,11 @@ def lEval(expr, env):
           C = body[0]
           break
 
-  except LispError:
+  except MachineError:
     raise
   except Exception as err:
     # Book Three, opening two of two: the registers travel with the error.
-    raise LispError(str(err), C, E, K) from err
+    raise MachineError(str(err), C, E, K) from err
 
 
 # ---------------------------------------------------------------------------

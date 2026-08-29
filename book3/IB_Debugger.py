@@ -27,10 +27,9 @@ Run with: python IB_Debugger.py
 """
 
 import IB_Core as Core
-from IB_Core import (LispError, lEval, global_env,
+from IB_Core import (MachineError, global_env,
                      lisp_str)
-from IB_Reader import parse
-from IB_Expander import expand
+from IB_Repl import evaluate
 from IB_Break import (break_loop, print_backtrace,
                       scripted, _evaluate)
 
@@ -107,7 +106,7 @@ class Debugger:
     elif action == 'abort':
       self._stepping = False
       self._skip_until = None
-      raise LispError('Aborted from the '
+      raise MachineError('Aborted from the '
                       'debugger.', C, E, K)
 
   def show_watches(self, E):
@@ -209,8 +208,8 @@ class Debugger:
                   else input)
     Core.step_hook = self.on_expr
     try:
-      return lEval(expand(parse(source)), env)
-    except LispError as err:
+      return evaluate(source, env)
+    except MachineError as err:
       print()
       print('*** ' + str(err))
       print_backtrace(err.K, limit=5)
@@ -235,7 +234,7 @@ def depths_at(source, names):
               seen.append(len(K)))
   Core.step_hook = dbg.on_expr
   try:
-    lEval(expand(parse(source)), global_env)
+    evaluate(source)
   finally:
     Core.step_hook = None
   return seen

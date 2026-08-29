@@ -455,6 +455,12 @@ PROGRAM = """(begin
       (+ (area a b) (area b a))))
   (total 2 3))"""
 
+NESTED = """(begin
+  (set! outer
+    (lambda (a b)
+      ((lambda (c) (+ a (+ b c))) 10)))
+  (outer 1 2))"""
+
 REDEFINE = """(begin
   (set! area
     (lambda (w h) (* w h)))
@@ -550,12 +556,64 @@ def stale_demo():
           'it pointed at is unreachable)')
 
 
+def scopes_demo():
+  print()
+  print('--- an environment is a stack of '
+        'scopes, and here it is ---')
+  dbg = Debugger2()
+  bp = dbg.break_on_name('+')
+  bp.cond = '(= c 10)'
+  answer = dbg.run(NESTED,
+                   commands=['v', 'c', 'v', 'c'])
+  print('==> ' + lisp_str(answer))
+
+
+def watches_demo():
+  print()
+  print('--- watches you can manage ---')
+  dbg = Debugger2()
+  dbg.break_on_name('square')
+  answer = dbg.run(PROGRAM_SQ, commands=[
+      'w a', 'w (* a 100)', 'w', 'c',
+      'w- 1', 'c'])
+  print('==> ' + lisp_str(answer))
+
+
+def session_demo():
+  print()
+  print('--- the finished debugger ---')
+  dbg = Debugger2()
+  lEval_program()
+  dbg.break_on_site('area:+:2')
+  bp = dbg.breaks[1]
+  bp.cond = '(= w 3)'
+  answer = dbg.run('(total 2 3)', commands=[
+      'bl', 'body area', 'v', 'bi 1 1',
+      'c'])
+  print('==> ' + lisp_str(answer))
+
+
+def lEval_program():
+  evaluate(PROGRAM)
+
+
+PROGRAM_SQ = """(begin
+  (set! square (lambda (x) (* x x)))
+  (set! sum-squares
+    (lambda (a b)
+      (+ (square a) (square b))))
+  (sum-squares 3 4))"""
+
+
 def main():
   table_demo()
   ignore_demo()
   condition_demo()
   site_demo()
   stale_demo()
+  scopes_demo()
+  watches_demo()
+  session_demo()
 
 
 if __name__ == '__main__':

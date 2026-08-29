@@ -107,7 +107,8 @@ class Debugger:
       self._stepping = False
       self._skip_until = None
       raise MachineError('Aborted from the '
-                      'debugger.', C, E, K)
+                         'debugger.',
+                         C, E, K)
 
   def show_watches(self, E):
     for source in self.watches:
@@ -120,6 +121,10 @@ class Debugger:
 
   def show_locals(self, E):
     """The nearest scope only.  Chapter 22 walks the whole chain."""
+    if E is E._global:
+      print('  (the global scope: nothing '
+            'is local here)')
+      return
     shown = 0
     for name in sorted(E._bindings):
       value = E._bindings[name]
@@ -290,6 +295,18 @@ NON_TAIL = """(begin
   (addup 5))"""
 
 
+def session_demo():
+  print()
+  print('--- the whole thing, in one '
+        'sitting ---')
+  dbg = Debugger()
+  dbg.breakpoints.add('sum-squares')
+  answer = dbg.run(PROGRAM, commands=[
+      'w a', 'v', 'b square', 'c', 'v',
+      'bt', 's', 's', 's', 'v', 'c', 'c'])
+  print('==> ' + lisp_str(answer))
+
+
 def tail_call_demo():
   """The same algorithm, written twice, stopped at every recursive call.
 
@@ -315,6 +332,7 @@ def main():
   breakpoint_demo()
   stepping_demo()
   tail_call_demo()
+  session_demo()
 
 
 if __name__ == '__main__':

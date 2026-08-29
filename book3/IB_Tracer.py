@@ -178,6 +178,8 @@ def count_steps(source, env=None):
 # ---------------------------------------------------------------------------
 
 SETUP = """(begin
+  (set! cd
+    (lambda (n) (if (= n 0) 0 (cd (- n 1)))))
   (set! square (lambda (n) (* n n)))
   (set! hyp
     (lambda (a b)
@@ -206,10 +208,14 @@ def volume_demo():
   print()
   print('--- and the reason the rest of '
         'the chapter exists ---')
-  for src in (SMALL, BIG, '(hyp 3 4)'):
+  for src in (SMALL, '(hyp 3 4)', BIG,
+              '(fact 100)', '(cd 1000)'):
     steps, value = count_steps(src)
+    shown = flat(value)
+    if len(shown) > 12:
+      shown = shown[:9] + '...'
     print('  {:<12} {:>6} steps   => {}'
-          .format(src, steps, flat(value)))
+          .format(src, steps, shown))
 
 
 def filter_demo():

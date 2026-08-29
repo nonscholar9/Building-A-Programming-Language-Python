@@ -183,7 +183,8 @@ def scripted(commands):
   return read
 
 
-def run(source, env=None, interactive=True):
+def run(source, env=None, interactive=True,
+        read=input):
   """Evaluate one form.  On failure, report and stop where it happened."""
   env = env or global_env
   try:
@@ -196,7 +197,7 @@ def run(source, env=None, interactive=True):
     print('    backtrace:')
     print_backtrace(err.K)
     if interactive:
-      break_loop(err.E, err.K,
+      break_loop(err.E, err.K, read=read,
                  banner='    (c or q to leave)')
     return None
 
@@ -228,6 +229,20 @@ def depth_of(source):
   return None, None
 
 
+SESSION = """(begin
+  (set! area
+    (lambda (w d) (* w (oops d))))
+  (set! total
+    (lambda (a b) (+ (area a b) 1)))
+  (total 2 3))"""
+
+
+def session_demo():
+  print('--- stopped where it happened ---')
+  run(SESSION, read=scripted(
+      ['w', 'd', '(* w d)', 'bt', 'q']))
+
+
 def main():
   for label, src in (('tail-recursive', TAIL),
                      ('non-tail', NON_TAIL)):
@@ -241,6 +256,8 @@ def main():
         'different backtraces.')
   print('The difference is the tail-call '
         'optimization of Chapter 3.')
+  print()
+  session_demo()
 
 
 if __name__ == '__main__':

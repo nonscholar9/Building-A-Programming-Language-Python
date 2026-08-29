@@ -111,7 +111,7 @@ def repl(env=None, read=input):
   names = primitive_names(env)
   pending = ''
   while True:
-    prompt = 'lisp> ' if not pending else '...   '
+    prompt = '...   ' if pending else 'lisp> '
     try:
       line = read(prompt)
     except (EOFError, KeyboardInterrupt):

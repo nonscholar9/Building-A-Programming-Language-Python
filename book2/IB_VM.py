@@ -346,6 +346,12 @@ def lisp_mul(args):
 def lisp_bool(b):
   return lTrue if b else lFalse
 
+def lisp_set_nth_car(args):
+  n, newValue, lst = args
+  lst[n] = newValue
+  return newValue
+
+
 GLOBALS = {
     '+':     lambda args: sum(args),
     '-':     lambda args: args[0] - args[1],
@@ -363,6 +369,7 @@ GLOBALS = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lisp_bool(args[0] == []),
+    'set-nth-car!': lisp_set_nth_car,
 
     'not':   lambda args: lisp_bool(args[0] is lFalse),
 

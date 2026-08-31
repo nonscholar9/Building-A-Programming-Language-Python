@@ -129,6 +129,11 @@ def lisp_mul(args):    # variadic product; (*) is 1, the multiplicative identity
     result *= x
   return result
 
+def lisp_set_nth_car(args):
+  n, newValue, lst = args
+  lst[n] = newValue
+  return newValue
+
 global_env = {
     '+':     lambda args: sum(args),                          # variadic; (+) is 0
     '-':     lambda args: args[0] - args[1],
@@ -152,6 +157,7 @@ global_env = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
+    'set-nth-car!': lisp_set_nth_car, 
 }
 
 # ---------------------------------------------------------------------------

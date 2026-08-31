@@ -335,8 +335,8 @@ def lisp_mul(args):    # variadic product; (*) is 1, the multiplicative identity
     result *= x
   return result
 
-def lisp_set_nth_car(args):
-  n, newValue, lst = args
+def lisp_set_nth(args):
+  lst, n, newValue = args
   lst[n] = newValue
   return newValue
 
@@ -364,7 +364,7 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
-    'set-nth-car!': lisp_set_nth_car,
+    'set-nth!': lisp_set_nth,
     'call/cc':                       CALLCC,                    # the star of this file
     'call-with-current-continuation': CALLCC,                  # its full Scheme name
     'apply':                         applyFn,                     # a value, spliced at the call site

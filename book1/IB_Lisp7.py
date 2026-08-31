@@ -514,18 +514,18 @@ def _list(a):
   return built
 
 
-def _set_nth_car(a):
-  """(set-nth-car! n value lst): walk n pairs, then write that pair's car.
+def _set_nth(a):
+  """(set-nth! lst n value): walk n pairs, then write that pair's car.
 
     This is a write *into the heap*, and the only primitive here that makes
     one.  set! was the first reason this machine needs a tracing collector;
     this is the second, and it reaches a cell rather than a binding.
     """
-  p = a[2]
-  for _ in range(num_of(a[0])):
+  p = a[0]
+  for _ in range(num_of(a[1])):
     p = heap[addr_of(p) + 3]
-  heap[addr_of(p) + 2] = a[1]
-  return a[1]
+  heap[addr_of(p) + 2] = a[2]
+  return a[2]
 
 def _print(a): print(show(a[0])); return a[0]
 
@@ -538,7 +538,7 @@ def _apply(a): raise RuntimeError('apply is spliced in the VM, never called')
 PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt),
          ('%', _mod), ('>', _gt), ('<=', _le), ('>=', _ge), ('not', _not),
          ('cons', _cons), ('car', _car), ('cdr', _cdr), ('null?', _null),
-         ('list', _list), ('set-nth-car!', _set_nth_car),
+         ('list', _list), ('set-nth!', _set_nth),
          ('print', _print), ('apply', _apply)]
 
 # The names the measurement demos boot with: only the arithmetic the countdown

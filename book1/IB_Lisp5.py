@@ -297,8 +297,8 @@ class _Apply:
 
 applyFn = _Apply()
 
-def lisp_set_nth_car(args):
-  n, newValue, lst = args
+def lisp_set_nth(args):
+  lst, n, newValue = args
   lst[n] = newValue
   return newValue
 
@@ -326,7 +326,7 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
-    'set-nth-car!': lisp_set_nth_car,
+    'set-nth!': lisp_set_nth,
 
     # apply, above, is bound to the sentinel the evaluator watches for.
     'apply': applyFn,

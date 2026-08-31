@@ -266,8 +266,8 @@ def lisp_mul(args):
 def lisp_bool(b):
   return lTrue if b else lFalse
 
-def lisp_set_nth_car(args):
-  n, newValue, lst = args
+def lisp_set_nth(args):
+  lst, n, newValue = args
   lst[n] = newValue
   return newValue
 
@@ -289,7 +289,7 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lisp_bool(args[0] == []),
-    'set-nth-car!': lisp_set_nth_car,
+    'set-nth!': lisp_set_nth,
 
     'not':   lambda args: lisp_bool(args[0] is lFalse),
 

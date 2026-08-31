@@ -67,8 +67,7 @@ from IB_Compiler import compile_program
 # list per program since Chapter 1 for exactly this reason.
 
 PURE = {'+', '-', '*', '%', 'not',
-        '=', '<', '>', '<=', '>=',
-        'car', 'cdr', 'cons', 'list', 'null?'}
+        '=', '<', '>', '<=', '>=', 'null?'}
 
 # What a fold may read, and what may stand in front of it.  A quoted datum is
 # as constant as a number; the operator is the one GLOBAL in the run.
@@ -144,12 +143,10 @@ def fold_constants(code, frozen):
     try:
       value = GLOBALS[name]([a[1] for a in rest])
     except Exception:
-      continue      # (car '()) is the program's error, not ours
+      continue      # (% 1 0) is the program's error, not ours
 
     if isinstance(value, (int, LBoolean)):
       folded = (OP_INT, value)
-    elif isinstance(value, (list, str)):   # a list or a symbol
-      folded = (OP_QUOTE, value)
     else:
       continue
 
@@ -407,7 +404,7 @@ def main():
          '(if (and #t #t) (+ 1 2) (+ 3 4))')
   report('sugar, expanded then folded',
          "(or #f (and #t (+ 20 22)))")
-  report('a list built before it runs',
+  report('a list, and only its arithmetic folds',
          "(cons 'a (list 1 (+ 1 1)))")
   report('a loop the optimizer cannot help',
          '((lambda (count)'

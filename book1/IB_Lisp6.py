@@ -424,6 +424,7 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
+    'nth':   lambda args: args[0][args[1]],
     'set-nth!': lisp_set_nth,
 
     # apply, above, is bound to the sentinel the machine watches for.

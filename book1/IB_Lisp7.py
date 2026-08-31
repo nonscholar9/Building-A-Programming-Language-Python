@@ -514,6 +514,14 @@ def _list(a):
   return built
 
 
+def _nth(a):
+  """(nth lst n): walk n pairs and read that pair's car."""
+  p = a[0]
+  for _ in range(num_of(a[1])):
+    p = heap[addr_of(p) + 3]
+  return heap[addr_of(p) + 2]
+
+
 def _set_nth(a):
   """(set-nth! lst n value): walk n pairs, then write that pair's car.
 
@@ -538,7 +546,8 @@ def _apply(a): raise RuntimeError('apply is spliced in the VM, never called')
 PRIMS = [('+', _add), ('-', _sub), ('*', _mul), ('=', _eq), ('<', _lt),
          ('%', _mod), ('>', _gt), ('<=', _le), ('>=', _ge), ('not', _not),
          ('cons', _cons), ('car', _car), ('cdr', _cdr), ('null?', _null),
-         ('list', _list), ('set-nth!', _set_nth),
+         ('list', _list), ('nth', _nth),
+         ('set-nth!', _set_nth),
          ('print', _print), ('apply', _apply)]
 
 # The names the measurement demos boot with: only the arithmetic the countdown

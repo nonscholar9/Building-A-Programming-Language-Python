@@ -332,6 +332,7 @@ globalBindings = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lisp_bool(args[0] == []),
+    'nth':   lambda args: args[0][args[1]],
     'set-nth!': lisp_set_nth,
 
     'not':   lambda args: lisp_bool(args[0] is lFalse),

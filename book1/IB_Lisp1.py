@@ -157,7 +157,8 @@ global_env = {
     'cons':  lambda args: [args[0]] + args[1],
     'list':  lambda args: list(args),
     'null?': lambda args: lTrue if args[0] == [] else lFalse,
-    'set-nth!': lisp_set_nth, 
+    'nth':   lambda args: args[0][args[1]],
+    'set-nth!': lisp_set_nth,
 }
 
 # ---------------------------------------------------------------------------

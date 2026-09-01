@@ -131,6 +131,52 @@ def rule_or(form):
            ['if', tmp, tmp,
             ['or'] + forms[1:]]]
 
+def rule_record(form):
+  # (define-record-type point
+  #   (make-point x y)
+  #   point?
+  #   (x point-x set-point-x!)
+  #   (y point-y))
+  #
+  # A record is a list with its type name in
+  # front, so every piece of one is a form the
+  # machine already runs.  What the rule adds is
+  # that you write those pieces once instead of
+  # once per record type.
+  tag    = form[1]
+  ctor   = form[2]
+  pred   = form[3]
+  fields = list(form[4:])
+  names  = [field[0] for field in fields]
+
+  # The constructor may take its arguments in
+  # any order; the record is laid out in field
+  # order, so the body lists the fields.
+  make = ['lambda', list(ctor[1:]),
+           ['list', ['quote', tag]] + names]
+  test = ['lambda', ['r'],
+           ['=', ['nth', 'r', 0],
+             ['quote', tag]]]
+  defs = [['set!', ctor[0], make],
+          ['set!', pred, test]]
+
+  # Field n lives at slot n, because slot 0
+  # holds the tag.  A field that names a third
+  # thing asks for a modifier too.
+  for slot, field in enumerate(fields, 1):
+    read = ['lambda', ['r'],
+             ['nth', 'r', slot]]
+    defs.append(['set!', field[1], read])
+    if len(field) > 2:
+      write = ['lambda', ['r', 'v'],
+                ['set-nth!', 'r', slot, 'v']]
+      defs.append(['set!', field[2], write])
+
+  # Nothing here needs a gensym.  Every name
+  # the rule introduces is a lambda parameter,
+  # and a parameter is a fresh binding already.
+  return ['begin'] + defs
+
 
 # The rule table.  It is an ordinary dict, which is the whole of the chapter:
 # a table is data, and a program that can reach the data can add to it.
@@ -139,6 +185,7 @@ RULES = {
     'cond': rule_cond,
     'and':  rule_and,
     'or':   rule_or,
+    'define-record-type': rule_record,
 }
 
 
@@ -282,6 +329,22 @@ def main():
   run("(define-macro (add1 n) (list '+ n 1))")
   run('(add1 5)')                                         # 6
   run('(let ((+ -)) (add1 5))')                  # 4, every name fresh
+
+  print('--- one rule, and six definitions come out ---\n')
+  run("(define-record-type point (make-point x y) point?"
+      " (x point-x set-point-x!) (y point-y))")
+  run('(set! p (make-point 3 4))')
+  run('(point? p)')                                       # #t
+  run('(point-x p)')                                      # 3
+  run('(set-point-x! p 99)')
+  run('(point-x p)')                                      # 99
+
+  print('--- a record is a value, so two names share one ---\n')
+  run('(set! q p)')
+  run('(begin (set-point-x! q 1) (point-x p))')           # 1
+
+  print('--- and it is a list, which is the crack ---\n')
+  run("(point? '(point 1 2))")                            # #t
 
   print('--- and the machine is still the machine ---\n')
   run('(set! countdown (lambda (n) (if (= n 0) 0 (countdown (- n 1)))))')

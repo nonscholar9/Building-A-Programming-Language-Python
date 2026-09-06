@@ -39,23 +39,25 @@ from IB_Repl import evaluate
 
 
 # ---------------------------------------------------------------------------
-# Rendering a frame the way Chapters 4 and 5 write one
+# Rendering a frame in section 4.4's notation
 # ---------------------------------------------------------------------------
 
 def frame_brief(frame, names=None):
   tag = frame[0]
   if tag == FRAME_IF:
-    return 'IF'
+    branches = (flat(frame[1], names) + ','
+                + flat(frame[2], names))
+    return '(F_IF,' + branches + ')'
   if tag == FRAME_SET:
-    return 'SET(' + str(frame[1]) + ')'
+    return '(F_SET,' + str(frame[1]) + ')'
   if tag == FRAME_SEQ:
-    return 'SEQ(' + str(len(frame[1])) + ')'
+    return '(F_SEQ,' + str(len(frame[1])) + ')'
   if tag == FRAME_CALL:
     done = '[' + ','.join(
         flat(d, names) for d in frame[1]) + ']'
     todo = '[' + ','.join(
         flat(t, names) for t in frame[2]) + ']'
-    return 'CALL(' + done + ', ' + todo + ')'
+    return '(F_CALL,' + done + ',' + todo + ')'
   return str(tag)
 
 

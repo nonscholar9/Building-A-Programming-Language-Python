@@ -51,9 +51,9 @@ def frame_brief(frame, names=None):
   if tag == FRAME_SEQ:
     return 'SEQ(' + str(len(frame[1])) + ')'
   if tag == FRAME_CALL:
-    done = '[' + ' '.join(
+    done = '[' + ','.join(
         flat(d, names) for d in frame[1]) + ']'
-    todo = '[' + ' '.join(
+    todo = '[' + ','.join(
         flat(t, names) for t in frame[2]) + ']'
     return 'CALL(' + done + ', ' + todo + ')'
   return str(tag)
@@ -121,7 +121,7 @@ class Tracer:
       return False
     if len(K) >= self._inside:
       return True          # still inside it
-    self._inside = None    # the call has returned
+    self._inside = None    # the call returned
     return False
 
   # ---- printing ----------------------------------------------------------

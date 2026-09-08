@@ -257,14 +257,24 @@ PROGRAM = """(begin
   (sum-squares 3 4))"""
 
 
+def opening_demo():
+  print('--- the smallest run that uses '
+        'any of it ---')
+  dbg = Debugger()
+  dbg.breakpoints.add('square')
+  answer = dbg.run(PROGRAM, commands=[
+      'a', 'c', 'c'])
+  print('==> ' + lisp_str(answer))
+
+
 def breakpoint_demo():
+  print()
   print('--- a breakpoint is a predicate '
         'on C ---')
   dbg = Debugger()
   dbg.breakpoints.add('square')
   answer = dbg.run(PROGRAM, commands=[
-      'a', '(* a a)', 'v', 'bt', 'c',
-      'a', 'c'])
+      'v', 'bt', 'c', 'c'])
   print('==> ' + lisp_str(answer))
 
 
@@ -329,6 +339,7 @@ def tail_call_demo():
 
 
 def main():
+  opening_demo()
   breakpoint_demo()
   stepping_demo()
   tail_call_demo()

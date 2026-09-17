@@ -9,6 +9,11 @@ Companion source code for the book
 
 Everything here is plain Python, short enough to read start to finish.
 
+<!-- AMAZON-LINK: when the book goes live, replace the sentence below with
+     the link to it on Amazon, and set this repository's About/homepage
+     field to the same link. -->
+The book is not published yet.  The link to it will be here when it is.
+
 ## Requirements
 
 Just **Python 3** (3.8 or newer).  No third-party packages, no installation, no

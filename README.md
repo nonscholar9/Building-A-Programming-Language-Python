@@ -16,8 +16,8 @@ build step.  The files depend only on each other.
 
 ## Running the examples
 
-Run any command from the repository root.  Every file prints a short demo
-session when you run it:
+Run any command from the repository root.  Every machine, every pass and
+every tool prints a short demo session when you run it:
 
 ```
 python book1/IB_Lisp1.py
